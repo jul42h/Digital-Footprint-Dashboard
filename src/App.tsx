@@ -2,7 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { MainLayout } from '@/layouts/MainLayout';
-import { AnalyticsPage } from '@/pages/AnalyticsPage';
+//import { AnalyticsPage } from '@/pages/AnalyticsPage'; <Route path="analytics" element={<AnalyticsPage />} />
 import { CVEExplorerPage } from '@/pages/CVEExplorerPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { IPAddressPage } from '@/pages/IPAddressPage';
@@ -38,7 +38,7 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="ips" element={<IPAddressPage />} />
         <Route path="cve" element={<CVEExplorerPage />} />
-        <Route path="analytics" element={<AnalyticsPage />} />
+        
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
