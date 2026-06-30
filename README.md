@@ -1,2 +1,2 @@
-# OSINT Dashboard
+# Digital Footprint Dashboard
 
