@@ -9,7 +9,7 @@ import { parseDate } from '@/utils/dateUtils';
 import { normalizeSeverity, scoreToSeverity, SEVERITY_ORDER } from '@/utils/severityUtils';
 
 const COLUMN_ALIASES: Record<string, string[]> = {
-  ip: ['ip address', 'ip', 'ip_address'],
+  ip: ['ip address', 'ip', 'ip_address', 'host_ip'],
   organization: ['organization', 'org', 'company'],
   country: ['country', 'country code', 'location country code', 'location_country_code'],
   city: ['city', 'location city', 'location_city'],
