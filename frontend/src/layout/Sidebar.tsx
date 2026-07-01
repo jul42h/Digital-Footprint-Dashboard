@@ -50,7 +50,7 @@ export function Sidebar() {
           {!sidebarCollapsed && (
             <div className="sidebar__brand-text">
               <span className="sidebar__name">{APP_NAME}</span>
-              <span className="sidebar__tagline">Security intelligence</span>
+              <span className="sidebar__tagline">Frenso State</span>
             </div>
           )}
         </div>
