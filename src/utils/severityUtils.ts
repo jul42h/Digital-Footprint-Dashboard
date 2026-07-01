@@ -1,6 +1,6 @@
-import type { Severity } from '@/types';
+import type { SourceSeverity } from '@/types/data';
 
-export function scoreToSeverity(score: number): Severity {
+export function scoreToSeverity(score: number): SourceSeverity {
   if (score >= 9.0) return 'Critical';
   if (score >= 7.0) return 'High';
   if (score >= 4.0) return 'Medium';
@@ -8,7 +8,7 @@ export function scoreToSeverity(score: number): Severity {
   return 'Informational';
 }
 
-export function normalizeSeverity(value: string | undefined): Severity {
+export function normalizeSeverity(value: string | undefined): SourceSeverity {
   if (!value) return 'Informational';
   const normalized = value.trim().toLowerCase();
   if (normalized.startsWith('crit')) return 'Critical';
@@ -19,7 +19,7 @@ export function normalizeSeverity(value: string | undefined): Severity {
   return scoreToSeverity(parseFloat(value) || 0);
 }
 
-export const SEVERITY_ORDER: Record<Severity, number> = {
+export const SEVERITY_ORDER: Record<SourceSeverity, number> = {
   Critical: 5,
   High: 4,
   Medium: 3,

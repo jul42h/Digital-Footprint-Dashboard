@@ -1,17 +1,8 @@
 import * as XLSX from 'xlsx';
-import type { DashboardData, RawExcelRow } from '@/types';
-import {
-  computeStats,
-  flattenCVEs,
-  transformRowsToIPs,
-} from '@/utils/dataTransformers';
-//import { DUMMY_EXCEL_ROWS } from './dummyData';
+import type { DashboardData, RawExcelRow } from '@/types/data';
+import { computeStats, flattenCVEs, transformRowsToIPs } from '@/utils/dataTransformers';
 
 const EXCEL_PATH = '/data/shodan_data.xlsx';
-
-// Future:
-// Replace excelLoader with API Gateway + Lambda + Athena + DynamoDB
-// The UI should continue consuming DashboardData from this service layer.
 
 function workbookToRows(workbook: XLSX.WorkBook): RawExcelRow[] {
   const sheetName = workbook.SheetNames[0];
@@ -21,7 +12,10 @@ function workbookToRows(workbook: XLSX.WorkBook): RawExcelRow[] {
   return XLSX.utils.sheet_to_json<RawExcelRow>(sheet, { defval: '' });
 }
 
-function buildDashboardData(rows: RawExcelRow[], source: DashboardData['source']): DashboardData {
+function buildDashboardData(
+  rows: RawExcelRow[],
+  source: DashboardData['source'],
+): DashboardData {
   const ips = transformRowsToIPs(rows);
   const stats = computeStats(ips);
   const cveRecords = flattenCVEs(ips);
@@ -56,13 +50,10 @@ export async function loadDashboardData(): Promise<DashboardData> {
     }
   }
 
-  console.warn(
-    `[excelLoader] ${EXCEL_PATH} not found or empty. Using built-in fallback dataset.`,
-  );
-  return buildDashboardData(DUMMY_EXCEL_ROWS, 'fallback');
+  console.warn(`[excelLoader] ${EXCEL_PATH} not found or empty. Returning empty dataset.`);
+  return buildDashboardData([], 'empty');
 }
 
 export async function reloadDashboardData(): Promise<DashboardData> {
-  // Future: swap with authenticated API refresh endpoint
   return loadDashboardData();
 }

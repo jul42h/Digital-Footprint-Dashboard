@@ -1,54 +1,32 @@
-# Digital Footprint Dashboard
+# Digital Footprint Dashboard (Prototype)
 
-Digital Footprint dashboard for CVE tracking, CVSS scoring, affected product counts, IP threat intelligence, and threat feeds.
+Unified dashboard combining the **cve-dashboard-frontend** design with **Digital-Footprint-Dashboard-main** data loading.
 
-## Features
+## Data source
 
-- **CVE Intelligence** — Recent vulnerabilities from the NVD API with CVSS scores, severity ratings, affected product counts, and expandable details
-- **IP Threat Intel** — Monitored IP addresses with geolocation, ASN, ISP, threat classification, open ports, and tags
-- **Dashboard Stats** — Total CVEs, critical/high counts, average CVSS, monitored IPs, and affected products
-- **Charts** — Severity distribution pie chart and top CVSS bar chart
+Loads Shodan vulnerability intelligence from `public/data/shodan_data.xlsx` via the same Excel loader pipeline as Digital-Footprint-Dashboard-main. No mock or sample data is bundled.
 
-## Data Sources
-
-| Source | Data |
-|--------|------|
-| [NVD CVE API 2.0](https://nvd.nist.gov/developers/vulnerabilities) | CVE details, CVSS scores, affected CPEs |
-| [ip-api.com](http://ip-api.com/) | IP geolocation, ISP, ASN |
-| Internal threat profiles | Threat levels, tags, port observations |
-
-## Quick Start
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
 
-This starts:
-- API server on `http://localhost:3001`
-- Vite dev server on `http://localhost:5173`
+Place or replace `public/data/shodan_data.xlsx` with your Shodan export. Use **Refresh data** in the top bar to reload.
 
-Open **http://localhost:5173** in your browser.
+## Sections
 
-## Scripts
+| Route | Purpose |
+|-------|---------|
+| `/` | Overview — posture, trends, severity, alerts |
+| `/cves` | All security issues from loaded data |
+| `/ips` | Scanned IP assets |
+| `/solutions` | Remediation options derived from critical/high CVEs |
+| `/vendors` | Software providers aggregated from product fields |
+| `/analytics` | Charts — ports, OS, services, geography |
+| `/settings` | Data source info and future backend notes |
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start API + frontend concurrently |
-| `npm run dev:client` | Frontend only |
-| `npm run dev:server` | API server only |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build |
+## Stack
 
-## API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/dashboard` | Full dashboard payload |
-| `GET /api/cves` | CVE list |
-| `GET /api/ips` | IP intelligence |
-| `GET /api/health` | Health check |
-
-## Disclaimer
-
-For authorized security research and defensive operations only. IP threat classifications use demo profiles layered on public geolocation data.
+React 18 · Vite · TypeScript · Recharts · xlsx

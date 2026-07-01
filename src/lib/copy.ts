@@ -1,0 +1,41 @@
+export const APP_NAME = "Digital Footprint";
+
+export const NAV_LABELS = {
+  home: "Home",
+  issues: "Security issues",
+  systems: "IP assets",
+  fixes: "Remediations",
+  providers: "Software providers",
+  analytics: "Analytics",
+  settings: "Settings",
+} as const;
+
+export const LABELS = {
+  riskScore: "Risk score",
+  issueId: "Issue ID",
+  issues: "Issues",
+  vulns: "Vulnerabilities",
+  services: "Services",
+  lastScan: "Last scan",
+  severity: "Severity",
+  systems: "Systems",
+  summary: "What we found",
+  hostname: "System name",
+  ipAddress: "Network address",
+  viewAll: "View all",
+  learnMore: "See details",
+  activelyTargeted: "Actively targeted online",
+  published: "Reported on",
+  networkPorts: "Network ports",
+  system: "Affected system",
+  vendorFix: "Official fix available",
+  effort: "Effort to fix",
+  status: "Status",
+  provider: "Provider",
+  software: "Software",
+  version: "Version",
+  riskLevel: "Risk level",
+  remediations: "Remediations",
+  vulnerabilities: "Vulnerabilities",
+  location: "Location",
+} as const;

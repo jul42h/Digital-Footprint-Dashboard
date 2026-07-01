@@ -1,12 +1,18 @@
-import type { CVE, CVEFlatRecord, DashboardStats, IPRecord, RawExcelRow } from '@/types';
+import type {
+  CVEFlatRecord,
+  DashboardStats,
+  RawExcelRow,
+  SourceCVE,
+  SourceIPRecord,
+} from '@/types/data';
 import { parseDate } from '@/utils/dateUtils';
 import { normalizeSeverity, scoreToSeverity, SEVERITY_ORDER } from '@/utils/severityUtils';
 
 const COLUMN_ALIASES: Record<string, string[]> = {
   ip: ['ip address', 'ip', 'ip_address'],
   organization: ['organization', 'org', 'company'],
-  country: ['country', 'country code', 'location_city'],
-  city: ['city'],
+  country: ['country', 'country code', 'location country code', 'location_country_code'],
+  city: ['city', 'location city', 'location_city'],
   asn: ['asn'],
   hostnames: ['hostnames', 'hostname', 'host'],
   operatingSystem: ['operating system', 'os', 'operating_system'],
@@ -16,9 +22,9 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   product: ['product', 'products'],
   version: ['version', 'versions'],
   cve: ['cve', 'cve id', 'cve_id'],
-  cveScore: ['cve score', 'cvss score', 'cvss', 'score'],
+  cveScore: ['cve score', 'cvss score', 'cvss', 'score', 'cvss v2', 'cvss_v2'],
   cvssSeverity: ['cvss severity', 'severity', 'risk level'],
-  publishedDate: ['published date', 'published', 'published_date'],
+  publishedDate: ['published date', 'published', 'published_date', 'observed at', 'observed_at'],
   lastUpdated: ['last updated', 'last_updated', 'updated'],
   riskLevel: ['risk level', 'risk'],
   tags: ['tags', 'tag'],
@@ -27,6 +33,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   isp: ['isp'],
   timestamp: ['observed_at', 'timestamp', 'last seen', 'last_seen'],
   summary: ['summary', 'description'],
+  kev: ['kev', 'known exploited'],
 };
 
 function normalizeKey(key: string): string {
@@ -63,7 +70,7 @@ function mergeUnique<T>(existing: T[], incoming: T[]): T[] {
   return [...new Set([...existing, ...incoming])];
 }
 
-function buildCVE(row: RawExcelRow): CVE | null {
+function buildCVE(row: RawExcelRow): SourceCVE | null {
   const id = getCell(row, 'cve');
   if (!id) return null;
 
@@ -72,6 +79,9 @@ function buildCVE(row: RawExcelRow): CVE | null {
   const severityRaw = getCell(row, 'cvssSeverity') || getCell(row, 'riskLevel');
   const severity = severityRaw ? normalizeSeverity(severityRaw) : scoreToSeverity(score);
 
+  const kevRaw = getCell(row, 'kev').toLowerCase();
+  const kev = kevRaw === 'true' || kevRaw === '1' || kevRaw === 'yes';
+
   return {
     id,
     score,
@@ -79,17 +89,19 @@ function buildCVE(row: RawExcelRow): CVE | null {
     publishedDate: getCell(row, 'publishedDate'),
     lastUpdated: getCell(row, 'lastUpdated') || undefined,
     summary: getCell(row, 'summary') || undefined,
+    kev: kev || undefined,
   };
 }
 
-function computeRiskLevel(cves: CVE[]): IPRecord['riskLevel'] {
+function computeRiskLevel(cves: SourceCVE[]): SourceIPRecord['riskLevel'] {
   if (cves.length === 0) return 'Informational';
-  return cves.reduce((max, cve) =>
-    SEVERITY_ORDER[cve.severity] > SEVERITY_ORDER[max] ? cve.severity : max,
-  cves[0].severity);
+  return cves.reduce(
+    (max, cve) => (SEVERITY_ORDER[cve.severity] > SEVERITY_ORDER[max] ? cve.severity : max),
+    cves[0].severity,
+  );
 }
 
-function mergeIPRecord(existing: IPRecord, row: RawExcelRow): IPRecord {
+function mergeIPRecord(existing: SourceIPRecord, row: RawExcelRow): SourceIPRecord {
   const cve = buildCVE(row);
   const ports = parsePorts(getCell(row, 'ports') || getCell(row, 'openPorts'));
   const openPorts = parsePorts(getCell(row, 'openPorts'));
@@ -114,7 +126,10 @@ function mergeIPRecord(existing: IPRecord, row: RawExcelRow): IPRecord {
     cves: mergedCVEs,
     riskLevel: computeRiskLevel(mergedCVEs),
     tags: mergeUnique(existing.tags, splitList(getCell(row, 'tags'))),
-    vulnerabilities: mergeUnique(existing.vulnerabilities, splitList(getCell(row, 'vulnerabilities'))),
+    vulnerabilities: mergeUnique(
+      existing.vulnerabilities,
+      splitList(getCell(row, 'vulnerabilities')),
+    ),
     openPorts: mergeUnique(existing.openPorts, openPorts.length ? openPorts : ports),
     isp: getCell(row, 'isp') || existing.isp,
     timestamp: getCell(row, 'timestamp') || existing.timestamp,
@@ -123,8 +138,8 @@ function mergeIPRecord(existing: IPRecord, row: RawExcelRow): IPRecord {
   };
 }
 
-export function transformRowsToIPs(rows: RawExcelRow[]): IPRecord[] {
-  const ipMap = new Map<string, IPRecord>();
+export function transformRowsToIPs(rows: RawExcelRow[]): SourceIPRecord[] {
+  const ipMap = new Map<string, SourceIPRecord>();
 
   for (const row of rows) {
     const ip = getCell(row, 'ip');
@@ -134,39 +149,42 @@ export function transformRowsToIPs(rows: RawExcelRow[]): IPRecord[] {
     if (existing) {
       ipMap.set(ip, mergeIPRecord(existing, row));
     } else {
-      ipMap.set(ip, mergeIPRecord(
-        {
-          ip,
-          organization: getCell(row, 'organization'),
-          country: getCell(row, 'country'),
-          city: getCell(row, 'city') || undefined,
-          asn: getCell(row, 'asn') || undefined,
-          hostnames: splitList(getCell(row, 'hostnames')),
-          operatingSystem: getCell(row, 'operatingSystem') || undefined,
-          ports: [],
-          transport: [],
-          services: [],
-          products: [],
-          versions: [],
-          cves: [],
-          riskLevel: 'Informational',
-          tags: [],
-          vulnerabilities: [],
-          openPorts: [],
-          isp: getCell(row, 'isp') || undefined,
-          timestamp: getCell(row, 'timestamp') || undefined,
-          summary: getCell(row, 'summary') || undefined,
-          lastSeen: getCell(row, 'timestamp') || undefined,
-        },
-        row,
-      ));
+      ipMap.set(
+        ip,
+        mergeIPRecord(
+          {
+            ip,
+            organization: getCell(row, 'organization'),
+            country: getCell(row, 'country'),
+            city: getCell(row, 'city') || undefined,
+            asn: getCell(row, 'asn') || undefined,
+            hostnames: splitList(getCell(row, 'hostnames')),
+            operatingSystem: getCell(row, 'operatingSystem') || undefined,
+            ports: [],
+            transport: [],
+            services: [],
+            products: [],
+            versions: [],
+            cves: [],
+            riskLevel: 'Informational',
+            tags: [],
+            vulnerabilities: [],
+            openPorts: [],
+            isp: getCell(row, 'isp') || undefined,
+            timestamp: getCell(row, 'timestamp') || undefined,
+            summary: getCell(row, 'summary') || undefined,
+            lastSeen: getCell(row, 'timestamp') || undefined,
+          },
+          row,
+        ),
+      );
     }
   }
 
   return Array.from(ipMap.values()).sort((a, b) => b.cves.length - a.cves.length);
 }
 
-export function flattenCVEs(ips: IPRecord[]): CVEFlatRecord[] {
+export function flattenCVEs(ips: SourceIPRecord[]): CVEFlatRecord[] {
   const records: CVEFlatRecord[] = [];
 
   for (const ip of ips) {
@@ -183,11 +201,13 @@ export function flattenCVEs(ips: IPRecord[]): CVEFlatRecord[] {
   }
 
   return records.sort(
-    (a, b) => (parseDate(b.cve.publishedDate)?.getTime() ?? 0) - (parseDate(a.cve.publishedDate)?.getTime() ?? 0),
+    (a, b) =>
+      (parseDate(b.cve.publishedDate)?.getTime() ?? 0) -
+      (parseDate(a.cve.publishedDate)?.getTime() ?? 0),
   );
 }
 
-export function computeStats(ips: IPRecord[]): DashboardStats {
+export function computeStats(ips: SourceIPRecord[]): DashboardStats {
   const allCVEs = ips.flatMap((ip) => ip.cves);
   const scores = allCVEs.map((cve) => cve.score).filter((score) => score > 0);
   const publishedDates = allCVEs
@@ -219,12 +239,15 @@ export function computeStats(ips: IPRecord[]): DashboardStats {
   };
 }
 
-export function getRiskScore(ip: IPRecord): number {
+export function getRiskScore(ip: SourceIPRecord): number {
   if (ip.cves.length === 0) return 0;
   return Math.round(ip.cves.reduce((sum, cve) => sum + cve.score, 0) * 10) / 10;
 }
 
-export function getTopRiskIPs(ips: IPRecord[], limit = 10): Array<IPRecord & { riskScore: number }> {
+export function getTopRiskIPs(
+  ips: SourceIPRecord[],
+  limit = 10,
+): Array<SourceIPRecord & { riskScore: number }> {
   return ips
     .map((ip) => ({ ...ip, riskScore: getRiskScore(ip) }))
     .filter((ip) => ip.cves.length > 0)

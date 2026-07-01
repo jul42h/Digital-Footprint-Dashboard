@@ -1,4 +1,4 @@
-import type { DashboardStats, IPRecord } from '@/types';
+import type { DashboardStats, SourceIPRecord } from '@/types/data';
 
 function topEntry(counts: Map<string, number>): string {
   let best = '';
@@ -12,7 +12,7 @@ function topEntry(counts: Map<string, number>): string {
   return best || 'Unknown';
 }
 
-export function generateExecutiveSummary(stats: DashboardStats, ips: IPRecord[]): string {
+export function generateExecutiveSummary(stats: DashboardStats, ips: SourceIPRecord[]): string {
   const osCounts = new Map<string, number>();
   const serviceCounts = new Map<string, number>();
 
@@ -29,12 +29,15 @@ export function generateExecutiveSummary(stats: DashboardStats, ips: IPRecord[])
   const topOS = topEntry(osCounts);
   const topService = topEntry(serviceCounts);
 
+  if (stats.totalCVEs === 0) {
+    return 'No vulnerability data loaded. Place shodan_data.xlsx in public/data/ or refresh when data is available.';
+  }
+
   return [
-    `${vulnerableHosts} vulnerable host${vulnerableHosts === 1 ? '' : 's'} were discovered across ${stats.uniqueOrganizations} organization${stats.uniqueOrganizations === 1 ? '' : 's'}.`,
-    `The average CVSS score is ${stats.averageCVSS || 0}.`,
-    `${stats.criticalCVEs} Critical vulnerabilit${stats.criticalCVEs === 1 ? 'y requires' : 'ies require'} immediate attention.`,
-    `Most vulnerable operating system is ${topOS}.`,
-    `Most common service is ${topService}.`,
+    `${vulnerableHosts} vulnerable host${vulnerableHosts === 1 ? '' : 's'} across ${stats.uniqueOrganizations} organization${stats.uniqueOrganizations === 1 ? '' : 's'}.`,
+    `Average CVSS score is ${stats.averageCVSS || 0}.`,
+    `${stats.criticalCVEs} critical vulnerabilit${stats.criticalCVEs === 1 ? 'y requires' : 'ies require'} immediate attention.`,
+    `Most common OS: ${topOS}. Most common service: ${topService}.`,
   ].join(' ');
 }
 

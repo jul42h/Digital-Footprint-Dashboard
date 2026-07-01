@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { DashboardData } from '@/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { DashboardData } from '@/types/data';
+import { deriveDashboardViews } from '@/lib/adapters';
 import { loadDashboardData, reloadDashboardData } from '@/services/excelLoader';
 
 export function useDashboardData() {
@@ -27,5 +28,10 @@ export function useDashboardData() {
     load();
   }, [load]);
 
-  return { data, loading, error, refreshing, reload: () => load(true) };
+  const derived = useMemo(
+    () => (data ? deriveDashboardViews(data) : null),
+    [data],
+  );
+
+  return { data, derived, loading, error, refreshing, reload: () => load(true) };
 }

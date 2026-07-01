@@ -14,18 +14,6 @@ export function formatDate(value: string | undefined): string {
   });
 }
 
-export function formatDateTime(value: string | undefined): string {
-  const date = parseDate(value);
-  if (!date) return '—';
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export function toMonthKey(value: string | undefined): string | null {
   const date = parseDate(value);
   if (!date) return null;
