@@ -1,5 +1,10 @@
-node_modules
-dist
-.DS_Store
-*.local
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
 .env
+.aws-sam/
+backend/data/dashboard_snapshot.json
+AppData/
+
