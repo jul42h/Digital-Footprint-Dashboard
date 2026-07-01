@@ -30,7 +30,7 @@ export function SeverityDonut() {
                   data={chartData}
                   dataKey="value"
                   nameKey="label"
-                  innerRadius="58%"
+                  innerRadius="68%"
                   outerRadius="88%"
                   paddingAngle={2}
                   stroke="none"

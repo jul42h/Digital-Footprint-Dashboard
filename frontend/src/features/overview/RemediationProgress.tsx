@@ -39,7 +39,7 @@ export function RemediationProgress() {
                   data={counts.filter((c) => c.value > 0)}
                   dataKey="value"
                   nameKey="label"
-                  innerRadius="52%"
+                  innerRadius="62%"
                   outerRadius="80%"
                   paddingAngle={2}
                   stroke="none"
