@@ -12,16 +12,10 @@
   --fs-white: #ffffff;
   --fs-green: #007935;
 
-  /* Data-viz hues tuned to read on the cardinal / green brand panels */
-  --sev-critical: #ff6b78;
-  --sev-high: #ff9d4d;
-  --sev-medium: #ffd24d;
-  --sev-low: #7fb8ff;
-
-  /* Brand panel color for cards (overridden per theme family) */
-  --panel: #c41230;
-  --panel-2: #a90f28;
-  --panel-hover: #d61a3c;
+  --sev-critical: #d64550;
+  --sev-high: #e07b39;
+  --sev-medium: #d9a441;
+  --sev-low: #4a76b8;
 
   --font-ui: "Roboto", "Helvetica Neue", Arial, system-ui, sans-serif;
   --font-display: "Merriweather", Georgia, "Times New Roman", serif;
@@ -37,125 +31,115 @@
   --brand-ribbon: linear-gradient(90deg, var(--fs-cardinal) 0%, var(--fs-cardinal-dark) 100%);
 }
 
-/* ============================================================
-   Theme model: the CANVAS (--bg) + CHROME (--surface: sidebar,
-   topbar) carry the light/dark tone. The CARD PANELS take the
-   brand color (--panel), set in the shared panel rule below.
-   Fresno family = cardinal panels · Valley family = green panels.
-   ============================================================ */
-
-/* ---- Fresno State — light canvas, cardinal panels ---- */
+/* ---- Fresno State (light) — bright canvas, white panels, cardinal accents ---- */
 :root,
 :root[data-theme="fresno"] {
-  --bg: #eceef2;
+  --bg: #f1f2f5;
   --bg-elevated: #ffffff;
-  --surface: rgba(255, 255, 255, 0.96);
-  --surface-2: #e3e6ec;
-  --surface-hover: #dadfe7;
-  --border: rgba(19, 40, 76, 0.1);
-  --border-strong: rgba(19, 40, 76, 0.16);
+  --surface: #ffffff;
+  --surface-2: #f6f7f9;
+  --surface-hover: #eef0f4;
+  --border: rgba(19, 40, 76, 0.09);
+  --border-strong: rgba(19, 40, 76, 0.15);
   --text: #13284c;
-  --text-secondary: #45566f;
-  --text-muted: #6f7f97;
+  --text-secondary: #45536e;
+  --text-muted: #6b7890;
   --accent: #c41230;
-  --accent-soft: rgba(196, 18, 48, 0.1);
-  --panel: #c41230;
-  --panel-2: #a90f28;
-  --panel-hover: #d61a3c;
-  --brand-ribbon: linear-gradient(90deg, #c41230 0%, #9e0e26 100%);
+  --accent-soft: rgba(196, 18, 48, 0.09);
+  --highlight: #13284c;
   --gradient-brand: linear-gradient(135deg, #c41230 0%, #13284c 100%);
-  --gradient-ambient: radial-gradient(ellipse 80% 60% at 8% -8%, rgba(196, 18, 48, 0.08), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 92% 0%, rgba(19, 40, 76, 0.08), transparent 50%);
-  --shadow-card: 0 1px 2px rgba(19, 40, 76, 0.08), 0 10px 28px rgba(196, 18, 48, 0.16);
-  --shadow-glow: 0 0 0 1px rgba(196, 18, 48, 0.14);
+  --gradient-ambient: radial-gradient(ellipse 80% 60% at 4% -8%, rgba(196, 18, 48, 0.05), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 96% 0%, rgba(19, 40, 76, 0.06), transparent 50%);
+  --shadow-card: 0 1px 2px rgba(19, 40, 76, 0.05), 0 8px 24px rgba(19, 40, 76, 0.07);
+  --shadow-glow: 0 0 0 1px rgba(196, 18, 48, 0.12);
   --status-resolved: #007935;
-  --mark-glow: 0 4px 16px rgba(196, 18, 48, 0.28);
+  --mark-glow: 0 4px 16px rgba(196, 18, 48, 0.22);
   --title-style: solid;
-}
-
-/* ---- Fresno State Dark — navy canvas, cardinal panels ---- */
-:root[data-theme="fresno-dark"] {
-  --bg: #0f1d33;
-  --bg-elevated: #16294a;
-  --surface: rgba(23, 45, 82, 0.92);
-  --surface-2: rgba(30, 55, 98, 0.94);
-  --surface-hover: rgba(40, 68, 116, 0.96);
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #f4f5f7;
-  --text-secondary: #c8d0de;
-  --text-muted: #94a1b8;
-  --accent: #e8354f;
-  --accent-soft: rgba(232, 53, 79, 0.2);
-  --panel: #c41230;
-  --panel-2: #a90f28;
-  --panel-hover: #d61a3c;
   --brand-ribbon: linear-gradient(90deg, #c41230 0%, #9e0e26 100%);
-  --gradient-brand: linear-gradient(135deg, #c41230 0%, #2a4a7a 55%, #13284c 100%);
-  --gradient-ambient: radial-gradient(ellipse 70% 50% at 0% 0%, rgba(196, 18, 48, 0.12), transparent 50%),
-    radial-gradient(ellipse 55% 45% at 100% 0%, rgba(42, 74, 122, 0.4), transparent 45%);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.42);
-  --shadow-glow: 0 0 0 1px rgba(232, 53, 79, 0.18), 0 0 24px rgba(196, 18, 48, 0.12);
-  --status-resolved: #34c46e;
-  --mark-glow: 0 4px 20px rgba(196, 18, 48, 0.38);
-  --title-style: gradient;
+  --donut-stroke: rgba(19, 40, 76, 0.1);
 }
 
-/* ---- Valley Pride — light canvas, green panels ---- */
+/* ---- Fresno State Dark — lifted navy canvas, navy panels, cardinal accents ---- */
+:root[data-theme="fresno-dark"] {
+  --bg: #122744;
+  --bg-elevated: #173051;
+  --surface: rgba(30, 56, 96, 0.72);
+  --surface-2: rgba(38, 66, 110, 0.82);
+  --surface-hover: rgba(48, 78, 124, 0.9);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f4f5f7;
+  --text-secondary: #cfd6e2;
+  --text-muted: #93a1ba;
+  --accent: #ec4159;
+  --accent-soft: rgba(236, 65, 89, 0.2);
+  --highlight: #ec4159;
+  --gradient-brand: linear-gradient(135deg, #e8354f 0%, #4a6fa5 55%, #2a4a7a 100%);
+  --gradient-ambient: radial-gradient(ellipse 72% 52% at 0% 0%, rgba(196, 18, 48, 0.16), transparent 50%),
+    radial-gradient(ellipse 58% 46% at 100% 0%, rgba(74, 111, 165, 0.28), transparent 48%);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.32), 0 14px 34px rgba(4, 12, 26, 0.48);
+  --shadow-glow: 0 0 0 1px rgba(236, 65, 89, 0.2), 0 0 24px rgba(236, 65, 89, 0.12);
+  --status-resolved: #34c06e;
+  --mark-glow: 0 4px 20px rgba(196, 18, 48, 0.4);
+  --title-style: gradient;
+  --brand-ribbon: linear-gradient(90deg, #c41230 0%, #9e0e26 100%);
+  --donut-stroke: rgba(255, 255, 255, 0.88);
+}
+
+/* ---- Valley Pride (light) — sage canvas, white panels, valley-green accents ---- */
 :root[data-theme="valley"] {
-  --bg: #eceff0;
+  --bg: #eef2ef;
   --bg-elevated: #ffffff;
-  --surface: rgba(255, 255, 255, 0.96);
-  --surface-2: #e2e9e4;
-  --surface-hover: #d8e2db;
-  --border: rgba(19, 40, 76, 0.1);
-  --border-strong: rgba(19, 40, 76, 0.16);
+  --surface: #ffffff;
+  --surface-2: #f3f7f4;
+  --surface-hover: #e8efe9;
+  --border: rgba(0, 121, 53, 0.1);
+  --border-strong: rgba(0, 121, 53, 0.16);
   --text: #13284c;
-  --text-secondary: #3e5546;
-  --text-muted: #6c8072;
+  --text-secondary: #3d5248;
+  --text-muted: #5c7564;
   --accent: #007935;
-  --accent-soft: rgba(0, 121, 53, 0.12);
-  --panel: #007935;
-  --panel-2: #00622c;
-  --panel-hover: #0a8c43;
-  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
+  --accent-soft: rgba(0, 121, 53, 0.1);
+  --highlight: #c41230;
   --gradient-brand: linear-gradient(135deg, #007935 0%, #13284c 100%);
-  --gradient-ambient: radial-gradient(ellipse 75% 55% at 10% -8%, rgba(0, 121, 53, 0.08), transparent 55%),
-    radial-gradient(ellipse 55% 45% at 90% 0%, rgba(19, 40, 76, 0.06), transparent 50%);
-  --shadow-card: 0 1px 2px rgba(19, 40, 76, 0.08), 0 10px 28px rgba(0, 121, 53, 0.16);
+  --gradient-ambient: radial-gradient(ellipse 80% 60% at 4% -8%, rgba(0, 121, 53, 0.07), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 96% 0%, rgba(196, 18, 48, 0.04), transparent 50%);
+  --shadow-card: 0 1px 2px rgba(0, 60, 26, 0.05), 0 8px 24px rgba(0, 60, 26, 0.07);
   --shadow-glow: 0 0 0 1px rgba(0, 121, 53, 0.12);
-  --status-resolved: #005a28;
-  --mark-glow: 0 4px 16px rgba(0, 121, 53, 0.28);
+  --status-resolved: #007935;
+  --mark-glow: 0 4px 16px rgba(0, 121, 53, 0.22);
   --title-style: solid;
+  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
+  --donut-stroke: rgba(0, 121, 53, 0.12);
 }
 
-/* ---- Valley Pride Dark — deep green-navy canvas, green panels ---- */
+/* ---- Valley Pride Dark — same navy depth as Fresno Dark, green accents ---- */
 :root[data-theme="valley-dark"] {
-  --bg: #10241b;
-  --bg-elevated: #163326;
-  --surface: rgba(22, 52, 39, 0.92);
-  --surface-2: rgba(30, 64, 48, 0.94);
-  --surface-hover: rgba(40, 78, 60, 0.96);
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.18);
-  --text: #eef4f0;
-  --text-secondary: #b6cfc0;
-  --text-muted: #7d9a8a;
-  --accent: #2fb768;
-  --accent-soft: rgba(47, 183, 104, 0.22);
-  --panel: #007935;
-  --panel-2: #00622c;
-  --panel-hover: #0a8c43;
-  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
-  --gradient-brand: linear-gradient(135deg, #007935 0%, #13284c 100%);
-  --gradient-ambient: radial-gradient(ellipse 70% 50% at 0% 0%, rgba(0, 121, 53, 0.16), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(19, 40, 76, 0.3), transparent 45%);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28), 0 14px 34px rgba(0, 0, 0, 0.38);
-  --shadow-glow: 0 0 0 1px rgba(47, 183, 104, 0.16), 0 0 24px rgba(0, 121, 53, 0.1);
-  --status-resolved: #34d399;
-  --mark-glow: 0 4px 20px rgba(0, 121, 53, 0.32);
+  --bg: #122744;
+  --bg-elevated: #173051;
+  --surface: rgba(30, 56, 96, 0.72);
+  --surface-2: rgba(38, 66, 110, 0.82);
+  --surface-hover: rgba(48, 78, 124, 0.9);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f4f5f7;
+  --text-secondary: #cfd6e2;
+  --text-muted: #93a1ba;
+  --accent: #34d17a;
+  --accent-soft: rgba(52, 209, 122, 0.18);
+  --highlight: #ec4159;
+  --gradient-brand: linear-gradient(135deg, #22a558 0%, #4a6fa5 55%, #2a4a7a 100%);
+  --gradient-ambient: radial-gradient(ellipse 72% 52% at 0% 0%, rgba(0, 121, 53, 0.14), transparent 50%),
+    radial-gradient(ellipse 58% 46% at 100% 0%, rgba(74, 111, 165, 0.28), transparent 48%);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.32), 0 14px 34px rgba(4, 12, 26, 0.48);
+  --shadow-glow: 0 0 0 1px rgba(52, 209, 122, 0.2), 0 0 24px rgba(52, 209, 122, 0.1);
+  --status-resolved: #34d17a;
+  --mark-glow: 0 4px 20px rgba(0, 121, 53, 0.38);
   --title-style: gradient;
+  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
+  --donut-stroke: rgba(255, 255, 255, 0.88);
 }
+
 
 * {
   box-sizing: border-box;
@@ -191,27 +175,13 @@ h3 {
   letter-spacing: -0.01em;
 }
 
-/* ============================================================
-   Brand panels: every card / KPI / metric surface takes the
-   theme's brand color with white content, while the canvas and
-   chrome keep the light/dark tone. Re-scoping the palette vars
-   here makes nested tables, badges, and chart axes adapt too.
-   ============================================================ */
-.card,
-.kpi-card,
-.posture-metric {
-  --surface: var(--panel);
-  --surface-2: var(--panel-2);
-  --surface-hover: var(--panel-hover);
-  --border: rgba(255, 255, 255, 0.22);
-  --border-strong: rgba(255, 255, 255, 0.36);
-  --text: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.86);
-  --text-muted: rgba(255, 255, 255, 0.66);
-  --accent: #ffffff;
-  --accent-soft: rgba(255, 255, 255, 0.16);
-  --shadow-glow: 0 0 0 1px rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+/* Dark themes need brighter severity + status hues for AA contrast */
+:root[data-theme="fresno-dark"],
+:root[data-theme="valley-dark"] {
+  --sev-critical: #f87171;
+  --sev-high: #fb923c;
+  --sev-medium: #fbbf24;
+  --sev-low: #60a5fa;
 }
 
 .mono {
@@ -267,7 +237,7 @@ h3 {
   line-height: 1.45;
 }
 
-/* ---- Severity badge — solid light chips that pop on brand panels ---- */
+/* ---- Severity badge ---- */
 .badge {
   display: inline-block;
   font-size: 11px;
@@ -277,38 +247,41 @@ h3 {
   white-space: nowrap;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.94);
 }
 
 .badge--critical {
-  color: #b3122b;
+  color: var(--sev-critical);
+  background: color-mix(in srgb, var(--sev-critical) 16%, transparent);
 }
 .badge--high {
-  color: #a85618;
+  color: var(--sev-high);
+  background: color-mix(in srgb, var(--sev-high) 16%, transparent);
 }
 .badge--medium {
-  color: #8a6a12;
+  color: var(--sev-medium);
+  background: color-mix(in srgb, var(--sev-medium) 18%, transparent);
 }
 .badge--low {
-  color: #1f4f8a;
+  color: var(--sev-low);
+  background: color-mix(in srgb, var(--sev-low) 16%, transparent);
 }
 
 /* ---- Status text ---- */
 .status {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
 }
 .status--open {
-  color: #ffc2c8;
+  color: var(--sev-critical);
 }
 .status--triage {
-  color: #ffe08a;
+  color: var(--sev-medium);
 }
 .status--assigned {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-secondary);
 }
 .status--resolved {
-  color: #a7f0c4;
+  color: var(--status-resolved);
 }
 
 /* ---- Buttons / controls ---- */
@@ -564,21 +537,16 @@ h3 {
   width: 42px;
   height: 42px;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: contain;
   border-radius: 50%;
-  /* Thin white ring hugs the seal's circular edge so it lifts off the red header */
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.6);
+  padding: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
-.sidebar__mark-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-  display: block;
+.sidebar--collapsed .sidebar__mark {
+  width: 38px;
+  height: 38px;
 }
 
 .sidebar__toggle {
@@ -772,33 +740,35 @@ h3 {
   flex: 1 1 140px;
 }
 
-/* Fresno-style hamburger — only shown on narrow screens */
-.topbar__menu {
+/* Fresno-style hamburger — opens the slide-in nav drawer (mobile only) */
+.topbar__menu-btn {
   display: none;
-  width: 38px;
-  height: 38px;
   align-items: center;
   justify-content: center;
-  padding: 0;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--text);
-  cursor: pointer;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
-  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), transform 0.15s var(--ease);
 }
 
-.topbar__menu:hover {
-  background: var(--surface-hover);
-  border-color: var(--accent);
-  color: var(--accent);
+.topbar__menu-btn:hover {
+  filter: brightness(0.92);
 }
 
-.topbar__menu .nav-icon {
-  width: 20px;
-  height: 20px;
-  opacity: 1;
+.topbar__menu-btn:active {
+  transform: scale(0.94);
+}
+
+@media (max-width: 900px) {
+  .topbar__menu-btn {
+    display: inline-flex;
+  }
 }
 
 .topbar__status {
@@ -894,7 +864,7 @@ h3 {
   border-bottom: 1px solid var(--fs-cool-gray);
 }
 
-/* Brand underline accent — Fresno State signature */
+/* Accent underline — theme-aware (cardinal or valley green) */
 .page-header::after {
   content: "";
   position: absolute;
@@ -1335,7 +1305,7 @@ h3 {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: 3px solid rgba(255, 255, 255, 0.45);
+  border-top: 3px solid var(--accent);
   border-radius: 0 0 var(--radius) var(--radius);
   padding: 16px 18px;
   display: block;
@@ -1982,21 +1952,23 @@ h3 {
 
 .remediation-row__effort {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding: 2px 7px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.16);
-  color: rgba(255, 255, 255, 0.9);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-muted);
 }
 
 .remediation-row__effort--high {
-  color: #ffd24d;
+  color: var(--sev-critical);
+  background: color-mix(in srgb, var(--sev-critical) 14%, transparent);
 }
 
 .remediation-row__effort--medium {
-  color: #ffe6a3;
+  color: var(--sev-high);
+  background: color-mix(in srgb, var(--sev-high) 14%, transparent);
 }
 
 .remediation-progress {
@@ -2159,30 +2131,27 @@ h3 {
 }
 
 /* ---- Responsive shell ---- */
-/* Fresno-style mobile nav: driven by the JS isMobile signal so it stays in
-   sync with matchMedia. Nav is hidden off-canvas and opens as an overlay. */
-.app-shell--mobile .topbar__menu {
-  display: inline-flex;
-}
+@media (max-width: 900px) {
+  /* Fresno-style: nav is hidden off-canvas and slides in over content */
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 50;
+    width: min(288px, 86vw);
+    transform: translateX(-100%);
+    box-shadow: 8px 0 32px rgba(19, 40, 76, 0.22);
+  }
 
-.app-shell--mobile .sidebar {
-  position: fixed;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  z-index: 50;
-  width: min(284px, 86vw);
-  transform: translateX(-100%);
-  box-shadow: 8px 0 32px rgba(19, 40, 76, 0.28);
-}
+  .sidebar:not(.sidebar--collapsed) {
+    transform: translateX(0);
+  }
 
-.app-shell--mobile .sidebar:not(.sidebar--collapsed) {
-  transform: translateX(0);
-}
-
-.app-shell--mobile .app-shell__main {
-  margin-left: 0;
-  width: 100%;
+  .app-shell__main {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 @media (max-width: 768px) {

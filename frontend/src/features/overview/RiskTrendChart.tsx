@@ -7,12 +7,12 @@ import {
   YAxis,
 } from "recharts";
 import { Card } from "@/components/Card";
+import { severityColorValue } from "@/lib/severity";
 import { useRiskTrend } from "./hooks";
 
 export function RiskTrendChart() {
   const points = useRiskTrend();
-  // Amber reads clearly on both the cardinal and green brand panels
-  const stroke = "#ffd24d";
+  const stroke = severityColorValue("high");
 
   return (
     <Card title="Exposure trend">

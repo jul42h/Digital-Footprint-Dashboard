@@ -42,7 +42,8 @@ export function RemediationProgress() {
                   innerRadius="62%"
                   outerRadius="80%"
                   paddingAngle={2}
-                  stroke="none"
+                  stroke="var(--donut-stroke)"
+                  strokeWidth={2}
                 >
                   {counts
                     .filter((c) => c.value > 0)

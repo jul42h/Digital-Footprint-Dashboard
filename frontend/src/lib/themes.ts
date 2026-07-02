@@ -1,4 +1,8 @@
-export type ThemeId = "fresno" | "fresno-dark" | "valley" | "valley-dark";
+export type ThemeId =
+  | "fresno"
+  | "fresno-dark"
+  | "valley"
+  | "valley-dark";
 
 export type ThemeGroup = "brand" | "variant";
 
@@ -30,28 +34,28 @@ export const THEMES: ThemeDefinition[] = [
   {
     id: "fresno",
     label: "Fresno State",
-    description: "Cardinal base with navy highlights",
+    description: "Light canvas with white panels and cardinal accents",
     group: "brand",
     swatches: [BRAND_COLORS.cardinal, BRAND_COLORS.blue],
   },
   {
     id: "fresno-dark",
     label: "Fresno State Dark",
-    description: "Navy base with cardinal highlights",
+    description: "Navy canvas with lifted panels and cardinal accents",
     group: "brand",
     swatches: [BRAND_COLORS.blue, BRAND_COLORS.cardinal],
   },
   {
     id: "valley",
     label: "Valley Pride",
-    description: "Green accent — San Joaquin Valley pride",
+    description: "Sage canvas with white panels and valley-green accents",
     group: "variant",
     swatches: [BRAND_COLORS.green, BRAND_COLORS.cardinal],
   },
   {
     id: "valley-dark",
     label: "Valley Pride Dark",
-    description: "Deep navy with valley green accents",
+    description: "Navy canvas with lifted panels and valley-green accents",
     group: "variant",
     swatches: [BRAND_COLORS.green, BRAND_COLORS.blue],
   },

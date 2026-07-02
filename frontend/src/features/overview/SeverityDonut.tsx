@@ -33,7 +33,8 @@ export function SeverityDonut() {
                   innerRadius="68%"
                   outerRadius="88%"
                   paddingAngle={2}
-                  stroke="none"
+                  stroke="var(--donut-stroke)"
+                  strokeWidth={2}
                 >
                   {chartData.map((d) => (
                     <Cell key={d.severity} fill={d.color} />

@@ -37,7 +37,7 @@ const NAV: Array<{
 
 export function Sidebar() {
   const { derived } = useDashboard();
-  const { sidebarCollapsed, toggleSidebar } = useLayout();
+  const { sidebarCollapsed, toggleSidebar, closeSidebarOverlay } = useLayout();
 
   return (
     <aside
@@ -46,15 +46,11 @@ export function Sidebar() {
     >
       <div className="sidebar__brand">
         <div className="sidebar__brand-main">
-          <span className="sidebar__mark">
-            <img
-              src="/fresno-seal.png"
-              alt="California State University, Fresno seal"
-              className="sidebar__mark-img"
-              width={40}
-              height={40}
-            />
-          </span>
+          <img
+            className="sidebar__mark"
+            src="/fresno-seal.png"
+            alt="California State University, Fresno seal"
+          />
           {!sidebarCollapsed && (
             <div className="sidebar__brand-text">
               <span className="sidebar__name">{APP_NAME}</span>
@@ -70,7 +66,7 @@ export function Sidebar() {
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-expanded={!sidebarCollapsed}
         >
-          <NavIcon name={sidebarCollapsed ? "menu" : "close"} />
+          <NavIcon name={sidebarCollapsed ? "expand" : "collapse"} />
         </button>
       </div>
 
@@ -83,6 +79,7 @@ export function Sidebar() {
               to={item.to}
               end={item.end}
               title={sidebarCollapsed ? item.label : undefined}
+              onClick={closeSidebarOverlay}
               className={({ isActive }) =>
                 `sidebar__link${isActive ? " sidebar__link--active" : ""}`
               }

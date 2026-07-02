@@ -8,10 +8,10 @@ import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 
 function AppShell() {
-  const { sidebarOverlayOpen, closeSidebarOverlay, isMobile } = useLayout();
+  const { sidebarOverlayOpen, closeSidebarOverlay } = useLayout();
 
   return (
-    <div className={`app-shell${isMobile ? " app-shell--mobile" : ""}`}>
+    <div className="app-shell">
       <div className="app-shell__ambient" aria-hidden />
       {sidebarOverlayOpen && (
         <button

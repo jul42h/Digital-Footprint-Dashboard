@@ -33,18 +33,17 @@ This creates `frontend/dist/`.
 
 ### 2. Mount the build in your FastAPI app
 
-Register your API routes first, then mount the static files. See `fastapi_integration.example.py`:
+Register your API routes first, then mount the static files. See `frontend_mount.py`:
 
 ```python
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
-
-FRONTEND_DIST = Path("/path/to/Digital-Footprint-Dashboard/frontend/dist")
+from frontend_mount import mount_frontend
 
 # ... your /api/v1/* and /findings routes ...
 
-app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+mount_frontend(app)
 ```
+
+`mount_frontend()` serves real files from `frontend/dist` (assets, favicon, seal) and falls back to `index.html` for client routes like `/cves` and `/ips`. Starlette 0.49+ no longer does this with `StaticFiles(html=True)` alone.
 
 ### 3. Start uvicorn
 

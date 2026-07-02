@@ -1,13 +1,12 @@
 import { useEffect } from "react";
 import { ThemeSelector } from "@/components/ThemeSelector";
-import { NavIcon } from "@/components/NavIcon";
 import { useDashboard } from "@/context/DashboardContext";
 import { useLayout } from "@/context/LayoutContext";
 import { formatRelativeTime } from "@/lib/format";
 
 export function TopBar() {
   const { data, refreshing, reload } = useDashboard();
-  const { toggleSidebar } = useLayout();
+  const { toggleSidebar, sidebarOverlayOpen } = useLayout();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -36,11 +35,19 @@ export function TopBar() {
       <div className="topbar__left">
         <button
           type="button"
-          className="topbar__menu"
+          className="topbar__menu-btn"
           onClick={toggleSidebar}
-          aria-label="Open navigation menu"
+          aria-label={sidebarOverlayOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={sidebarOverlayOpen}
         >
-          <NavIcon name="menu" />
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden fill="none">
+            <path
+              d="M3 6h18M3 12h18M3 18h18"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
         </button>
         <span className="topbar__status">
           <span className={`topbar__dot${isLive ? " topbar__dot--live" : ""}`} />

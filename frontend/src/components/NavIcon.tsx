@@ -7,9 +7,7 @@ type IconName =
   | "analytics"
   | "settings"
   | "collapse"
-  | "expand"
-  | "menu"
-  | "close";
+  | "expand";
 
 const PATHS: Record<IconName, string> = {
   home: "M4 10.5L12 4l8 6.5V19a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-8.5z",
@@ -25,8 +23,6 @@ const PATHS: Record<IconName, string> = {
     "M12 15a3 3 0 100-6 3 3 0 000 6zm8.66-3a7.97 7.97 0 01-.17 1l2.09 1.63-2 3.46-2.52-1a8.06 8.06 0 01-1.73 1l-.38 2.7H9.05l-.38-2.7a8.06 8.06 0 01-1.73-1l-2.52 1-2-3.46L4.51 13a7.97 7.97 0 010-2l-2.09-1.63 2-3.46 2.52 1a8.06 8.06 0 011.73-1l.38-2.7h4.92l.38 2.7a8.06 8.06 0 011.73 1l2.52-1 2 3.46L19.49 11c.11.33.17.66.17 1z",
   collapse: "M15 18l-6-6 6-6",
   expand: "M9 18l6-6-6-6",
-  menu: "M4 7h16M4 12h16M4 17h16",
-  close: "M6 6l12 12M6 18L18 6",
 };
 
 export function NavIcon({ name }: { name: IconName }) {

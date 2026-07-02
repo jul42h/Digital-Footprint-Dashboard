@@ -10,24 +10,9 @@ Mount the built React dashboard in your existing FastAPI app.
 3. Restart uvicorn and open http://localhost:8000
 """
 
-from pathlib import Path
-
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 
-# Point this at the frontend/dist folder in this repo.
-FRONTEND_DIST = Path(__file__).resolve().parent / "frontend" / "dist"
-
-
-def mount_frontend(app: FastAPI) -> None:
-    if not FRONTEND_DIST.is_dir():
-        raise RuntimeError(
-            f"Frontend build not found at {FRONTEND_DIST}. "
-            "Run: cd frontend && npm install && npm run build"
-        )
-
-    # html=True serves index.html for client-side routes like /cves, /ips, etc.
-    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+from frontend_mount import mount_frontend
 
 
 # --- Example usage in your app --------------------------------------------
