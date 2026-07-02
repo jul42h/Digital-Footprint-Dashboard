@@ -1,129 +1,91 @@
-# CVE Dashboard Full Stack
+# Digital Footprint Dashboard
 
-Digital Footprint security dashboard with a **React frontend**, **FastAPI** API, and **AWS** data layer (Lambda, DynamoDB, Athena, S3).
+React dashboard for security posture, CVEs, IPs, vendors, and analytics. The UI is served by the **footprint-api** FastAPI app.
 
-```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│   React     │────▶│  FastAPI (API    │────▶│  data-access Lambda │
-│   Frontend  │     │  Gateway/Lambda) │     │  DynamoDB + Athena  │
-└─────────────┘     └──────────────────┘     └─────────────────────┘
-                                                      ▲
-                           ┌──────────────────────────┘
-                           │ S3 ingest trigger
-                    ┌──────┴──────┐
-                    │ ingest Lambda│
-                    └─────────────┘
-```
+## Related repo
+
+The API lives in **`footprint-api`** (sibling folder). See its README for setup and `uvicorn` instructions.
 
 ## Project structure
 
 | Path | Description |
 |------|-------------|
-| `frontend/` | React dashboard (from Main-Prototype) |
-| `backend/` | FastAPI app with Mangum Lambda handler |
-| `lambdas/data_access/` | DynamoDB reads + Athena queries |
-| `lambdas/ingest/` | S3-triggered ingest pipeline |
-| `infrastructure/` | AWS SAM template |
-| `scripts/` | Local snapshot + DynamoDB seeding |
+| `frontend/` | React dashboard (Vite + TypeScript) |
+| `frontend/dist/` | Production build output (served by FastAPI) |
+| `findings/` | Findings hooks and related utilities |
+| `fastapi_integration.example.py` | Copy-paste snippet to mount the UI in FastAPI |
 
+## Run with FastAPI (recommended)
 
-## Quick start (local)
+`npm run dev` starts **Vite only** on port 5173. To run everything through uvicorn on port 8000:
 
-### 1. Backend
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-pip install -r requirements.txt
-cp .env.example .env
-
-# Build JSON snapshot from Excel (optional but faster)
-python ../scripts/seed_dashboard.py
-
-# Run API
-uvicorn app.main:app --reload --port 8000
-```
-
-API docs: http://localhost:8000/docs
-
-### 2. Frontend
+### 1. Build the frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run build
 ```
 
-Open http://localhost:5173 — Vite proxies `/api` to the backend.
+Or from the repo root: `npm run build`
 
-The frontend tries the API first, then falls back to `public/data/shodan_data.xlsx`.
+This creates `frontend/dist/`.
 
-### 3. Docker (API only)
+### 2. Mount the build in your FastAPI app
+
+Register your API routes first, then mount the static files. See `fastapi_integration.example.py`:
+
+```python
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
+
+FRONTEND_DIST = Path("/path/to/Digital-Footprint-Dashboard/frontend/dist")
+
+# ... your /api/v1/* and /findings routes ...
+
+app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
+```
+
+### 3. Start uvicorn
 
 ```bash
-docker compose up --build
+uvicorn main:app --reload --port 8000
 ```
 
-## API endpoints
+Open **http://localhost:8000** — the dashboard and API share the same origin, so no `VITE_API_URL` is needed.
+
+## API endpoints your FastAPI should expose
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/v1/health` | Health check |
-| `GET` | `/api/v1/dashboard` | Full `DashboardData` payload |
-| `POST` | `/api/v1/dashboard/refresh` | Trigger refresh (Athena in AWS) |
-| `GET` | `/api/v1/analytics/athena` | Athena analytics query |
+| `GET` | `/api/v1/dashboard` | Full dashboard payload |
+| `POST` | `/api/v1/dashboard/refresh` | Trigger data refresh |
+| `GET` | `/findings` | Findings list (optional `?ip=` filter) |
 
-## Deploy to AWS (SAM)
+If the API is unavailable, the frontend falls back to `/data/shodan_data.xlsx` in the build.
 
-Prerequisites: AWS CLI, SAM CLI, Python 3.12
+## Optional: Vite dev server
 
-```bash
-cd infrastructure
-sam build
-sam deploy --guided
-```
-
-After deploy:
-
-1. Note the **ApiUrl** output
-2. Seed DynamoDB:
+Only use this while editing React code. It runs on port 5173 and proxies `/api` to localhost:8000:
 
 ```bash
-python scripts/seed_dashboard.py --invoke-lambda --lambda-name cve-dashboard-data-access-dev
+cd frontend
+npm run dev
 ```
 
-3. Set frontend env for production:
-
-```
-VITE_API_URL=https://xxxx.execute-api.us-east-1.amazonaws.com
-VITE_USE_API=true
-```
-
-## Data flow
-
-1. **Ingest**: Upload Shodan export to `s3://{RawBucket}/ingest/`
-2. **Ingest Lambda** writes manifest to curated bucket, triggers refresh
-3. **Data-access Lambda** queries Athena, updates DynamoDB snapshot
-4. **FastAPI** invokes data-access Lambda on `GET /api/v1/dashboard`
-5. **Frontend** loads via API; client-side adapters derive CVE tables, vendors, geo map
+Keep uvicorn running separately in another terminal.
 
 ## Environment variables
 
-### Backend (`backend/.env`)
-
-| Variable | Local | AWS |
-|----------|-------|-----|
-| `ENVIRONMENT` | `local` | `aws` |
-| `DATA_ACCESS_LAMBDA_NAME` | — | `cve-dashboard-data-access-dev` |
-| `LOCAL_EXCEL_PATH` | `data/shodan_data.xlsx` | — |
-
-### Frontend (`frontend/.env`)
+Only needed for the Vite dev workflow (`frontend/.env`):
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_API_URL` | API base URL (empty = dev proxy) |
+| `VITE_API_URL` | API base URL (empty = relative paths / dev proxy) |
 | `VITE_USE_API` | `true` to prefer API over Excel |
+
+When served from FastAPI, leave `VITE_API_URL` unset.
 
 ## License
 

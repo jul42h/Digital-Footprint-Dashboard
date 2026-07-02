@@ -20,13 +20,13 @@ function sourceLabel(source: string): string {
 
 export function SettingsPage() {
   const { data } = useDashboard();
-  const apiBase = getApiBaseUrl() || "(Vite proxy → localhost:8000)";
+  const apiBase = getApiBaseUrl() || "(same origin as FastAPI)";
 
   return (
     <div className="page" style={{ maxWidth: 720 }}>
       <PageHeader
         title={NAV_LABELS.settings}
-        subtitle="Data source and AWS backend configuration."
+        subtitle="Data source and API configuration."
       />
 
       <Card title="Data source">
@@ -52,16 +52,6 @@ export function SettingsPage() {
             {data.stats.totalIPs} IPs · {data.stats.totalCVEs} CVEs
           </span>
         </div>
-      </Card>
-
-      <Card title="AWS architecture">
-        <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          <li>API Gateway → FastAPI Lambda (Mangum)</li>
-          <li>FastAPI invokes <span className="mono">data-access</span> Lambda</li>
-          <li>DynamoDB stores dashboard snapshot + per-IP records</li>
-          <li>Athena queries curated S3 data for analytics</li>
-          <li>S3 ingest trigger → ingest Lambda → refresh pipeline</li>
-        </ul>
       </Card>
 
       <Card title="Keyboard shortcuts">

@@ -1,13 +1,9 @@
 {
-  "name": "cve-dashboard-full-stack",
+  "name": "digital-footprint-dashboard",
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev:frontend": "npm run dev --prefix frontend",
-    "dev:api": "cd backend && uvicorn app.main:app --reload --port 8000",
-    "build:frontend": "npm run build --prefix frontend",
-    "seed": "python scripts/seed_dashboard.py",
-    "sam:build": "cd infrastructure && sam build",
-    "sam:deploy": "cd infrastructure && sam deploy"
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend"
   }
 }

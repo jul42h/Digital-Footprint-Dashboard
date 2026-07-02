@@ -4,7 +4,5 @@ dist/
 __pycache__/
 *.pyc
 .env
-.aws-sam/
-backend/data/dashboard_snapshot.json
 AppData/
-
+.DS_Store
