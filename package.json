@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "npm run dev --prefix frontend",
-    "build": "npm run build --prefix frontend"
+    "build": "npm run build --prefix frontend",
+    "api": "cd footprint-api && uvicorn app:app --reload --port 8000",
+    "api:install": "pip3 install -r footprint-api/requirements.txt"
   }
 }

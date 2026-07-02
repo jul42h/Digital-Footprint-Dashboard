@@ -1,10 +1,6 @@
 # Digital Footprint Dashboard
 
-React dashboard for security posture, CVEs, IPs, vendors, and analytics. The UI is served by the **footprint-api** FastAPI app.
-
-## Related repo
-
-The API lives in **`footprint-api`** (sibling folder). See its README for setup and `uvicorn` instructions.
+React dashboard for security posture, CVEs, IPs, vendors, and analytics — served by the included **footprint-api** FastAPI app.
 
 ## Project structure
 
@@ -12,48 +8,41 @@ The API lives in **`footprint-api`** (sibling folder). See its README for setup 
 |------|-------------|
 | `frontend/` | React dashboard (Vite + TypeScript) |
 | `frontend/dist/` | Production build output (served by FastAPI) |
+| `footprint-api/` | FastAPI server (DynamoDB + static UI) |
+| `frontend_mount.py` | SPA routing helper used by the API |
 | `findings/` | Findings hooks and related utilities |
-| `fastapi_integration.example.py` | Copy-paste snippet to mount the UI in FastAPI |
 
-## Run with FastAPI (recommended)
+## Quick start
 
-`npm run dev` starts **Vite only** on port 5173. To run everything through uvicorn on port 8000:
-
-### 1. Build the frontend
+### 1. Install dependencies
 
 ```bash
-cd frontend
-npm install
+# Frontend
+cd frontend && npm install && cd ..
+
+# API
+pip3 install -r footprint-api/requirements.txt
+export DYNAMODB_TABLE_NAME=enriched-database
+export AWS_REGION=us-west-2
+```
+
+### 2. Build the frontend
+
+```bash
 npm run build
 ```
 
-Or from the repo root: `npm run build`
-
-This creates `frontend/dist/`.
-
-### 2. Mount the build in your FastAPI app
-
-Register your API routes first, then mount the static files. See `frontend_mount.py`:
-
-```python
-from frontend_mount import mount_frontend
-
-# ... your /api/v1/* and /findings routes ...
-
-mount_frontend(app)
-```
-
-`mount_frontend()` serves real files from `frontend/dist` (assets, favicon, seal) and falls back to `index.html` for client routes like `/cves` and `/ips`. Starlette 0.49+ no longer does this with `StaticFiles(html=True)` alone.
-
-### 3. Start uvicorn
+### 3. Start the API
 
 ```bash
-uvicorn main:app --reload --port 8000
+npm run api
 ```
 
 Open **http://localhost:8000** — the dashboard and API share the same origin, so no `VITE_API_URL` is needed.
 
-## API endpoints your FastAPI should expose
+See `footprint-api/README.md` for endpoint details and environment variables.
+
+## API endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -73,11 +62,19 @@ cd frontend
 npm run dev
 ```
 
-Keep uvicorn running separately in another terminal.
+Keep the API running separately in another terminal (`npm run api`).
 
 ## Environment variables
 
-Only needed for the Vite dev workflow (`frontend/.env`):
+**API** (`footprint-api/.env` or shell exports):
+
+| Variable | Description |
+|----------|-------------|
+| `DYNAMODB_TABLE_NAME` | DynamoDB table (default: `enriched-database`) |
+| `AWS_REGION` | AWS region (default: `us-west-2`) |
+| `FRONTEND_DIST` | Override path to `frontend/dist` |
+
+**Frontend dev only** (`frontend/.env`):
 
 | Variable | Description |
 |----------|-------------|
