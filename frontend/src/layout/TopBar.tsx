@@ -1,29 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { ThemeSelector } from "@/components/ThemeSelector";
+import { NavIcon } from "@/components/NavIcon";
 import { useDashboard } from "@/context/DashboardContext";
+import { useLayout } from "@/context/LayoutContext";
 import { formatRelativeTime } from "@/lib/format";
 
-type Theme = "light" | "dark";
-
-const THEME_KEY = "df-dashboard-theme";
-
-function useTheme(): [Theme, () => void] {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem(THEME_KEY) as Theme | null;
-    if (stored === "light" || stored === "dark") return stored;
-    return (document.documentElement.getAttribute("data-theme") as Theme) || "dark";
-  });
-
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem(THEME_KEY, theme);
-  }, [theme]);
-
-  return [theme, () => setTheme((t) => (t === "dark" ? "light" : "dark"))];
-}
-
 export function TopBar() {
-  const [theme, toggleTheme] = useTheme();
   const { data, refreshing, reload } = useDashboard();
+  const { toggleSidebar } = useLayout();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -50,6 +34,14 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="topbar__left">
+        <button
+          type="button"
+          className="topbar__menu"
+          onClick={toggleSidebar}
+          aria-label="Open navigation menu"
+        >
+          <NavIcon name="menu" />
+        </button>
         <span className="topbar__status">
           <span className={`topbar__dot${isLive ? " topbar__dot--live" : ""}`} />
           {sourceLabel}
@@ -61,22 +53,18 @@ export function TopBar() {
       <div className="topbar__actions">
         <button
           type="button"
-          className="btn"
+          className="btn btn--compact"
           onClick={reload}
           disabled={refreshing}
           title="Refresh data (R)"
+          aria-label="Refresh data"
         >
-          {refreshing ? "Refreshing…" : "Refresh"}
+          <span className="topbar__refresh-icon" aria-hidden>
+            ↻
+          </span>
+          <span className="topbar__refresh-label">{refreshing ? "…" : "Refresh"}</span>
         </button>
-        <button
-          type="button"
-          className="btn btn--ghost"
-          onClick={toggleTheme}
-          aria-label="Toggle theme"
-          title="Toggle light/dark theme"
-        >
-          {theme === "dark" ? "☀ Light" : "☾ Dark"}
-        </button>
+        <ThemeSelector />
         <button
           type="button"
           className="btn btn--ghost"

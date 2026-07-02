@@ -46,7 +46,7 @@ export function IpDetailPage() {
           </Card>
 
           <Card title="Issues on this system">
-            <div style={{ overflowX: "auto" }}>
+            <div className="table-scroll">
               <table className="table">
                 <thead>
                   <tr>

@@ -26,7 +26,7 @@ export function IpTable({ limit, title = "IP assets" }: IpTableProps) {
         </span>
       }
     >
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>

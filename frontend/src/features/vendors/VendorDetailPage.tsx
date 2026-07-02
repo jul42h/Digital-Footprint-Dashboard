@@ -50,7 +50,7 @@ export function VendorDetailPage() {
                 {product.cveCount} linked issue{product.cveCount !== 1 ? "s" : ""} · highest {LABELS.riskScore.toLowerCase()}{" "}
                 <CvssScore score={product.maxCvss} />
               </p>
-              <div style={{ overflowX: "auto" }}>
+              <div className="table-scroll">
                 <table className="table">
                   <thead>
                     <tr>

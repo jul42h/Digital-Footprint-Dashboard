@@ -1,4 +1,5 @@
 export const APP_NAME = "Digital Footprint";
+export const APP_TAGLINE = "Fresno State · Cybersecurity";
 
 export const NAV_LABELS = {
   home: "Home",

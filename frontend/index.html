@@ -1,13 +1,26 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="fresno">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Digital Footprint</title>
+    <link rel="icon" type="image/png" href="/fresno-seal.png" />
+    <title>Digital Footprint · Fresno State</title>
+    <script>
+      (function () {
+        var key = "df-dashboard-theme";
+        var valid = ["fresno","fresno-dark","valley","valley-dark"];
+        try {
+          var stored = localStorage.getItem(key);
+          if (stored && valid.indexOf(stored) !== -1) {
+            document.documentElement.setAttribute("data-theme", stored);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700;900&family=Roboto+Mono:wght@400;500&family=Roboto:wght@400;500;700;900&display=swap"
       rel="stylesheet"
     />
   </head>

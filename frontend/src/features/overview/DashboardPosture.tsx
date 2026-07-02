@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { SEVERITY_COLOR } from "@/lib/severity";
 import { NAV_LABELS } from "@/lib/copy";
 import { useDashboardSummary } from "./useDashboardSummary";
 
@@ -19,16 +18,12 @@ export function DashboardPosture() {
   return (
     <div className="posture-bar posture-bar--compact">
       <Link to="/solutions" className="posture-metric posture-metric--primary posture-metric--link">
-        <span className="posture-metric__value" style={{ color: pendingRemediations > 0 ? SEVERITY_COLOR.high : undefined }}>
-          {pendingRemediations}
-        </span>
+        <span className="posture-metric__value">{pendingRemediations}</span>
         <span className="posture-metric__label">{NAV_LABELS.fixes}</span>
       </Link>
 
       <Link to="/cves" className="posture-metric posture-metric--link">
-        <span className="posture-metric__value" style={{ color: critical > 0 ? SEVERITY_COLOR.critical : undefined }}>
-          {critical}
-        </span>
+        <span className="posture-metric__value">{critical}</span>
         <span className="posture-metric__label">Critical</span>
       </Link>
 

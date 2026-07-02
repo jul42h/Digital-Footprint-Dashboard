@@ -23,7 +23,7 @@ export function ProductRiskTable({
 
   return (
     <Card title={title}>
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>

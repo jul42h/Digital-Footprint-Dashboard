@@ -65,7 +65,7 @@ export function SolutionTable({
         ))
       }
     >
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-scroll">
         <table className="table">
           <thead>
             <tr>

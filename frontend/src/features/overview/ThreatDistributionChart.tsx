@@ -37,8 +37,7 @@ export function ThreatDistributionChart() {
             <div className="threat-dist__header" aria-hidden>
               <span>Category</span>
               <span>Technical</span>
-              <span>Share</span>
-              <span>Count</span>
+              <span>Share / Count</span>
             </div>
             <ul className="threat-dist__list">
               {rows.map((row) => (

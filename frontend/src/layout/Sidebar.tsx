@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { NavIcon } from "@/components/NavIcon";
 import { useLayout } from "@/context/LayoutContext";
-import { APP_NAME, NAV_LABELS } from "@/lib/copy";
+import { APP_NAME, APP_TAGLINE, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import type { DerivedData } from "@/lib/adapters";
 
@@ -46,11 +46,19 @@ export function Sidebar() {
     >
       <div className="sidebar__brand">
         <div className="sidebar__brand-main">
-          <span className="sidebar__mark" aria-hidden />
+          <span className="sidebar__mark">
+            <img
+              src="/fresno-seal.png"
+              alt="California State University, Fresno seal"
+              className="sidebar__mark-img"
+              width={40}
+              height={40}
+            />
+          </span>
           {!sidebarCollapsed && (
             <div className="sidebar__brand-text">
               <span className="sidebar__name">{APP_NAME}</span>
-              <span className="sidebar__tagline">Frenso State</span>
+              <span className="sidebar__tagline">{APP_TAGLINE}</span>
             </div>
           )}
         </div>
@@ -62,7 +70,7 @@ export function Sidebar() {
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           aria-expanded={!sidebarCollapsed}
         >
-          <NavIcon name={sidebarCollapsed ? "expand" : "collapse"} />
+          <NavIcon name={sidebarCollapsed ? "menu" : "close"} />
         </button>
       </div>
 

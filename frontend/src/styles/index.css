@@ -1,66 +1,160 @@
 /* ============================================================
-   Design tokens. The severity scale is the one place this app
-   carries identity; everything else stays quiet and dense.
-   Light + dark are both first-class. Toggle by setting
-   data-theme="light" | "dark" on <html>.
+   Fresno State brand themes + classic light/dark.
+   Set data-theme on <html> via ThemeSelector.
+   Brand: Cardinal #c41230 · Blue #13284c · Cool Gray #ced1d4 · Green #007935
    ============================================================ */
 
 :root {
-  --sev-critical: #f87171;
-  --sev-high: #fb923c;
-  --sev-medium: #fbbf24;
-  --sev-low: #60a5fa;
+  --fs-cardinal: #c41230;
+  --fs-cardinal-dark: #9e0e26;
+  --fs-blue: #13284c;
+  --fs-cool-gray: #ced1d4;
+  --fs-white: #ffffff;
+  --fs-green: #007935;
 
-  --font-ui: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
-  --radius: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  /* Data-viz hues tuned to read on the cardinal / green brand panels */
+  --sev-critical: #ff6b78;
+  --sev-high: #ff9d4d;
+  --sev-medium: #ffd24d;
+  --sev-low: #7fb8ff;
+
+  /* Brand panel color for cards (overridden per theme family) */
+  --panel: #c41230;
+  --panel-2: #a90f28;
+  --panel-hover: #d61a3c;
+
+  --font-ui: "Roboto", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --font-display: "Merriweather", Georgia, "Times New Roman", serif;
+  --font-mono: "Roboto Mono", ui-monospace, Menlo, monospace;
+
+  /* Fresno State favors sharp, institutional geometry */
+  --radius: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Brand ribbon shown at the very top of the app in every theme */
+  --brand-ribbon: linear-gradient(90deg, var(--fs-cardinal) 0%, var(--fs-cardinal-dark) 100%);
 }
 
+/* ============================================================
+   Theme model: the CANVAS (--bg) + CHROME (--surface: sidebar,
+   topbar) carry the light/dark tone. The CARD PANELS take the
+   brand color (--panel), set in the shared panel rule below.
+   Fresno family = cardinal panels · Valley family = green panels.
+   ============================================================ */
+
+/* ---- Fresno State — light canvas, cardinal panels ---- */
 :root,
-:root[data-theme="light"] {
-  --bg: #f0f4fa;
+:root[data-theme="fresno"] {
+  --bg: #eceef2;
   --bg-elevated: #ffffff;
-  --surface: rgba(255, 255, 255, 0.92);
-  --surface-2: #f4f7fc;
-  --surface-hover: #e8eef8;
-  --border: rgba(15, 23, 42, 0.08);
-  --border-strong: rgba(15, 23, 42, 0.14);
-  --text: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --accent: #3b6fd9;
-  --accent-soft: rgba(59, 111, 217, 0.12);
-  --gradient-brand: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-  --gradient-ambient: radial-gradient(ellipse 80% 60% at 10% -10%, rgba(99, 102, 241, 0.12), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 90% 0%, rgba(56, 189, 248, 0.1), transparent 50%);
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.06);
-  --shadow-glow: 0 0 0 1px rgba(59, 111, 217, 0.08);
-  --status-resolved: #16a34a;
+  --surface: rgba(255, 255, 255, 0.96);
+  --surface-2: #e3e6ec;
+  --surface-hover: #dadfe7;
+  --border: rgba(19, 40, 76, 0.1);
+  --border-strong: rgba(19, 40, 76, 0.16);
+  --text: #13284c;
+  --text-secondary: #45566f;
+  --text-muted: #6f7f97;
+  --accent: #c41230;
+  --accent-soft: rgba(196, 18, 48, 0.1);
+  --panel: #c41230;
+  --panel-2: #a90f28;
+  --panel-hover: #d61a3c;
+  --brand-ribbon: linear-gradient(90deg, #c41230 0%, #9e0e26 100%);
+  --gradient-brand: linear-gradient(135deg, #c41230 0%, #13284c 100%);
+  --gradient-ambient: radial-gradient(ellipse 80% 60% at 8% -8%, rgba(196, 18, 48, 0.08), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 92% 0%, rgba(19, 40, 76, 0.08), transparent 50%);
+  --shadow-card: 0 1px 2px rgba(19, 40, 76, 0.08), 0 10px 28px rgba(196, 18, 48, 0.16);
+  --shadow-glow: 0 0 0 1px rgba(196, 18, 48, 0.14);
+  --status-resolved: #007935;
+  --mark-glow: 0 4px 16px rgba(196, 18, 48, 0.28);
+  --title-style: solid;
 }
 
-:root[data-theme="dark"] {
-  --bg: #05070c;
-  --bg-elevated: #0a0e16;
-  --surface: rgba(14, 19, 30, 0.78);
-  --surface-2: rgba(22, 28, 42, 0.92);
-  --surface-hover: rgba(30, 38, 56, 0.95);
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.1);
-  --text: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --accent: #6b9fff;
-  --accent-soft: rgba(107, 159, 255, 0.14);
-  --gradient-brand: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #a78bfa 100%);
-  --gradient-ambient: radial-gradient(ellipse 70% 50% at 0% 0%, rgba(56, 189, 248, 0.08), transparent 50%),
-    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(129, 140, 248, 0.1), transparent 45%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(59, 130, 246, 0.05), transparent 50%);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 12px 32px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 0 0 1px rgba(107, 159, 255, 0.12), 0 0 24px rgba(56, 189, 248, 0.06);
+/* ---- Fresno State Dark — navy canvas, cardinal panels ---- */
+:root[data-theme="fresno-dark"] {
+  --bg: #0f1d33;
+  --bg-elevated: #16294a;
+  --surface: rgba(23, 45, 82, 0.92);
+  --surface-2: rgba(30, 55, 98, 0.94);
+  --surface-hover: rgba(40, 68, 116, 0.96);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #f4f5f7;
+  --text-secondary: #c8d0de;
+  --text-muted: #94a1b8;
+  --accent: #e8354f;
+  --accent-soft: rgba(232, 53, 79, 0.2);
+  --panel: #c41230;
+  --panel-2: #a90f28;
+  --panel-hover: #d61a3c;
+  --brand-ribbon: linear-gradient(90deg, #c41230 0%, #9e0e26 100%);
+  --gradient-brand: linear-gradient(135deg, #c41230 0%, #2a4a7a 55%, #13284c 100%);
+  --gradient-ambient: radial-gradient(ellipse 70% 50% at 0% 0%, rgba(196, 18, 48, 0.12), transparent 50%),
+    radial-gradient(ellipse 55% 45% at 100% 0%, rgba(42, 74, 122, 0.4), transparent 45%);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.42);
+  --shadow-glow: 0 0 0 1px rgba(232, 53, 79, 0.18), 0 0 24px rgba(196, 18, 48, 0.12);
+  --status-resolved: #34c46e;
+  --mark-glow: 0 4px 20px rgba(196, 18, 48, 0.38);
+  --title-style: gradient;
+}
+
+/* ---- Valley Pride — light canvas, green panels ---- */
+:root[data-theme="valley"] {
+  --bg: #eceff0;
+  --bg-elevated: #ffffff;
+  --surface: rgba(255, 255, 255, 0.96);
+  --surface-2: #e2e9e4;
+  --surface-hover: #d8e2db;
+  --border: rgba(19, 40, 76, 0.1);
+  --border-strong: rgba(19, 40, 76, 0.16);
+  --text: #13284c;
+  --text-secondary: #3e5546;
+  --text-muted: #6c8072;
+  --accent: #007935;
+  --accent-soft: rgba(0, 121, 53, 0.12);
+  --panel: #007935;
+  --panel-2: #00622c;
+  --panel-hover: #0a8c43;
+  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
+  --gradient-brand: linear-gradient(135deg, #007935 0%, #13284c 100%);
+  --gradient-ambient: radial-gradient(ellipse 75% 55% at 10% -8%, rgba(0, 121, 53, 0.08), transparent 55%),
+    radial-gradient(ellipse 55% 45% at 90% 0%, rgba(19, 40, 76, 0.06), transparent 50%);
+  --shadow-card: 0 1px 2px rgba(19, 40, 76, 0.08), 0 10px 28px rgba(0, 121, 53, 0.16);
+  --shadow-glow: 0 0 0 1px rgba(0, 121, 53, 0.12);
+  --status-resolved: #005a28;
+  --mark-glow: 0 4px 16px rgba(0, 121, 53, 0.28);
+  --title-style: solid;
+}
+
+/* ---- Valley Pride Dark — deep green-navy canvas, green panels ---- */
+:root[data-theme="valley-dark"] {
+  --bg: #10241b;
+  --bg-elevated: #163326;
+  --surface: rgba(22, 52, 39, 0.92);
+  --surface-2: rgba(30, 64, 48, 0.94);
+  --surface-hover: rgba(40, 78, 60, 0.96);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #eef4f0;
+  --text-secondary: #b6cfc0;
+  --text-muted: #7d9a8a;
+  --accent: #2fb768;
+  --accent-soft: rgba(47, 183, 104, 0.22);
+  --panel: #007935;
+  --panel-2: #00622c;
+  --panel-hover: #0a8c43;
+  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
+  --gradient-brand: linear-gradient(135deg, #007935 0%, #13284c 100%);
+  --gradient-ambient: radial-gradient(ellipse 70% 50% at 0% 0%, rgba(0, 121, 53, 0.16), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 100% 0%, rgba(19, 40, 76, 0.3), transparent 45%);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.28), 0 14px 34px rgba(0, 0, 0, 0.38);
+  --shadow-glow: 0 0 0 1px rgba(47, 183, 104, 0.16), 0 0 24px rgba(0, 121, 53, 0.1);
   --status-resolved: #34d399;
+  --mark-glow: 0 4px 20px rgba(0, 121, 53, 0.32);
+  --title-style: gradient;
 }
 
 * {
@@ -79,8 +173,9 @@ body {
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -91,9 +186,32 @@ a {
 h1,
 h2,
 h3 {
-  font-weight: 600;
+  font-weight: 700;
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   Brand panels: every card / KPI / metric surface takes the
+   theme's brand color with white content, while the canvas and
+   chrome keep the light/dark tone. Re-scoping the palette vars
+   here makes nested tables, badges, and chart axes adapt too.
+   ============================================================ */
+.card,
+.kpi-card,
+.posture-metric {
+  --surface: var(--panel);
+  --surface-2: var(--panel-2);
+  --surface-hover: var(--panel-hover);
+  --border: rgba(255, 255, 255, 0.22);
+  --border-strong: rgba(255, 255, 255, 0.36);
+  --text: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.86);
+  --text-muted: rgba(255, 255, 255, 0.66);
+  --accent: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.16);
+  --shadow-glow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
 
 .mono {
@@ -105,8 +223,8 @@ h3 {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px 22px;
+  border-radius: var(--radius);
+  padding: 22px 24px;
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(12px);
   transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
@@ -118,21 +236,28 @@ h3 {
 
 .card__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 18px;
 }
 
 .card__action {
   flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  max-width: 100%;
 }
 
 .card-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   margin: 0;
   letter-spacing: -0.01em;
+  color: var(--text);
 }
 
 .card-footnote {
@@ -142,51 +267,48 @@ h3 {
   line-height: 1.45;
 }
 
-/* ---- Severity badge ---- */
+/* ---- Severity badge — solid light chips that pop on brand panels ---- */
 .badge {
   display: inline-block;
   font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 999px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 2px;
   white-space: nowrap;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .badge--critical {
-  color: var(--sev-critical);
-  background: color-mix(in srgb, var(--sev-critical) 16%, transparent);
+  color: #b3122b;
 }
 .badge--high {
-  color: var(--sev-high);
-  background: color-mix(in srgb, var(--sev-high) 16%, transparent);
+  color: #a85618;
 }
 .badge--medium {
-  color: var(--sev-medium);
-  background: color-mix(in srgb, var(--sev-medium) 18%, transparent);
+  color: #8a6a12;
 }
 .badge--low {
-  color: var(--sev-low);
-  background: color-mix(in srgb, var(--sev-low) 16%, transparent);
+  color: #1f4f8a;
 }
 
 /* ---- Status text ---- */
 .status {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
 }
 .status--open {
-  color: var(--sev-critical);
+  color: #ffc2c8;
 }
 .status--triage {
-  color: var(--sev-medium);
+  color: #ffe08a;
 }
 .status--assigned {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.9);
 }
 .status--resolved {
-  color: var(--status-resolved);
+  color: #a7f0c4;
 }
 
 /* ---- Buttons / controls ---- */
@@ -230,7 +352,23 @@ h3 {
   padding: 7px 9px;
 }
 
+.btn--compact {
+  padding: 7px 11px;
+  gap: 5px;
+}
+
 /* ---- Table ---- */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -4px;
+  padding: 0 4px 2px;
+}
+
+.table-scroll .table {
+  min-width: 640px;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -238,24 +376,28 @@ h3 {
 .table th,
 .table td {
   text-align: left;
-  padding: 11px 10px;
-  border-bottom: 0.5px solid var(--border);
+  padding: 12px 12px;
+  border-bottom: 1px solid var(--border);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 .table th {
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   position: sticky;
   top: 0;
-  background: var(--surface);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--border-strong);
 }
 .table tbody tr {
   cursor: pointer;
-  transition: background 0.1s ease;
+  transition: background 0.12s ease;
 }
 .table tbody tr:hover {
-  background: var(--surface-2);
+  background: var(--accent-soft);
 }
 
 /* ---- Live dot ---- */
@@ -290,9 +432,32 @@ h3 {
 .app-shell {
   display: flex;
   height: 100vh;
-  overflow: hidden;
+  height: 100dvh;
+  min-height: 0;
+  overflow: clip;
   position: relative;
   background: var(--bg);
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(19, 40, 76, 0.45);
+  cursor: pointer;
+  animation: fade-in 0.18s var(--ease);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .app-shell__ambient {
@@ -308,24 +473,27 @@ h3 {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
   z-index: 1;
 }
 
 /* ---- Sidebar ---- */
 .sidebar {
-  width: 248px;
+  width: 260px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
   background: var(--surface);
   backdrop-filter: blur(16px);
-  padding: 22px 14px;
+  padding: 20px 14px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   position: relative;
   z-index: 2;
-  transition: width 0.22s var(--ease), padding 0.22s var(--ease);
+  min-height: 0;
+  overflow: hidden;
+  transition: width 0.22s var(--ease), padding 0.22s var(--ease), transform 0.22s var(--ease);
 }
 
 .sidebar--collapsed {
@@ -338,9 +506,11 @@ h3 {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 2px 6px 14px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid var(--border);
+  /* Bleed the cardinal header to the sidebar edges */
+  margin: -20px -14px 6px;
+  padding: 18px 14px;
+  background: var(--brand-ribbon);
+  position: relative;
 }
 
 .sidebar__brand-main {
@@ -355,7 +525,8 @@ h3 {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  padding: 4px 0 14px;
+  margin: -22px -10px 6px;
+  padding: 16px 8px;
 }
 
 .sidebar--collapsed .sidebar__brand-main {
@@ -365,54 +536,68 @@ h3 {
 .sidebar__brand-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   overflow: hidden;
 }
 
 .sidebar__name {
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: 15px;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #ffffff;
   white-space: nowrap;
 }
 
 .sidebar__tagline {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.82);
   font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .sidebar__mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: var(--gradient-brand);
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  /* Thin white ring hugs the seal's circular edge so it lifts off the red header */
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.sidebar__mark-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
 }
 
 .sidebar__toggle {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--border-strong);
+  border: 1px solid rgba(255, 255, 255, 0.45);
   border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   transition:
     background 0.2s var(--ease),
     border-color 0.2s var(--ease),
     color 0.2s var(--ease),
-    box-shadow 0.2s var(--ease),
     transform 0.2s var(--ease);
 }
 
@@ -424,10 +609,9 @@ h3 {
 }
 
 .sidebar__toggle:hover {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong));
-  background: var(--accent-soft);
-  box-shadow: var(--shadow-glow);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .sidebar__toggle:hover .nav-icon {
@@ -444,9 +628,9 @@ h3 {
 }
 
 .sidebar--collapsed .sidebar__toggle {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius);
 }
 
 .sidebar__nav {
@@ -454,12 +638,15 @@ h3 {
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .sidebar__link {
   padding: 10px 12px;
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--text-secondary);
   transition: all 0.15s var(--ease);
@@ -473,6 +660,7 @@ h3 {
 .sidebar--collapsed .sidebar__link {
   justify-content: center;
   padding: 10px;
+  position: relative;
 }
 
 .sidebar__link-main {
@@ -494,20 +682,20 @@ h3 {
 }
 
 .sidebar__link--active {
-  color: var(--text);
+  color: var(--accent);
   background: var(--accent-soft);
+  font-weight: 600;
 }
 
 .sidebar__link--active::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 6px;
+  bottom: 6px;
   width: 3px;
-  height: 18px;
-  border-radius: 0 3px 3px 0;
-  background: var(--gradient-brand);
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
 }
 
 .sidebar--collapsed .sidebar__link--active::before {
@@ -542,15 +730,16 @@ h3 {
 
 .sidebar__badge--dot {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  min-width: 7px;
-  width: 7px;
-  height: 7px;
+  top: 5px;
+  right: 5px;
+  min-width: 6px;
+  width: 6px;
+  height: 6px;
   padding: 0;
   border-radius: 50%;
   background: var(--accent);
-  border: none;
+  border: 1.5px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .sidebar__link--active .sidebar__badge {
@@ -560,16 +749,19 @@ h3 {
 
 /* ---- Top bar ---- */
 .topbar {
-  height: 56px;
+  min-height: 60px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-bottom: 1px solid var(--border-strong);
   background: var(--surface);
   backdrop-filter: blur(16px);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  gap: 16px;
+  flex-wrap: wrap;
+  row-gap: 10px;
+  padding: 10px 24px;
+  gap: 12px 16px;
 }
 
 .topbar__left {
@@ -577,6 +769,36 @@ h3 {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  flex: 1 1 140px;
+}
+
+/* Fresno-style hamburger — only shown on narrow screens */
+.topbar__menu {
+  display: none;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.topbar__menu:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.topbar__menu .nav-icon {
+  width: 20px;
+  height: 20px;
+  opacity: 1;
 }
 
 .topbar__status {
@@ -586,6 +808,11 @@ h3 {
   font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .topbar__dot {
@@ -613,15 +840,29 @@ h3 {
 
 .topbar__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   flex-shrink: 0;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.topbar__refresh-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.topbar__refresh-label {
+  white-space: nowrap;
 }
 
 /* ---- Main content ---- */
 .main {
   flex: 1;
   overflow-y: auto;
-  padding: 28px 32px 48px;
+  overflow-x: hidden;
+  min-height: 0;
+  padding: 32px 36px 56px;
   scrollbar-gutter: stable;
 }
 
@@ -637,51 +878,59 @@ h3 {
 .page {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 28px;
   max-width: 1120px;
 }
 
 .dashboard {
   max-width: 1280px;
-  gap: 22px;
+  gap: 28px;
 }
 
 .page-header {
-  margin-bottom: 4px;
+  position: relative;
+  margin-bottom: 8px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--fs-cool-gray);
+}
+
+/* Brand underline accent — Fresno State signature */
+.page-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 64px;
+  height: 3px;
+  background: var(--accent);
 }
 
 .page-header__eyebrow {
   display: block;
+  font-family: var(--font-ui);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   color: var(--accent);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .page-header__title {
-  font-size: 28px;
+  font-family: var(--font-display);
+  font-size: 30px;
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-:root[data-theme="light"] .page-header__title {
-  -webkit-text-fill-color: var(--text);
-  background: none;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: var(--text);
 }
 
 .page-header__subtitle {
-  margin: 8px 0 0;
-  font-size: 14px;
+  margin: 10px 0 0;
+  font-size: 14.5px;
   color: var(--text-secondary);
-  max-width: 640px;
-  line-height: 1.55;
+  max-width: 660px;
+  line-height: 1.6;
 }
 
 /* ---- Posture bar ---- */
@@ -707,6 +956,7 @@ h3 {
   background: var(--surface-2);
   box-shadow: var(--shadow-glow);
   border-color: color-mix(in srgb, var(--accent) 25%, var(--border));
+  border-left: 3px solid var(--accent);
 }
 
 .posture-metric--link {
@@ -720,10 +970,11 @@ h3 {
 }
 
 .posture-metric__value {
+  font-family: var(--font-display);
   font-size: 30px;
   font-weight: 700;
-  letter-spacing: -0.03em;
-  line-height: 1;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
 
@@ -854,8 +1105,10 @@ h3 {
 
 .mini-table th {
   color: var(--text-secondary);
-  font-weight: 500;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .mini-table tbody tr {
@@ -933,12 +1186,16 @@ h3 {
 .section-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--fs-cool-gray);
+  margin-bottom: 4px;
 }
 
 .section-header__title {
-  font-size: 16px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--text);
 }
@@ -1075,34 +1332,45 @@ h3 {
 }
 
 .kpi-card {
+  position: relative;
   background: var(--surface);
-  border: 0.5px solid var(--border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-top: 3px solid rgba(255, 255, 255, 0.45);
+  border-radius: 0 0 var(--radius) var(--radius);
   padding: 16px 18px;
   display: block;
+  box-shadow: var(--shadow-card);
 }
 
 .kpi-card--link {
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease), transform 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 
 .kpi-card--link:hover {
   border-color: var(--border-strong);
+  border-top-color: var(--accent);
   background: var(--surface-2);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card), var(--shadow-glow);
 }
 
 .kpi-card__label {
   margin: 0 0 6px;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-secondary);
 }
 
 .kpi-card__value {
   margin: 0;
+  font-family: var(--font-display);
   font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
 }
 
 .kpi-card__hint {
@@ -1116,7 +1384,13 @@ h3 {
 .home-charts {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: 14px;
+  gap: 16px;
+}
+
+@media (max-width: 960px) {
+  .home-charts {
+    grid-template-columns: 1fr;
+  }
 }
 
 .home-chart-link {
@@ -1335,8 +1609,10 @@ h3 {
 }
 
 .donut-center__value {
+  font-family: var(--font-display);
   font-size: clamp(20px, 4vw, 26px);
-  font-weight: 600;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .donut-center__label {
@@ -1565,8 +1841,11 @@ h3 {
 .geo-map__aside {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   min-width: 0;
+  min-height: 0;
+  max-height: 220px;
+  overflow-y: auto;
   padding: 4px 0;
   gap: 8px;
 }
@@ -1703,23 +1982,21 @@ h3 {
 
 .remediation-row__effort {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--text-muted);
+  padding: 2px 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .remediation-row__effort--high {
-  color: var(--sev-critical);
-  background: color-mix(in srgb, var(--sev-critical) 14%, transparent);
+  color: #ffd24d;
 }
 
 .remediation-row__effort--medium {
-  color: var(--sev-high);
-  background: color-mix(in srgb, var(--sev-high) 14%, transparent);
+  color: #ffe6a3;
 }
 
 .remediation-progress {
@@ -1747,6 +2024,10 @@ h3 {
 @media (max-width: 1100px) {
   .dashboard-charts-row--triple {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-charts-row--triple .chart-card {
+    min-height: 0;
   }
 
   .home-remediation-row,
@@ -1878,44 +2159,73 @@ h3 {
 }
 
 /* ---- Responsive shell ---- */
-@media (max-width: 900px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 40;
-    box-shadow: var(--shadow-card);
-  }
+/* Fresno-style mobile nav: driven by the JS isMobile signal so it stays in
+   sync with matchMedia. Nav is hidden off-canvas and opens as an overlay. */
+.app-shell--mobile .topbar__menu {
+  display: inline-flex;
+}
 
-  .app-shell__main {
-    margin-left: 72px;
-    width: calc(100% - 72px);
-    transition: margin-left 0.22s var(--ease), width 0.22s var(--ease);
-  }
+.app-shell--mobile .sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 50;
+  width: min(284px, 86vw);
+  transform: translateX(-100%);
+  box-shadow: 8px 0 32px rgba(19, 40, 76, 0.28);
+}
 
-  .sidebar:not(.sidebar--collapsed) ~ .app-shell__main {
-    margin-left: 248px;
-    width: calc(100% - 248px);
-  }
+.app-shell--mobile .sidebar:not(.sidebar--collapsed) {
+  transform: translateX(0);
+}
+
+.app-shell--mobile .app-shell__main {
+  margin-left: 0;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
   .main {
-    padding: 20px 16px 36px;
+    padding: 20px 16px 40px;
   }
 
   .topbar {
-    padding: 0 16px;
+    padding: 10px 14px;
+  }
+
+  .topbar__updated {
+    display: none;
+  }
+
+  .topbar__refresh-label {
+    display: none;
   }
 
   .page-header__title {
     font-size: 24px;
   }
 
+  .page {
+    gap: 22px;
+  }
+
   .back-to-top {
     right: 16px;
     bottom: 16px;
+  }
+
+  .card {
+    padding: 18px 16px;
+  }
+
+  .card__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .card__action {
+    justify-content: flex-start;
   }
 }
 
@@ -2185,5 +2495,140 @@ h3 {
   .threat-dist__meta {
     grid-row: 1;
     grid-column: 2;
+  }
+}
+
+/* ---- Theme selector ---- */
+.theme-selector {
+  position: relative;
+}
+
+.theme-selector__trigger {
+  gap: 8px;
+  max-width: 168px;
+}
+
+.theme-selector__swatch-preview,
+.theme-selector__swatches {
+  display: inline-flex;
+  border-radius: 2px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+}
+
+.theme-selector__swatch-preview span,
+.theme-selector__swatches span {
+  width: 10px;
+  height: 18px;
+  display: block;
+}
+
+.theme-selector__trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme-selector__menu {
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card), 0 16px 48px rgba(19, 40, 76, 0.14);
+  backdrop-filter: blur(16px);
+  overflow-y: auto;
+}
+
+.theme-selector__group + .theme-selector__group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.theme-selector__group-label {
+  margin: 0 0 6px;
+  padding: 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.theme-selector__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-selector__option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+
+.theme-selector__option:hover {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.theme-selector__option--active {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-left: 3px solid var(--accent);
+  padding-left: 8px;
+}
+
+.theme-selector__option-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.theme-selector__option-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.theme-selector__option-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.theme-selector__check {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+@media (max-width: 768px) {
+  .theme-selector__trigger-label {
+    display: none;
+  }
+
+  .theme-selector__trigger {
+    max-width: none;
+    padding: 7px 9px;
   }
 }
