@@ -1,4 +1,5 @@
 import type { DashboardData, SourceSeverity } from '@/types/data';
+import { countryLabel, normalizeCountryCode } from '@/lib/geo';
 import { toMonthKey } from '@/utils/dateUtils';
 
 const SEVERITIES: SourceSeverity[] = ['Critical', 'High', 'Medium', 'Low', 'Informational'];
@@ -36,7 +37,10 @@ export function buildChartData(data: DashboardData) {
 
   const countryCounts = new Map<string, number>();
   for (const ip of ips.filter((item) => item.cves.length > 0)) {
-    if (ip.country) countryCounts.set(ip.country, (countryCounts.get(ip.country) ?? 0) + 1);
+    const code = normalizeCountryCode(ip.country);
+    if (!code) continue;
+    const label = countryLabel(code);
+    countryCounts.set(label, (countryCounts.get(label) ?? 0) + 1);
   }
   const countries = Array.from(countryCounts.entries())
     .sort(([, a], [, b]) => b - a)
@@ -90,7 +94,14 @@ export function buildAnalyticsData(data: DashboardData) {
   const operatingSystems = countMap(ips.map((ip) => ip.operatingSystem ?? ''));
   const ports = countMap(ips.flatMap((ip) => ip.ports.map(String)));
   const products = countMap(ips.flatMap((ip) => ip.products));
-  const countryDistribution = countMap(ips.map((ip) => ip.country));
+  const countryDistribution = countMap(
+    ips
+      .map((ip) => {
+        const code = normalizeCountryCode(ip.country);
+        return code ? countryLabel(code) : '';
+      })
+      .filter(Boolean),
+  );
 
   const orgScores = new Map<string, { total: number; count: number }>();
   for (const record of cveRecords) {

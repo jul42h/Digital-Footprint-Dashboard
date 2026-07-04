@@ -1,6 +1,6 @@
 import { KpiCard } from "@/components/KpiCard";
 import { PageHeader } from "@/components/PageHeader";
-import { NAV_LABELS } from "@/lib/copy";
+import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { VendorRiskTable } from "./VendorRiskTable";
 import { ProductRiskTable } from "./ProductRiskTable";
 import { useProducts, useVendors } from "./hooks";
@@ -15,7 +15,7 @@ export function VendorsPage() {
     <div className="page">
       <PageHeader
         title={NAV_LABELS.providers}
-        subtitle="Which software makers and products are contributing the most risk to your environment."
+        subtitle={HELP_TEXT.vendorsPage}
       />
 
       <div className="kpi-strip">
@@ -25,7 +25,7 @@ export function VendorsPage() {
         <KpiCard kpi={{ label: "Urgent issues", value: String(totalUrgent), tone: totalUrgent > 0 ? "critical" : "neutral" }} />
       </div>
 
-      <div className="home-charts">
+      <div className="dashboard-2col dashboard-2col--vendors">
         <VendorRiskTable />
         <ProductRiskTable />
       </div>

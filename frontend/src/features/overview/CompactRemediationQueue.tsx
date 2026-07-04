@@ -5,6 +5,7 @@ import { SeverityBadge } from "@/components/SeverityBadge";
 import { SolutionStatus } from "@/features/solutions/SolutionStatus";
 import { useSolutions } from "@/features/solutions/hooks";
 import { useCve } from "@/features/cves/hooks";
+import { HELP_TEXT } from "@/lib/copy";
 
 export function CompactRemediationQueue({ limit = 5 }: { limit?: number }) {
   const solutions = useSolutions().slice(0, limit);
@@ -16,6 +17,7 @@ export function CompactRemediationQueue({ limit = 5 }: { limit?: number }) {
       action={<ViewAllLink to="/solutions" />}
       className="remediation-queue-card"
     >
+      <p className="card-footnote card-footnote--tight">{HELP_TEXT.priorityQueue}</p>
       <div className="remediation-queue">
         {solutions.length === 0 ? (
           <p className="geo-map__empty">No critical or high findings requiring action.</p>

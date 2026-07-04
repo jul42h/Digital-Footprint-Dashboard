@@ -12,7 +12,7 @@ import {
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { KpiCard } from "@/components/KpiCard";
-import { NAV_LABELS } from "@/lib/copy";
+import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import { buildAnalyticsData, buildChartData } from "@/utils/chartData";
 import { computeNetworkRiskScore } from "@/utils/summaryGenerator";
@@ -29,7 +29,7 @@ export function AnalyticsPage() {
     <div className="page dashboard">
       <PageHeader
         title={NAV_LABELS.analytics}
-        subtitle="Deeper breakdown of services, geography, ports, and operating systems from Shodan data."
+        subtitle={HELP_TEXT.analyticsPage}
       />
 
       <div className="kpi-strip">
@@ -39,7 +39,7 @@ export function AnalyticsPage() {
         <KpiCard kpi={{ label: "Highest CVSS", value: String(data.stats.highestCVSS), tone: "high" }} />
       </div>
 
-      <div className="home-geo-row">
+      <div className="dashboard-2col dashboard-2col--geo">
         <GeoExposureMap />
         <AnalyticsBarCard title="Country distribution" data={analytics.countryDistribution.slice(0, 8)} horizontal />
       </div>

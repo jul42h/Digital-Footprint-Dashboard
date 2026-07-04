@@ -28,6 +28,42 @@ const COUNTRY_NAMES: Record<string, string> = {
   IE: 'Ireland',
   SE: 'Sweden',
   CH: 'Switzerland',
+  MX: 'Mexico',
+  IT: 'Italy',
+  ES: 'Spain',
+  KR: 'South Korea',
+};
+
+const COUNTRY_ALIASES: Record<string, string> = {
+  USA: 'US',
+  'U.S.': 'US',
+  'U.S.A.': 'US',
+  'UNITED STATES': 'US',
+  'UNITED STATES OF AMERICA': 'US',
+  UK: 'GB',
+  'GREAT BRITAIN': 'GB',
+  'UNITED KINGDOM': 'GB',
+  ENGLAND: 'GB',
+  DEUTSCHLAND: 'DE',
+  GERMANY: 'DE',
+  FRANCE: 'FR',
+  CANADA: 'CA',
+  AUSTRALIA: 'AU',
+  NETHERLANDS: 'NL',
+  HOLLAND: 'NL',
+  JAPAN: 'JP',
+  CHINA: 'CN',
+  INDIA: 'IN',
+  BRAZIL: 'BR',
+  SINGAPORE: 'SG',
+  IRELAND: 'IE',
+  SWEDEN: 'SE',
+  SWITZERLAND: 'CH',
+  MEXICO: 'MX',
+  ITALY: 'IT',
+  SPAIN: 'ES',
+  'SOUTH KOREA': 'KR',
+  KOREA: 'KR',
 };
 
 const COUNTRY_COORDS: Record<string, [number, number]> = {
@@ -46,6 +82,10 @@ const COUNTRY_COORDS: Record<string, [number, number]> = {
   IE: [53.4, -8.2],
   SE: [60.1, 18.6],
   CH: [46.8, 8.2],
+  MX: [23.6, -102.5],
+  IT: [41.9, 12.6],
+  ES: [40.5, -3.7],
+  KR: [36.5, 127.9],
 };
 
 const CITY_COORDS: Record<string, [number, number]> = {
@@ -53,6 +93,9 @@ const CITY_COORDS: Record<string, [number, number]> = {
   'Los Angeles,US': [34.05, -118.24],
   'San Francisco,US': [37.77, -122.42],
   'San Jose,US': [37.34, -121.89],
+  'Sacramento,US': [38.58, -121.49],
+  'Oakland,US': [37.8, -122.27],
+  'San Diego,US': [32.72, -117.16],
   'Seattle,US': [47.61, -122.33],
   'Chicago,US': [41.88, -87.63],
   'Dallas,US': [32.78, -96.8],
@@ -73,17 +116,70 @@ const CITY_COORDS: Record<string, [number, number]> = {
 
 const FULL_VIEWBOX = '0 0 360 180';
 
-export function countryLabel(code: string): string {
-  return COUNTRY_NAMES[code.toUpperCase()] ?? code.toUpperCase();
+/** Normalize country values from Shodan (US, United States, etc.) to ISO-2. */
+export function normalizeCountryCode(raw?: string | null): string | null {
+  if (!raw?.trim()) return null;
+
+  const upper = raw.trim().toUpperCase();
+  if (upper === 'XX' || upper === 'UNKNOWN' || upper === 'N/A') return null;
+
+  if (upper.length === 2 && COUNTRY_COORDS[upper]) return upper;
+  if (COUNTRY_ALIASES[upper]) return COUNTRY_ALIASES[upper];
+
+  for (const [code, name] of Object.entries(COUNTRY_NAMES)) {
+    if (name.toUpperCase() === upper) return code;
+  }
+
+  if (upper.length === 2) return upper;
+
+  return null;
 }
 
-function resolveCoords(countryCode: string, city?: string): [number, number] {
-  const code = countryCode.toUpperCase();
-  if (city) {
-    const cityKey = `${city},${code}`;
-    if (CITY_COORDS[cityKey]) return CITY_COORDS[cityKey];
+export function countryLabel(code: string): string {
+  const normalized = normalizeCountryCode(code) ?? code.toUpperCase();
+  return COUNTRY_NAMES[normalized] ?? normalized;
+}
+
+export function formatIpLocation(city?: string, countryRaw?: string): string {
+  const code = normalizeCountryCode(countryRaw);
+  const country = code ? countryLabel(code) : countryRaw?.trim();
+  const place = city?.trim();
+
+  if (place && country) return `${place}, ${country}`;
+  if (place) return place;
+  if (country) return country;
+  return '';
+}
+
+function titleCaseCity(city: string): string {
+  return city
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function lookupCityCoords(city: string, countryCode: string): [number, number] | null {
+  const normalizedCity = titleCaseCity(city);
+  const target = `${normalizedCity},${countryCode}`.toLowerCase();
+
+  for (const [key, coords] of Object.entries(CITY_COORDS)) {
+    if (key.toLowerCase() === target) return coords;
   }
-  return COUNTRY_COORDS[code] ?? [20, 0];
+
+  return null;
+}
+
+function resolveCoords(countryCode: string, city?: string): [number, number] | null {
+  const code = normalizeCountryCode(countryCode);
+  if (!code) return null;
+
+  if (city?.trim()) {
+    const cityCoords = lookupCityCoords(city, code);
+    if (cityCoords) return cityCoords;
+  }
+
+  return COUNTRY_COORDS[code] ?? null;
 }
 
 /** Equirectangular projection for SVG map (viewBox 0 0 360 180). */
@@ -136,15 +232,26 @@ export function computeMapViewBox(points: GeoPoint[]): { viewBox: string; zoomed
   };
 }
 
+export function countUnlocatedVulnerableIps(data: DashboardData): number {
+  return data.ips.filter(
+    (ip) => ip.cves.length > 0 && !normalizeCountryCode(ip.country),
+  ).length;
+}
+
 export function buildGeoPoints(data: DashboardData): GeoPoint[] {
   const buckets = new Map<string, GeoPoint>();
 
   for (const ip of data.ips.filter((item) => item.cves.length > 0)) {
-    const countryCode = (ip.country || 'XX').toUpperCase();
-    const city = ip.city?.trim();
+    const countryCode = normalizeCountryCode(ip.country);
+    if (!countryCode) continue;
+
+    const city = ip.city?.trim() ? titleCaseCity(ip.city) : undefined;
+    const coords = resolveCoords(countryCode, city);
+    if (!coords) continue;
+
+    const [lat, lng] = coords;
     const key = `${countryCode}::${city ?? ''}`;
-    const [lat, lng] = resolveCoords(countryCode, city);
-    const maxCvss = ip.cves.length ? Math.max(...ip.cves.map((c) => c.score)) : 0;
+    const maxCvss = Math.max(...ip.cves.map((c) => c.score));
 
     const existing = buckets.get(key);
     if (existing) {
@@ -172,9 +279,12 @@ export function buildGeoPoints(data: DashboardData): GeoPoint[] {
 export function findIpsForGeoPoint(data: DashboardData, point: GeoPoint): string[] {
   return data.ips
     .filter((ip) => {
-      const code = (ip.country || '').toUpperCase();
-      if (code !== point.countryCode) return false;
-      if (point.city && ip.city?.trim() !== point.city) return false;
+      const code = normalizeCountryCode(ip.country);
+      if (!code || code !== point.countryCode) return false;
+      if (point.city) {
+        const city = ip.city?.trim() ? titleCaseCity(ip.city) : undefined;
+        if (city !== point.city) return false;
+      }
       return ip.cves.length > 0;
     })
     .map((ip) => ip.ip);

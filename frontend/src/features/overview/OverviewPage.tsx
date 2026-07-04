@@ -13,11 +13,15 @@ import { ThreatDistributionChart } from "./ThreatDistributionChart";
 export function OverviewPage() {
   return (
     <div className="page dashboard">
-      <PageHeader eyebrow="Overview" title="Digital Footprint" />
+      <PageHeader
+        eyebrow="Overview"
+        title="Digital Footprint"
+        subtitle="Your external security posture at a glance — prioritized by risk across Fresno State's scanned internet-facing assets."
+      />
 
       <DashboardPosture />
 
-      <div className="home-remediation-row">
+      <div className="dashboard-2col dashboard-2col--remediation">
         <RemediationProgress />
         <CompactRemediationQueue limit={5} />
       </div>
@@ -30,7 +34,7 @@ export function OverviewPage() {
         <RiskTrendChart />
       </div>
 
-      <div className="home-exposure-row">
+      <div className="dashboard-2col dashboard-2col--exposure">
         <GeoExposureMap />
         <HomeTopIpsChart />
       </div>

@@ -1,6 +1,6 @@
 import { KpiCard } from "@/components/KpiCard";
 import { PageHeader } from "@/components/PageHeader";
-import { NAV_LABELS } from "@/lib/copy";
+import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { SolutionTable } from "./SolutionTable";
 import { useSolutions } from "./hooks";
 
@@ -16,7 +16,7 @@ export function SolutionsPage() {
     <div className="page">
       <PageHeader
         title={NAV_LABELS.fixes}
-        subtitle="Prioritized actions to close critical and high vulnerabilities across your footprint."
+        subtitle={HELP_TEXT.solutionsPage}
       />
 
       <div className="kpi-strip">

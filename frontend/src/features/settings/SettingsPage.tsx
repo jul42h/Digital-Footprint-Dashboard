@@ -1,7 +1,7 @@
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { getApiBaseUrl } from "@/lib/api";
-import { NAV_LABELS } from "@/lib/copy";
+import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import { formatDate } from "@/utils/dateUtils";
 
@@ -26,7 +26,7 @@ export function SettingsPage() {
     <div className="page" style={{ maxWidth: 720 }}>
       <PageHeader
         title={NAV_LABELS.settings}
-        subtitle="Data source and API configuration."
+        subtitle={HELP_TEXT.settingsPage}
       />
 
       <Card title="Data source">

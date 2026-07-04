@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { Card } from "@/components/Card";
 import { severityColorValue } from "@/lib/severity";
+import { HELP_TEXT } from "@/lib/copy";
 import { useRiskTrend } from "./hooks";
 
 export function RiskTrendChart() {
@@ -16,6 +17,7 @@ export function RiskTrendChart() {
 
   return (
     <Card title="Exposure trend">
+      <p className="card-footnote card-footnote--tight">{HELP_TEXT.exposureTrend}</p>
       <div className="chart-area chart-area--trend">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={points} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>

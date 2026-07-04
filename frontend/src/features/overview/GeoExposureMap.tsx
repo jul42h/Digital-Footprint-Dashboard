@@ -2,15 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/Card";
 import { ViewAllLink } from "@/components/ViewAllLink";
+import { FilterChip } from "@/components/TableToolbar";
 import { useDashboard } from "@/context/DashboardContext";
+import { HELP_TEXT } from "@/lib/copy";
 import {
   buildGeoPoints,
   computeMapViewBox,
+  countUnlocatedVulnerableIps,
   findIpsForGeoPoint,
   project,
   type GeoPoint,
 } from "@/lib/geo";
-import { cvssToSeverity } from "@/lib/severity";
+import { cvssToSeverity, SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/severity";
+import type { Severity } from "@/types";
 import { WORLD_LAND_PATHS } from "@/lib/worldLandPaths";
 
 const SEVERITY_DOT: Record<string, string> = {
@@ -30,7 +34,15 @@ function markerRadius(cveCount: number, maxCves: number, zoomed: boolean): numbe
 export function GeoExposureMap() {
   const navigate = useNavigate();
   const { data } = useDashboard();
-  const points = useMemo(() => buildGeoPoints(data), [data]);
+  const allPoints = useMemo(() => buildGeoPoints(data), [data]);
+  const unlocatedCount = useMemo(() => countUnlocatedVulnerableIps(data), [data]);
+  const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
+
+  const points = useMemo(() => {
+    if (severityFilter === "all") return allPoints;
+    return allPoints.filter((point) => cvssToSeverity(point.maxCvss) === severityFilter);
+  }, [allPoints, severityFilter]);
+
   const maxCves = Math.max(...points.map((p) => p.cveCount), 1);
   const { viewBox, zoomed } = useMemo(() => computeMapViewBox(points), [points]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -51,7 +63,7 @@ export function GeoExposureMap() {
 
   return (
     <Card
-      title="Global detections"
+      title="Vulnerability locations"
       className={`chart-card geo-map-card${zoomed ? " geo-map-card--zoomed" : ""}`}
       action={
         points.length > 0 ? (
@@ -63,6 +75,17 @@ export function GeoExposureMap() {
         )
       }
     >
+      <p className="card-footnote card-footnote--tight">{HELP_TEXT.geoMap}</p>
+      <div className="table-toolbar__filters" style={{ marginBottom: 10 }}>
+        <FilterChip active={severityFilter === "all"} onClick={() => setSeverityFilter("all")}>
+          All severities
+        </FilterChip>
+        {SEVERITY_ORDER.map((s) => (
+          <FilterChip key={s} active={severityFilter === s} onClick={() => setSeverityFilter(s)}>
+            {SEVERITY_LABEL[s]}
+          </FilterChip>
+        ))}
+      </div>
       <div className="geo-map geo-map--compact">
         <div className="geo-map__canvas">
           <svg
@@ -70,7 +93,7 @@ export function GeoExposureMap() {
             preserveAspectRatio="xMidYMid meet"
             className="geo-map__svg"
             role="img"
-            aria-label="World map of detected vulnerabilities"
+            aria-label="Map of vulnerability locations by country and city"
           >
             <rect x="-360" y="-180" width="1080" height="540" className="geo-map__ocean" />
             <g className="geo-map__landmass">
@@ -102,10 +125,10 @@ export function GeoExposureMap() {
                   }}
                   tabIndex={0}
                   role="link"
-                  aria-label={`${point.label}: ${point.cveCount} vulnerabilities, ${point.assetCount} assets`}
+                  aria-label={`${point.label}: ${point.cveCount} vulnerabilities across ${point.assetCount} assets`}
                 >
                   <title>
-                    {point.label}: {point.cveCount} vulns · {point.assetCount} assets · CVSS {point.maxCvss.toFixed(1)}
+                    {point.label}: {point.cveCount} vulnerabilities · {point.assetCount} assets · highest CVSS {point.maxCvss.toFixed(1)}
                   </title>
                   {isActive && (
                     <circle cx={x} cy={y} r={r + 2.5} className="geo-map__halo" style={{ fill: color }} />
@@ -120,7 +143,7 @@ export function GeoExposureMap() {
 
         <div className="geo-map__aside">
           {points.length === 0 ? (
-            <p className="geo-map__empty">No geolocation in dataset.</p>
+            <p className="geo-map__empty">{HELP_TEXT.geoMapEmpty}</p>
           ) : (
             <>
               <ul className="geo-map__list">
@@ -145,13 +168,16 @@ export function GeoExposureMap() {
               </ul>
               {active && (
                 <p className="geo-map__detail">
-                  {active.assetCount} asset{active.assetCount !== 1 ? "s" : ""} · CVSS {active.maxCvss.toFixed(1)}
+                  {active.assetCount} asset{active.assetCount !== 1 ? "s" : ""} · {active.cveCount} vulnerabilities · highest CVSS {active.maxCvss.toFixed(1)}
                 </p>
               )}
             </>
           )}
         </div>
       </div>
+      {unlocatedCount > 0 && (
+        <p className="card-footnote card-footnote--tight">{HELP_TEXT.geoMapUnlocated(unlocatedCount)}</p>
+      )}
     </Card>
   );
 }

@@ -3,6 +3,7 @@ import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewAllLink } from "@/components/ViewAllLink";
 import { THREAT_COLOR, THREAT_LABEL, THREAT_ORDER, THREAT_TECH_LABEL } from "@/lib/threats";
+import { HELP_TEXT } from "@/lib/copy";
 import { useThreatDistribution } from "./hooks";
 
 export function ThreatDistributionChart() {
@@ -68,9 +69,7 @@ export function ThreatDistributionChart() {
             </ul>
           </div>
         )}
-        <p className="card-footnote card-footnote--tight">
-          Select a category to learn what it means and view related issues.
-        </p>
+        <p className="card-footnote card-footnote--tight">{HELP_TEXT.threatDistribution}</p>
       </div>
     </Card>
   );

@@ -3,6 +3,7 @@ import { Card } from "@/components/Card";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { CvssScore } from "@/components/CvssScore";
 import { LABELS, NAV_LABELS } from "@/lib/copy";
+import { formatIpLocation } from "@/lib/geo";
 import { useCve } from "@/features/cves/hooks";
 import { useIp } from "./hooks";
 
@@ -28,10 +29,10 @@ export function IpDetailPage() {
                 <span className="detail-inline__label">{LABELS.hostname} </span>
                 <span>{ip.hostname}</span>
               </div>
-              {(ip.city || ip.country) && (
+              {formatIpLocation(ip.city, ip.country) && (
                 <div>
                   <span className="detail-inline__label">{LABELS.location} </span>
-                  <span>{[ip.city, ip.country].filter(Boolean).join(", ")}</span>
+                  <span>{formatIpLocation(ip.city, ip.country)}</span>
                 </div>
               )}
               <div>

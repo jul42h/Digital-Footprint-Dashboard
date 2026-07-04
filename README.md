@@ -1,16 +1,15 @@
 # Digital Footprint Dashboard
 
-React dashboard for security posture, CVEs, IPs, vendors, and analytics — served by the included **footprint-api** FastAPI app.
+Fresno State cybersecurity dashboard for external footprint visibility — CVEs, IP assets, remediations, vendors, and analytics. Served by the **footprint-api** FastAPI app with DynamoDB or Excel fallback data.
 
 ## Project structure
 
 | Path | Description |
 |------|-------------|
-| `frontend/` | React dashboard (Vite + TypeScript) |
+| `frontend/` | React dashboard (Vite + TypeScript, Fresno State branding) |
 | `frontend/dist/` | Production build output (served by FastAPI) |
 | `footprint-api/` | FastAPI server (DynamoDB + static UI) |
 | `frontend_mount.py` | SPA routing helper used by the API |
-| `findings/` | Findings hooks and related utilities |
 
 ## Quick start
 
@@ -38,41 +37,37 @@ npm run build
 npm run api
 ```
 
-Open **http://localhost:8000** — the dashboard and API share the same origin, so no `VITE_API_URL` is needed.
+Open **http://localhost:8000** — the dashboard and API share the same origin.
 
 See `footprint-api/README.md` for endpoint details and environment variables.
 
-## API endpoints
+## Routes
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/v1/health` | Health check |
-| `GET` | `/api/v1/dashboard` | Full dashboard payload |
-| `POST` | `/api/v1/dashboard/refresh` | Trigger data refresh |
-| `GET` | `/findings` | Findings list (optional `?ip=` filter) |
-
-If the API is unavailable, the frontend falls back to `/data/shodan_data.xlsx` in the build.
+| Route | Purpose |
+|-------|---------|
+| `/` | Overview — posture bar, severity, threats, remediation queue |
+| `/cves` | All security issues |
+| `/threats` | Threat category guide |
+| `/ips` | Scanned IP assets |
+| `/solutions` | Remediation options |
+| `/vendors` | Software providers and products |
+| `/analytics` | Deeper charts — geography, ports, OS |
+| `/settings` | Data source and theme preferences |
 
 ## Optional: Vite dev server
 
-Only use this while editing React code. It runs on port 5173 and proxies `/api` to localhost:8000:
+Use while editing React code (port 5173, proxies `/api` to localhost:8000):
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-Keep the API running separately in another terminal (`npm run api`).
+Keep the API running in another terminal (`npm run api`).
 
 ## Environment variables
 
-**API** (`footprint-api/.env` or shell exports):
-
-| Variable | Description |
-|----------|-------------|
-| `DYNAMODB_TABLE_NAME` | DynamoDB table (default: `enriched-database`) |
-| `AWS_REGION` | AWS region (default: `us-west-2`) |
-| `FRONTEND_DIST` | Override path to `frontend/dist` |
+**API** — see `footprint-api/README.md`
 
 **Frontend dev only** (`frontend/.env`):
 

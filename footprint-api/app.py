@@ -14,12 +14,13 @@ RUN
     # Build the frontend once (from repo root):
     #   npm run build
 
-    uvicorn app:app --reload --port 8000
+    uvicorn app:app --reload --port 8000 --reload-dir ../frontend/src
     # open http://localhost:8000
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -34,12 +35,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from dashboard_transform import findings_to_dashboard
+from frontend_sync import (
+    dist_is_stale,
+    ensure_frontend_current,
+    read_build_info,
+    resolve_dev_proxy_url,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from frontend_mount import mount_frontend
+from frontend_mount import mount_frontend, mount_frontend_dev_proxy
 
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------
@@ -49,7 +57,20 @@ logger = logging.getLogger(__name__)
 TABLE_NAME = os.environ.get("DYNAMODB_TABLE_NAME", "enriched-database")
 AWS_REGION = os.environ.get("AWS_REGION", "us-west-2")
 
-FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", REPO_ROOT / "frontend" / "dist"))
+FRONTEND_DIST = Path(os.environ.get("FRONTEND_DIST", REPO_ROOT / "frontend" / "dist")).resolve()
+FRONTEND_DEV_URL = os.environ.get("FRONTEND_DEV_URL", "").strip()
+FRONTEND_AUTO_DEV = os.environ.get("FRONTEND_AUTO_DEV", "1").lower() not in {"0", "false", "no"}
+FRONTEND_ALWAYS_REBUILD = os.environ.get("FRONTEND_ALWAYS_REBUILD", "").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+SKIP_FRONTEND_BUILD = os.environ.get("SKIP_FRONTEND_BUILD", "").lower() in {"1", "true", "yes"}
+
+_effective_dev_url = resolve_dev_proxy_url(
+    FRONTEND_DEV_URL,
+    auto_detect=FRONTEND_AUTO_DEV,
+)
 
 CORS_ORIGINS = os.environ.get(
     "CORS_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:8000"
@@ -122,6 +143,36 @@ def load_dashboard(force_refresh: bool = False) -> Dict[str, Any]:
     return _dashboard_cache
 
 
+def _setup_frontend(app: FastAPI) -> None:
+    if _effective_dev_url:
+        mount_frontend_dev_proxy(app, _effective_dev_url)
+        return
+
+    ensure_frontend_current(
+        REPO_ROOT,
+        FRONTEND_DIST,
+        always_rebuild=FRONTEND_ALWAYS_REBUILD,
+        skip_build=SKIP_FRONTEND_BUILD,
+    )
+
+    if FRONTEND_DIST.is_dir() and (FRONTEND_DIST / "index.html").is_file():
+        mount_frontend(app, FRONTEND_DIST)
+        if dist_is_stale(FRONTEND_DIST, REPO_ROOT):
+            logger.warning(
+                "Serving a frontend bundle that does not match current source. "
+                "Run `npm run build` from the repo root."
+            )
+    else:
+
+        @app.get("/")
+        def frontend_missing() -> Dict[str, str]:
+            return {
+                "message": "Frontend build not found.",
+                "expected_path": str(FRONTEND_DIST),
+                "build_command": "npm run build",
+            }
+
+
 # ----------------------------------------------------------------------
 # FastAPI app + routes
 # ----------------------------------------------------------------------
@@ -135,6 +186,21 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/v1/build-info")
+def build_info() -> Dict[str, Any]:
+    if _effective_dev_url:
+        return {"mode": "dev-proxy", "devUrl": _effective_dev_url}
+
+    info = read_build_info(FRONTEND_DIST)
+    stale = dist_is_stale(FRONTEND_DIST, REPO_ROOT)
+    return {
+        "mode": "production",
+        "dist": str(FRONTEND_DIST),
+        "stale": stale,
+        **info,
+    }
 
 
 @app.get("/health")
@@ -178,13 +244,4 @@ def get_finding(ip: str, cve_id: str) -> Dict[str, Any]:
 # Static frontend (register API routes above first)
 # ----------------------------------------------------------------------
 
-if FRONTEND_DIST.is_dir():
-    mount_frontend(app, FRONTEND_DIST)
-else:
-    @app.get("/")
-    def frontend_missing() -> Dict[str, str]:
-        return {
-            "message": "Frontend build not found.",
-            "expected_path": str(FRONTEND_DIST),
-            "build_command": "npm run build",
-        }
+_setup_frontend(app)

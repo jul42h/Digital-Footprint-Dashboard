@@ -5,7 +5,7 @@ import { APP_NAME, APP_TAGLINE, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import type { DerivedData } from "@/lib/adapters";
 
-type NavIconName = "home" | "issues" | "systems" | "fixes" | "providers" | "analytics" | "settings";
+type NavIconName = "home" | "issues" | "threats" | "systems" | "fixes" | "providers" | "analytics" | "settings";
 
 const NAV: Array<{
   to: string;
@@ -16,6 +16,7 @@ const NAV: Array<{
 }> = [
   { to: "/", label: NAV_LABELS.home, end: true, icon: "home" },
   { to: "/cves", label: NAV_LABELS.issues, end: false, icon: "issues", count: (d) => d.cves.length },
+  { to: "/threats", label: NAV_LABELS.threats, end: false, icon: "threats", count: (d) => new Set(d.cves.map((c) => c.threatType)).size },
   { to: "/ips", label: NAV_LABELS.systems, end: false, icon: "systems", count: (d) => d.ips.length },
   {
     to: "/solutions",

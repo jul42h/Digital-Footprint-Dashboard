@@ -9,6 +9,7 @@ import type {
 } from '@/types';
 import type { CVEFlatRecord, DashboardData } from '@/types/data';
 import { inferThreatType } from '@/lib/inferThreat';
+import { countryLabel, normalizeCountryCode } from '@/lib/geo';
 import { cvssToSeverity } from '@/lib/severity';
 import { parseDate } from '@/utils/dateUtils';
 import { computeNetworkRiskScore } from '@/utils/summaryGenerator';
@@ -60,11 +61,13 @@ export function toIpRecords(data: DashboardData): IpRecord[] {
       const highCount = ip.cves.filter((c) => cvssToSeverity(c.score) === 'high').length;
       const maxCvss = ip.cves.length ? Math.max(...ip.cves.map((c) => c.score)) : 0;
 
+      const code = normalizeCountryCode(ip.country);
+
       return {
         address: ip.ip,
         hostname: ip.hostnames[0] || ip.organization || ip.ip,
-        country: ip.country || undefined,
-        countryCode: ip.country?.length === 2 ? ip.country : undefined,
+        country: code ? countryLabel(code) : undefined,
+        countryCode: code ?? undefined,
         city: ip.city,
         cveCount: ip.cves.length,
         criticalCount,

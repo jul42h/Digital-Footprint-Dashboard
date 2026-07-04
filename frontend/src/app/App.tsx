@@ -1,5 +1,6 @@
 import { DashboardContext } from "@/context/DashboardContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { HELP_TEXT } from "@/lib/copy";
 import { RouterProvider } from "react-router-dom";
 import { router } from "./router";
 
@@ -9,7 +10,7 @@ function DashboardShell() {
   if (state.loading && !state.data) {
     return (
       <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Loading Shodan intelligence data…</p>
+        <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>{HELP_TEXT.loading}</p>
       </div>
     );
   }

@@ -1,6 +1,7 @@
 type IconName =
   | "home"
   | "issues"
+  | "threats"
   | "systems"
   | "fixes"
   | "providers"
@@ -13,6 +14,8 @@ const PATHS: Record<IconName, string> = {
   home: "M4 10.5L12 4l8 6.5V19a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-8.5z",
   issues:
     "M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z",
+  threats:
+    "M12 2l7 4v6c0 5-3 9-7 10-4-1-7-5-7-10V6l7-4zm0 7v4m0 3h.01",
   systems:
     "M4 7a2 2 0 012-2h2v2H6v2H4V7zm12 0v2h-2V5h2a2 2 0 012 2v0zm-8 8H6v-2h2v2zm8 0h-2v-2h2v2zm-4 4h-2v-2h2v2z",
   fixes:

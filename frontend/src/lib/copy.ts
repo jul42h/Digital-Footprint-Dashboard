@@ -4,6 +4,7 @@ export const APP_TAGLINE = "Fresno State · Cybersecurity";
 export const NAV_LABELS = {
   home: "Home",
   issues: "Security issues",
+  threats: "Threat categories",
   systems: "IP assets",
   fixes: "Remediations",
   providers: "Software providers",
@@ -39,4 +40,39 @@ export const LABELS = {
   remediations: "Remediations",
   vulnerabilities: "Vulnerabilities",
   location: "Location",
+} as const;
+
+/** Short explanations shown under section headers and charts. */
+export const HELP_TEXT = {
+  postureBar:
+    "Summary counts from your latest scan. Click a metric to jump to that section. Exposure score is 0–100 (higher means more risk).",
+  exposureScore:
+    "Combined risk score from severity mix and average CVSS across all findings. Higher is worse.",
+  exposureTrend:
+    "How your exposure score changed over time based on when vulnerabilities were observed.",
+  severityDonut: "Share of findings by CVSS severity band.",
+  threatDistribution: "How findings group into common attack types. Select a row for details.",
+  geoMap:
+    "Locations come from Shodan geolocation on each scanned IP. City coordinates are used when available; otherwise the country center is shown.",
+  geoMapEmpty:
+    "No country or city data was available for vulnerable assets in this dataset.",
+  geoMapUnlocated: (count: number) =>
+    `${count} vulnerable asset${count === 1 ? "" : "s"} could not be placed on the map (missing location data).`,
+  topIps: "Internet-facing addresses with the most CVEs in your footprint.",
+  priorityQueue: "Critical and high findings that still need a remediation status update.",
+  remediationProgress: "Status of recommended fixes for critical and high severity issues.",
+  atRiskAssets: "Scanned systems with open vulnerabilities, ordered by highest CVSS.",
+  cvesPage:
+    "CVEs discovered on your external footprint, ranked by risk. Use filters to narrow by severity, transport, or known exploitation.",
+  ipsPage:
+    "Internet-facing hosts Shodan observed for your organization, with services and vulnerability counts per address.",
+  solutionsPage:
+    "Prioritized actions for critical and high findings. Track progress from not started through completion.",
+  vendorsPage:
+    "Software vendors and products tied to vulnerable services in your environment.",
+  analyticsPage:
+    "Extended charts for geography, ports, operating systems, and services — useful for spotting patterns across the footprint.",
+  settingsPage:
+    "Where dashboard data is loaded from and how to refresh it.",
+  loading: "Loading your security footprint…",
 } as const;

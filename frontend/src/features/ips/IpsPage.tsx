@@ -1,6 +1,6 @@
 import { KpiCard } from "@/components/KpiCard";
 import { PageHeader } from "@/components/PageHeader";
-import { NAV_LABELS } from "@/lib/copy";
+import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { IpTable } from "./IpTable";
 import { useIps } from "./hooks";
 
@@ -13,7 +13,7 @@ export function IpsPage() {
     <div className="page">
       <PageHeader
         title={NAV_LABELS.systems}
-        subtitle="Scanned network addresses with discovered services, vulnerabilities, and severity per asset."
+        subtitle={HELP_TEXT.ipsPage}
       />
 
       <div className="kpi-strip">

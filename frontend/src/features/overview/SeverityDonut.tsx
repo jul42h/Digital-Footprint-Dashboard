@@ -1,5 +1,6 @@
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Card } from "@/components/Card";
+import { HELP_TEXT } from "@/lib/copy";
 import {
   SEVERITY_LABEL,
   SEVERITY_ORDER,
@@ -20,6 +21,7 @@ export function SeverityDonut() {
 
   return (
     <Card title="Severity breakdown" className="chart-card">
+      <p className="card-footnote card-footnote--tight">{HELP_TEXT.severityDonut}</p>
       <div className="chart-card__body">
         <div className="severity-donut">
         <div className="severity-donut__visual">

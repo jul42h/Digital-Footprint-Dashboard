@@ -1,10 +1,11 @@
-# Digital Footprint Dashboard (Prototype)
+# Digital Footprint Dashboard (Frontend)
 
-Unified dashboard combining the **cve-dashboard-frontend** design with **Digital-Footprint-Dashboard-main** data loading.
+Fresno State branded React dashboard for external security posture. Part of the monorepo served by `footprint-api`.
 
 ## Data source
 
-Loads Shodan vulnerability intelligence from `public/data/shodan_data.xlsx` via the same Excel loader pipeline as Digital-Footprint-Dashboard-main. No mock or sample data is bundled.
+- **Production:** DynamoDB via `/api/v1/dashboard` when served from FastAPI
+- **Fallback:** `public/data/shodan_data.xlsx` when the API is unavailable
 
 ## Run locally
 
@@ -13,20 +14,25 @@ npm install
 npm run dev
 ```
 
-Place or replace `public/data/shodan_data.xlsx` with your Shodan export. Use **Refresh data** in the top bar to reload.
+Run `npm run api` from the repo root in another terminal for live API data.
 
 ## Sections
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Overview — posture, trends, severity, alerts |
-| `/cves` | All security issues from loaded data |
+| `/` | Overview — posture, severity, threats, remediation |
+| `/cves` | Security issues with filters and sort |
+| `/threats` | Threat category guide |
 | `/ips` | Scanned IP assets |
-| `/solutions` | Remediation options derived from critical/high CVEs |
-| `/vendors` | Software providers aggregated from product fields |
-| `/analytics` | Charts — ports, OS, services, geography |
-| `/settings` | Data source info and future backend notes |
+| `/solutions` | Remediation queue |
+| `/vendors` | Software providers |
+| `/analytics` | Extended charts |
+| `/settings` | Theme and data source |
 
 ## Stack
 
-React 18 · Vite · TypeScript · Recharts · xlsx
+React 19 · Vite · TypeScript · Recharts
+
+## Themes
+
+Fresno State (light/dark) and Valley Pride (light/dark) — switch via the top bar theme selector.

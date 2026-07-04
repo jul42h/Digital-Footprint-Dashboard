@@ -2,7 +2,7 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card } from "@/components/Card";
 import { ViewAllLink } from "@/components/ViewAllLink";
 import { useSolutions } from "@/features/solutions/hooks";
-import { NAV_LABELS } from "@/lib/copy";
+import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 
 const STATUS_COLORS: Record<string, string> = {
   open: "var(--sev-critical)",
@@ -30,6 +30,7 @@ export function RemediationProgress() {
 
   return (
     <Card title={NAV_LABELS.fixes} className="chart-card" action={<ViewAllLink to="/solutions" />}>
+      <p className="card-footnote card-footnote--tight">{HELP_TEXT.remediationProgress}</p>
       <div className="chart-card__body">
         <div className="remediation-progress remediation-progress--compact">
           <div className="remediation-progress__chart">
