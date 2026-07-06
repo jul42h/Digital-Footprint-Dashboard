@@ -1,6 +1,8 @@
 # Digital Footprint Dashboard
 
-Fresno State cybersecurity dashboard for external footprint visibility — CVEs, IP assets, remediations, vendors, and analytics. Served by the **footprint-api** FastAPI app with DynamoDB or Excel fallback data.
+Fresno State cybersecurity dashboard for external footprint visibility — CVEs, IP assets, remediations, vendors, and analytics. Served by the **footprint-api** FastAPI app with live DynamoDB data.
+
+**Full architecture and section-by-section guide:** [DASHBOARD.md](./DASHBOARD.md)
 
 ## Project structure
 
@@ -16,10 +18,7 @@ Fresno State cybersecurity dashboard for external footprint visibility — CVEs,
 ### 1. Install dependencies
 
 ```bash
-# Frontend
 cd frontend && npm install && cd ..
-
-# API
 pip3 install -r footprint-api/requirements.txt
 export DYNAMODB_TABLE_NAME=enriched-database
 export AWS_REGION=us-west-2
@@ -45,14 +44,15 @@ See `footprint-api/README.md` for endpoint details and environment variables.
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Overview — posture bar, severity, threats, remediation queue |
+| `/` | Overview — posture, severity, observation panel, remediation queue |
 | `/cves` | All security issues |
 | `/threats` | Threat category guide |
 | `/ips` | Scanned IP assets |
-| `/solutions` | Remediation options |
+| `/solutions` | Remediation tracking |
 | `/vendors` | Software providers and products |
 | `/analytics` | Deeper charts — geography, ports, OS |
-| `/settings` | Data source and theme preferences |
+| `/guide` | Metric & terminology reference |
+| `/settings` | Data source and remediation preferences |
 
 ## Optional: Vite dev server
 
@@ -63,7 +63,7 @@ cd frontend
 npm run dev
 ```
 
-Keep the API running in another terminal (`npm run api`).
+Keep the API running in another terminal (`npm run api` or `npm run api:serve`).
 
 ## Environment variables
 
@@ -74,7 +74,6 @@ Keep the API running in another terminal (`npm run api`).
 | Variable | Description |
 |----------|-------------|
 | `VITE_API_URL` | API base URL (empty = relative paths / dev proxy) |
-| `VITE_USE_API` | `true` to prefer API over Excel |
 
 When served from FastAPI, leave `VITE_API_URL` unset.
 

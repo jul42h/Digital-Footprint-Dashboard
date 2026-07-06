@@ -89,7 +89,3 @@ export interface DashboardData {
   lastUpdated: string;
   source: 'empty' | 'api' | 'dynamodb';
 }
-
-export interface RawExcelRow {
-  [key: string]: string | number | undefined;
-}

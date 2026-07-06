@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/layout/AppLayout";
 import { OverviewPage } from "@/features/overview/OverviewPage";
-import { ThreatTypesIndexPage } from "@/features/overview/ThreatDistributionChart";
+import { ThreatTypesPage } from "@/features/threats/ThreatTypesPage";
 import { ThreatTypePage } from "@/features/threats/ThreatTypePage";
 import { CvesPage } from "@/features/cves/CvesPage";
 import { CveDetailPage } from "@/features/cves/CveDetailPage";
@@ -19,7 +19,7 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { path: "/", element: <OverviewPage /> },
-      { path: "/threats", element: <ThreatTypesIndexPage /> },
+      { path: "/threats", element: <ThreatTypesPage /> },
       { path: "/threats/:type", element: <ThreatTypePage /> },
       { path: "/cves", element: <CvesPage /> },
       { path: "/cves/:id", element: <CveDetailPage /> },

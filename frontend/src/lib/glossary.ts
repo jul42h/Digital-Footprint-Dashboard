@@ -189,7 +189,3 @@ export const GLOSSARY_SECTIONS: GlossarySection[] = [
     ],
   },
 ];
-
-export function allGlossaryEntries(): GlossaryEntry[] {
-  return GLOSSARY_SECTIONS.flatMap((section) => section.entries);
-}
