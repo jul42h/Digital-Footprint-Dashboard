@@ -5,7 +5,7 @@ import { APP_NAME, APP_TAGLINE, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import type { DerivedData } from "@/lib/adapters";
 
-type NavIconName = "home" | "issues" | "threats" | "systems" | "fixes" | "providers" | "analytics" | "settings";
+type NavIconName = "home" | "issues" | "threats" | "systems" | "fixes" | "providers" | "analytics" | "guide" | "settings";
 
 const NAV: Array<{
   to: string;
@@ -33,6 +33,7 @@ const NAV: Array<{
     count: (d) => d.vendors.length,
   },
   { to: "/analytics", label: NAV_LABELS.analytics, end: false, icon: "analytics" },
+  { to: "/guide", label: NAV_LABELS.guide, end: false, icon: "guide" },
   { to: "/settings", label: NAV_LABELS.settings, end: false, icon: "settings" },
 ];
 

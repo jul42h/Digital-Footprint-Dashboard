@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import { SEVERITY_COLOR } from "@/lib/severity";
 import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
+import { useDashboard } from "@/context/DashboardContext";
 import { useDashboardSummary } from "./useDashboardSummary";
 
 export function DashboardPosture() {
+  const { data } = useDashboard();
   const {
     exposureScore,
     exposureDelta,
@@ -14,43 +16,95 @@ export function DashboardPosture() {
   } = useDashboardSummary();
 
   const exposureLabel =
-    exposureDelta === 0
-      ? "Exposure"
-      : `Exposure ${exposureDelta > 0 ? "+" : ""}${exposureDelta}`;
+    exposureDelta === 0 ? "Risk score" : `Δ ${exposureDelta > 0 ? "+" : ""}${exposureDelta}`;
+
+  const metrics = [
+    {
+      key: "fixes",
+      to: "/solutions",
+      value: pendingRemediations,
+      label: NAV_LABELS.fixes,
+      tone: pendingRemediations > 0 ? SEVERITY_COLOR.high : undefined,
+      primary: true,
+    },
+    {
+      key: "critical",
+      to: "/cves",
+      value: critical,
+      label: "Critical",
+      tone: critical > 0 ? SEVERITY_COLOR.critical : undefined,
+    },
+    {
+      key: "kev",
+      to: "/cves",
+      value: data.stats.kevFindings,
+      label: "KEV",
+      tone: data.stats.kevFindings > 0 ? SEVERITY_COLOR.high : undefined,
+    },
+    {
+      key: "epss",
+      to: "/cves",
+      value: data.stats.highEpssFindings,
+      label: "High EPSS",
+      tone: data.stats.highEpssFindings > 0 ? SEVERITY_COLOR.medium : undefined,
+    },
+    {
+      key: "assets",
+      to: "/ips",
+      value: assetsAtRisk,
+      label: "At-risk assets",
+    },
+    {
+      key: "cves",
+      to: "/cves",
+      value: totalVulns,
+      label: "Unique CVEs",
+    },
+    {
+      key: "score",
+      value: exposureScore,
+      label: exposureLabel,
+      title: HELP_TEXT.exposureScore,
+    },
+  ];
 
   return (
-    <>
-      <div className="posture-bar posture-bar--compact">
-      <Link to="/solutions" className="posture-metric posture-metric--primary posture-metric--link">
-        <span className="posture-metric__value" style={{ color: pendingRemediations > 0 ? SEVERITY_COLOR.high : undefined }}>
-          {pendingRemediations}
-        </span>
-        <span className="posture-metric__label">{NAV_LABELS.fixes}</span>
-      </Link>
+    <div className="posture-bar posture-bar--overview" role="list">
+      {metrics.map((metric) => {
+        const content = (
+          <>
+            <span
+              className="posture-metric__value"
+              style={metric.tone ? { color: metric.tone } : undefined}
+            >
+              {metric.value}
+            </span>
+            <span className="posture-metric__label">{metric.label}</span>
+          </>
+        );
 
-      <Link to="/cves" className="posture-metric posture-metric--link">
-        <span className="posture-metric__value" style={{ color: critical > 0 ? SEVERITY_COLOR.critical : undefined }}>
-          {critical}
-        </span>
-        <span className="posture-metric__label">Critical</span>
-      </Link>
+        const className = [
+          "posture-metric",
+          metric.primary ? "posture-metric--primary" : "",
+          metric.to ? "posture-metric--link" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
 
-      <Link to="/cves" className="posture-metric posture-metric--link">
-        <span className="posture-metric__value">{totalVulns}</span>
-        <span className="posture-metric__label">Vulnerabilities</span>
-      </Link>
+        if (metric.to) {
+          return (
+            <Link key={metric.key} to={metric.to} className={className} role="listitem">
+              {content}
+            </Link>
+          );
+        }
 
-      <Link to="/ips" className="posture-metric posture-metric--link">
-        <span className="posture-metric__value">{assetsAtRisk}</span>
-        <span className="posture-metric__label">Assets at risk</span>
-      </Link>
-
-      <div className="posture-metric" title={HELP_TEXT.exposureScore}>
-        <span className="posture-metric__value">{exposureScore}</span>
-        <span className="posture-metric__label">{exposureLabel}</span>
-      </div>
+        return (
+          <div key={metric.key} className={className} title={metric.title} role="listitem">
+            {content}
+          </div>
+        );
+      })}
     </div>
-    <p className="card-footnote card-footnote--tight">{HELP_TEXT.postureBar}</p>
-    </>
   );
 }

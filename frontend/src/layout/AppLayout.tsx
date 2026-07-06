@@ -1,5 +1,6 @@
 import { LayoutProvider, useLayout } from "@/context/LayoutContext";
 import { Outlet } from "react-router-dom";
+import { DataStatusBanner } from "@/components/DataStatusBanner";
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
 import { BackToTop } from "./BackToTop";
 import { ScrollToTop } from "./ScrollToTop";
@@ -23,6 +24,7 @@ function AppShell() {
       <Sidebar />
       <div className="app-shell__main">
         <TopBar />
+        <DataStatusBanner />
         <ScrollToTop />
         <main className="main">
           <Outlet />

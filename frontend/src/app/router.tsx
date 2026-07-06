@@ -11,6 +11,7 @@ import { SolutionsPage } from "@/features/solutions/SolutionsPage";
 import { VendorsPage } from "@/features/vendors/VendorsPage";
 import { VendorDetailPage } from "@/features/vendors/VendorDetailPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
+import { GuidePage } from "@/features/guide/GuidePage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 
 export const router = createBrowserRouter([
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: "/vendors", element: <VendorsPage /> },
       { path: "/vendors/:id", element: <VendorDetailPage /> },
       { path: "/analytics", element: <AnalyticsPage /> },
+      { path: "/guide", element: <GuidePage /> },
       { path: "/settings", element: <SettingsPage /> },
     ],
   },

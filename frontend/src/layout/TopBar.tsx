@@ -24,11 +24,9 @@ export function TopBar() {
   const sourceLabel =
     data.source === "api" || data.source === "dynamodb"
       ? "API · DynamoDB"
-      : data.source === "excel"
-        ? "Excel fallback"
-        : "No data";
+      : "No data";
 
-  const isLive = data.source === "api" || data.source === "dynamodb" || data.source === "excel";
+  const isLive = data.source === "api" || data.source === "dynamodb";
 
   return (
     <header className="topbar">

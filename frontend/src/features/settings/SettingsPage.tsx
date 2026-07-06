@@ -4,17 +4,15 @@ import { getApiBaseUrl } from "@/lib/api";
 import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import { formatDate } from "@/utils/dateUtils";
+import { RemediationSettings } from "./RemediationSettings";
 
 function sourceLabel(source: string): string {
   switch (source) {
     case "api":
-      return "FastAPI backend";
     case "dynamodb":
       return "AWS API · DynamoDB";
-    case "excel":
-      return "Local Excel fallback";
     default:
-      return "No data";
+      return "No data loaded";
   }
 }
 
@@ -39,20 +37,34 @@ export function SettingsPage() {
           <span className="detail-row__value mono">{apiBase}/api/v1/dashboard</span>
         </div>
         <div className="detail-row">
-          <span className="detail-row__label">Excel fallback</span>
-          <span className="detail-row__value mono">public/data/shodan_data.xlsx</span>
+          <span className="detail-row__label">Vulnerable hosts</span>
+          <span className="detail-row__value">{data.stats.vulnerableIPs}</span>
+        </div>
+        <div className="detail-row">
+          <span className="detail-row__label">Discovered hosts</span>
+          <span className="detail-row__value">{data.stats.discoveredHosts}</span>
         </div>
         <div className="detail-row">
           <span className="detail-row__label">Last loaded</span>
           <span className="detail-row__value">{formatDate(data.lastUpdated)}</span>
         </div>
         <div className="detail-row">
+          <span className="detail-row__label">KEV findings</span>
+          <span className="detail-row__value">{data.stats.kevFindings}</span>
+        </div>
+        <div className="detail-row">
+          <span className="detail-row__label">High EPSS findings</span>
+          <span className="detail-row__value">{data.stats.highEpssFindings}</span>
+        </div>
+        <div className="detail-row">
           <span className="detail-row__label">Records</span>
           <span className="detail-row__value">
-            {data.stats.totalIPs} IPs · {data.stats.totalCVEs} CVEs
+            {data.stats.totalIPs} IPs · {data.stats.uniqueCVEs} unique CVEs · {data.stats.totalCVEs} instances
           </span>
         </div>
       </Card>
+
+      <RemediationSettings />
 
       <Card title="Keyboard shortcuts">
         <div className="detail-row">

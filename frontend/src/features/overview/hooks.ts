@@ -11,8 +11,8 @@ export function useSeverityCounts(): SeverityCount[] {
   }));
 }
 
-export function useRiskTrend() {
-  return useDashboard().derived.riskTrend;
+export function useRiskTrendView() {
+  return useDashboard().derived.riskTrendView;
 }
 
 export function useThreatDistribution(): ThreatCount[] {

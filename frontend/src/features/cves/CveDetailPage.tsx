@@ -47,8 +47,23 @@ export function CveDetailPage() {
             <span className="mono">{cve.ports.join(", ")} ({cve.transport})</span>
           </Row>
           <Row label={LABELS.activelyTargeted}>
-            {cve.exploitKnown ? "Yes — known attacks in the wild" : "No known active attacks"}
+            {cve.exploitKnown ? "Yes — known exploited vulnerability (KEV)" : "No known active exploitation"}
           </Row>
+          {cve.epss != null && (
+            <Row label="EPSS score">
+              {(cve.epss * 100).toFixed(2)}% probability of exploitation in 30 days
+            </Row>
+          )}
+          {cve.verified && (
+            <Row label="Verified exposure">
+              Yes — confirmed by Shodan scan metadata
+            </Row>
+          )}
+          {cve.affectedAssets && cve.affectedAssets.length > 1 && (
+            <Row label="Affected assets">
+              <span className="mono">{cve.affectedAssets.join(", ")}</span>
+            </Row>
+          )}
           <Row label={LABELS.published}>
             {new Date(cve.publishedAt).toLocaleDateString(undefined, {
               year: "numeric",

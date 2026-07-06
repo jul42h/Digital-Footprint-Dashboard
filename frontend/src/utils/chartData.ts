@@ -1,8 +1,9 @@
-import type { DashboardData, SourceSeverity } from '@/types/data';
+import type { DashboardData } from '@/types/data';
+import { formatScanTypeLabel } from '@/lib/exploitability';
 import { countryLabel, normalizeCountryCode } from '@/lib/geo';
 import { toMonthKey } from '@/utils/dateUtils';
 
-const SEVERITIES: SourceSeverity[] = ['Critical', 'High', 'Medium', 'Low', 'Informational'];
+const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Informational'] as const;
 
 export function buildChartData(data: DashboardData) {
   const { stats, ips, cveRecords } = data;
@@ -22,6 +23,7 @@ export function buildChartData(data: DashboardData) {
   }));
 
   const topIPs = ips
+    .filter((ip) => ip.cves.length > 0)
     .map((ip) => ({ ip: ip.ip, count: ip.cves.length }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
@@ -47,10 +49,10 @@ export function buildChartData(data: DashboardData) {
     .map(([country, count]) => ({ country, count }));
 
   const portCounts = new Map<string, number>();
-  for (const ip of ips) {
-    for (const port of ip.ports) {
-      portCounts.set(String(port), (portCounts.get(String(port)) ?? 0) + ip.cves.length);
-    }
+  for (const record of cveRecords) {
+    const port = record.port ?? record.cve.port;
+    if (!port) continue;
+    portCounts.set(String(port), (portCounts.get(String(port)) ?? 0) + 1);
   }
   const portHeatmap = Array.from(portCounts.entries())
     .sort(([, a], [, b]) => b - a)
@@ -92,8 +94,8 @@ export function buildAnalyticsData(data: DashboardData) {
 
   const services = countMap(ips.flatMap((ip) => ip.services));
   const operatingSystems = countMap(ips.map((ip) => ip.operatingSystem ?? ''));
-  const ports = countMap(ips.flatMap((ip) => ip.ports.map(String)));
-  const products = countMap(ips.flatMap((ip) => ip.products));
+  const ports = countMap(cveRecords.map((record) => String(record.port ?? record.cve.port ?? '')));
+  const products = countMap(cveRecords.map((record) => record.product ?? record.cve.product ?? ''));
   const countryDistribution = countMap(
     ips
       .map((ip) => {
@@ -126,4 +128,35 @@ export function buildAnalyticsData(data: DashboardData) {
     countryDistribution,
     avgCVSSByOrg,
   };
+}
+
+export function buildExploitabilitySignals(data: DashboardData) {
+  const { stats } = data;
+  return [
+    { label: 'KEV', value: stats.kevFindings },
+    { label: 'High EPSS', value: stats.highEpssFindings },
+    { label: 'Verified', value: stats.verifiedFindings },
+    { label: 'Critical', value: stats.criticalCVEs },
+  ].filter((entry) => entry.value > 0);
+}
+
+export function buildScanSourceData(data: DashboardData) {
+  const counts = data.scanSourceCounts ?? {};
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name: formatScanTypeLabel(name), rawName: name, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+export function buildDomainFootprint(data: DashboardData) {
+  const domainCounts = new Map<string, number>();
+  for (const ip of data.ips) {
+    const weight = Math.max(ip.cves.length, 1);
+    for (const domain of ip.domains ?? []) {
+      domainCounts.set(domain, (domainCounts.get(domain) ?? 0) + weight);
+    }
+  }
+  return Array.from(domainCounts.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 8)
+    .map(([name, count]) => ({ name, count }));
 }

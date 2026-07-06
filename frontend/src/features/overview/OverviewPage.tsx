@@ -2,44 +2,47 @@ import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { AtRiskAssets } from "./AtRiskAssets";
 import { DashboardPosture } from "./DashboardPosture";
-import { GeoExposureMap } from "./GeoExposureMap";
 import { CompactRemediationQueue } from "./CompactRemediationQueue";
-import { HomeTopIpsChart } from "./HomeAnalyticsCharts";
 import { RemediationProgress } from "./RemediationProgress";
 import { RiskTrendChart } from "./RiskTrendChart";
 import { SeverityDonut } from "./SeverityDonut";
-import { ThreatDistributionChart } from "./ThreatDistributionChart";
 
 export function OverviewPage() {
   return (
-    <div className="page dashboard">
+    <div className="page dashboard dashboard--home">
       <PageHeader
         eyebrow="Overview"
         title="Digital Footprint"
-        subtitle="Your external security posture at a glance — prioritized by risk across Fresno State's scanned internet-facing assets."
+        subtitle="External security posture across Fresno State's internet-facing assets."
+        action={
+          <Link to="/guide" className="view-all-link">
+            What do these metrics mean?
+          </Link>
+        }
       />
 
       <DashboardPosture />
 
-      <div className="dashboard-2col dashboard-2col--remediation">
-        <RemediationProgress />
-        <CompactRemediationQueue limit={5} />
-      </div>
+      <div className="dashboard-home">
+        <section className="dashboard-home__severity" aria-label="Severity breakdown">
+          <Link to="/cves" className="dashboard__chart-link">
+            <SeverityDonut />
+          </Link>
+        </section>
 
-      <div className="dashboard-charts-row dashboard-charts-row--triple">
-        <Link to="/cves" className="dashboard__chart-link">
-          <SeverityDonut />
-        </Link>
-        <ThreatDistributionChart />
-        <RiskTrendChart />
-      </div>
+        <section className="dashboard-home__insight" aria-label="Observation snapshot">
+          <RiskTrendChart />
+        </section>
 
-      <div className="dashboard-2col dashboard-2col--exposure">
-        <GeoExposureMap />
-        <HomeTopIpsChart />
-      </div>
+        <aside className="dashboard-home__actions" aria-label="Remediation workflow">
+          <CompactRemediationQueue limit={4} />
+          <RemediationProgress />
+        </aside>
 
-      <AtRiskAssets limit={5} />
+        <section className="dashboard-home__assets" aria-label="Highest-risk assets">
+          <AtRiskAssets limit={6} />
+        </section>
+      </div>
     </div>
   );
 }

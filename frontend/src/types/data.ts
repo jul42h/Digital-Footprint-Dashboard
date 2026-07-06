@@ -8,6 +8,12 @@ export interface SourceCVE {
   lastUpdated?: string;
   summary?: string;
   kev?: boolean;
+  epss?: number;
+  rankingEpss?: number;
+  port?: number;
+  product?: string;
+  service?: string;
+  verified?: boolean;
 }
 
 export interface SourceIPRecord {
@@ -17,6 +23,7 @@ export interface SourceIPRecord {
   city?: string;
   asn?: string;
   hostnames: string[];
+  domains?: string[];
   operatingSystem?: string;
   ports: number[];
   transport: string[];
@@ -32,11 +39,16 @@ export interface SourceIPRecord {
   timestamp?: string;
   summary?: string;
   lastSeen?: string;
+  hostStatus?: string;
+  scanTypes?: string[];
 }
 
 export interface DashboardStats {
   totalIPs: number;
+  /** Total CVE findings across all hosts (instances). */
   totalCVEs: number;
+  /** Distinct CVE IDs in the dataset. */
+  uniqueCVEs: number;
   criticalCVEs: number;
   highCVEs: number;
   mediumCVEs: number;
@@ -48,6 +60,12 @@ export interface DashboardStats {
   oldestVulnerability: string | null;
   uniqueOrganizations: number;
   uniqueCountries: number;
+  vulnerableIPs: number;
+  discoveredHosts: number;
+  discoveryOnlyHosts: number;
+  kevFindings: number;
+  highEpssFindings: number;
+  verifiedFindings: number;
 }
 
 export interface CVEFlatRecord {
@@ -57,14 +75,19 @@ export interface CVEFlatRecord {
   country: string;
   operatingSystem?: string;
   port?: number;
+  product?: string;
+  service?: string;
+  verified?: boolean;
+  scanType?: string;
 }
 
 export interface DashboardData {
   ips: SourceIPRecord[];
   stats: DashboardStats;
   cveRecords: CVEFlatRecord[];
+  scanSourceCounts?: Record<string, number>;
   lastUpdated: string;
-  source: 'excel' | 'empty' | 'api' | 'dynamodb';
+  source: 'empty' | 'api' | 'dynamodb';
 }
 
 export interface RawExcelRow {

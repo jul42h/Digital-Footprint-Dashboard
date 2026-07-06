@@ -1,15 +1,26 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/Card";
 import { ViewAllLink } from "@/components/ViewAllLink";
 import { SeverityBadge } from "@/components/SeverityBadge";
-import { SolutionStatus } from "@/features/solutions/SolutionStatus";
+import { SolutionStatus as SolutionStatusBadge } from "@/features/solutions/SolutionStatus";
 import { useSolutions } from "@/features/solutions/hooks";
-import { useCve } from "@/features/cves/hooks";
+import { useCve, useCves } from "@/features/cves/hooks";
 import { HELP_TEXT } from "@/lib/copy";
+import { compareSolutionPriority } from "@/lib/exploitability";
+import type { SolutionStatus } from "@/types";
 
 export function CompactRemediationQueue({ limit = 5 }: { limit?: number }) {
-  const solutions = useSolutions().slice(0, limit);
+  const solutions = useSolutions();
+  const cves = useCves();
   const navigate = useNavigate();
+
+  const queue = useMemo(() => {
+    const cveById = new Map(cves.map((cve) => [cve.id, cve]));
+    return [...solutions]
+      .sort((a, b) => compareSolutionPriority(cveById.get(a.cveId), cveById.get(b.cveId)))
+      .slice(0, limit);
+  }, [cves, limit, solutions]);
 
   return (
     <Card
@@ -19,10 +30,10 @@ export function CompactRemediationQueue({ limit = 5 }: { limit?: number }) {
     >
       <p className="card-footnote card-footnote--tight">{HELP_TEXT.priorityQueue}</p>
       <div className="remediation-queue">
-        {solutions.length === 0 ? (
+        {queue.length === 0 ? (
           <p className="geo-map__empty">No critical or high findings requiring action.</p>
         ) : (
-          solutions.map((item) => (
+          queue.map((item) => (
             <RemediationRow
               key={item.id}
               cveId={item.cveId}
@@ -45,7 +56,7 @@ function RemediationRow({
 }: {
   cveId: string;
   effort: string;
-  status: "open" | "triage" | "assigned" | "resolved";
+  status: SolutionStatus;
   onOpen: () => void;
 }) {
   const cve = useCve(cveId);
@@ -60,7 +71,7 @@ function RemediationRow({
       </div>
       <div className="remediation-row__meta">
         <span className={`remediation-row__effort remediation-row__effort--${effort}`}>{effort}</span>
-        <SolutionStatus status={status} />
+        <SolutionStatusBadge status={status} />
       </div>
     </button>
   );

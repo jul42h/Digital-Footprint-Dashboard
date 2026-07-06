@@ -13,9 +13,9 @@ import { LABELS } from "@/lib/copy";
 import { useCves } from "./hooks";
 
 type Filter = Severity | "all";
-type CveSortKey = "id" | "cvss" | "severity" | "ports" | "transport" | "summary";
+type CveSortKey = "id" | "cvss" | "severity" | "ports" | "transport" | "summary" | "epss";
 type TransportFilter = Transport | "all";
-type KevFilter = "all" | "exploited";
+type KevFilter = "all" | "exploited" | "high-epss";
 
 interface CveTableProps {
   limit?: number;
@@ -50,6 +50,8 @@ function sortCve(cve: Cve, key: CveSortKey): string | number {
       return cve.transport;
     case "summary":
       return cve.summary;
+    case "epss":
+      return cve.epss ?? -1;
   }
 }
 
@@ -73,6 +75,7 @@ export function CveTable({
     if (filter !== "all") list = list.filter((c) => c.severity === filter);
     if (transportFilter !== "all") list = list.filter((c) => c.transport === transportFilter);
     if (kevFilter === "exploited") list = list.filter((c) => c.exploitKnown);
+    if (kevFilter === "high-epss") list = list.filter((c) => (c.epss ?? 0) >= 0.1);
     return list;
   }, [cves, filter, kevFilter, threatFilter, threatType, transportFilter]);
 
@@ -132,6 +135,9 @@ export function CveTable({
               <FilterChip active={kevFilter === "exploited"} onClick={() => setKevFilter((v) => (v === "exploited" ? "all" : "exploited"))}>
                 Known exploited
               </FilterChip>
+              <FilterChip active={kevFilter === "high-epss"} onClick={() => setKevFilter((v) => (v === "high-epss" ? "all" : "high-epss"))}>
+                High EPSS
+              </FilterChip>
             </>
           ) : undefined
         }
@@ -145,13 +151,14 @@ export function CveTable({
               <SortableTh label="Severity" sortKey="severity" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 84 }} />
               <SortableTh label="Ports" sortKey="ports" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 92 }} />
               <SortableTh label="Transport" sortKey="transport" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 78 }} />
+              <SortableTh label="EPSS" sortKey="epss" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 64 }} />
               <SortableTh label={LABELS.summary} sortKey="summary" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="table-empty">
+                <td colSpan={7} className="table-empty">
                   No issues match your filters.
                 </td>
               </tr>
@@ -167,6 +174,9 @@ export function CveTable({
                   </td>
                   <td className="mono">{c.ports.join(", ")}</td>
                   <td className="mono">{c.transport}</td>
+                  <td className="mono" style={{ color: "var(--text-secondary)" }}>
+                    {c.epss != null ? `${(c.epss * 100).toFixed(1)}%` : "—"}
+                  </td>
                   <td
                     style={{
                       maxWidth: 0,

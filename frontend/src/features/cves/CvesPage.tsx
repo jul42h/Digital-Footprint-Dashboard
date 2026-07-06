@@ -8,7 +8,6 @@ export function CvesPage() {
   const { data, derived } = useDashboard();
   const critical = derived.cves.filter((c) => c.severity === "critical").length;
   const high = derived.cves.filter((c) => c.severity === "high").length;
-  const exploited = derived.cves.filter((c) => c.exploitKnown).length;
 
   return (
     <div className="page">
@@ -18,26 +17,34 @@ export function CvesPage() {
       />
 
       <div className="kpi-strip">
-        <KpiCard kpi={{ label: "Total issues", value: String(data.stats.totalCVEs), tone: "neutral" }} />
+        <KpiCard kpi={{ label: "Unique CVEs", value: String(data.stats.uniqueCVEs), tone: "neutral" }} />
+        <KpiCard kpi={{ label: "Exposure instances", value: String(data.stats.totalCVEs), tone: "neutral" }} />
         <KpiCard
           kpi={{
-            label: "Critical",
+            label: "Critical (unique)",
             value: String(critical),
             tone: critical > 0 ? "critical" : "neutral",
           }}
         />
         <KpiCard
           kpi={{
-            label: "High severity",
+            label: "High (unique)",
             value: String(high),
             tone: high > 0 ? "high" : "neutral",
           }}
         />
         <KpiCard
           kpi={{
-            label: "Known exploited",
-            value: String(exploited),
-            tone: exploited > 0 ? "high" : "neutral",
+            label: "KEV findings",
+            value: String(data.stats.kevFindings),
+            tone: data.stats.kevFindings > 0 ? "high" : "neutral",
+          }}
+        />
+        <KpiCard
+          kpi={{
+            label: "High EPSS",
+            value: String(data.stats.highEpssFindings),
+            tone: data.stats.highEpssFindings > 0 ? "medium" : "neutral",
           }}
         />
       </div>

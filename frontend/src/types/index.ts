@@ -28,6 +28,10 @@ export interface Cve {
   vector?: string; // CVSS vector string
   publishedAt: string; // ISO 8601
   exploitKnown?: boolean; // known exploited (KEV)
+  epss?: number;
+  verified?: boolean;
+  instanceCount?: number;
+  affectedAssets?: string[];
 }
 
 export interface Kpi {
@@ -53,6 +57,25 @@ export interface RiskPoint {
   score: number; // 0 - 100 aggregate risk score
 }
 
+export type RiskTrendVariant =
+  | "timeline"
+  | "hourly"
+  | "scan-sources"
+  | "ports"
+  | "exploitability";
+
+export interface RiskTrendPoint {
+  label: string;
+  value: number;
+}
+
+export interface RiskTrendView {
+  variant: RiskTrendVariant;
+  title: string;
+  subtitle?: string;
+  points: RiskTrendPoint[];
+}
+
 export interface IpRecord {
   address: string;
   hostname: string;
@@ -66,6 +89,14 @@ export interface IpRecord {
   cveIds: string[];
   serviceCount: number;
   lastScanAt: string; // ISO 8601
+  domains?: string[];
+  hostStatus?: string;
+  openPortCount?: number;
+  operatingSystem?: string;
+  asn?: string;
+  isp?: string;
+  services?: string[];
+  scanTypes?: string[];
 }
 
 export interface SecurityAlert {

@@ -1,32 +1,21 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Card } from "@/components/Card";
 import { ViewAllLink } from "@/components/ViewAllLink";
+import { useRemediation } from "@/context/RemediationContext";
 import { useSolutions } from "@/features/solutions/hooks";
 import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
-
-const STATUS_COLORS: Record<string, string> = {
-  open: "var(--sev-critical)",
-  triage: "var(--sev-medium)",
-  assigned: "var(--accent)",
-  resolved: "var(--status-resolved)",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "Open",
-  triage: "Review",
-  assigned: "Active",
-  resolved: "Done",
-};
+import { SOLUTION_STATUS_ORDER, STATUS_COLORS } from "@/lib/remediationConfig";
 
 export function RemediationProgress() {
   const solutions = useSolutions();
-  const counts = ["open", "triage", "assigned", "resolved"].map((status) => ({
+  const { getStatusLabel, isPendingStatus } = useRemediation();
+  const counts = SOLUTION_STATUS_ORDER.map((status) => ({
     status,
-    label: STATUS_LABELS[status],
+    label: getStatusLabel(status),
     value: solutions.filter((s) => s.status === status).length,
     color: STATUS_COLORS[status],
   }));
-  const pending = solutions.filter((s) => s.status === "open" || s.status === "triage").length;
+  const pending = solutions.filter((s) => isPendingStatus(s.status)).length;
 
   return (
     <Card title={NAV_LABELS.fixes} className="chart-card" action={<ViewAllLink to="/solutions" />}>
@@ -34,7 +23,7 @@ export function RemediationProgress() {
       <div className="chart-card__body">
         <div className="remediation-progress remediation-progress--compact">
           <div className="remediation-progress__chart">
-            <ResponsiveContainer width="100%" height={140}>
+            <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={counts.filter((c) => c.value > 0)}

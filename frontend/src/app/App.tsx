@@ -1,4 +1,5 @@
 import { DashboardContext } from "@/context/DashboardContext";
+import { RemediationProvider } from "@/context/RemediationContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { HELP_TEXT } from "@/lib/copy";
 import { RouterProvider } from "react-router-dom";
@@ -36,7 +37,9 @@ function DashboardShell() {
         reload: state.reload,
       }}
     >
-      <RouterProvider router={router} />
+      <RemediationProvider>
+        <RouterProvider router={router} />
+      </RemediationProvider>
     </DashboardContext.Provider>
   );
 }

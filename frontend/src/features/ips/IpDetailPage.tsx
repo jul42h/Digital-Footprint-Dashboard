@@ -35,6 +35,54 @@ export function IpDetailPage() {
                   <span>{formatIpLocation(ip.city, ip.country)}</span>
                 </div>
               )}
+              {ip.domains && ip.domains.length > 0 && (
+                <div>
+                  <span className="detail-inline__label">Domains </span>
+                  <span>{ip.domains.join(", ")}</span>
+                </div>
+              )}
+              {ip.hostStatus && (
+                <div>
+                  <span className="detail-inline__label">Host status </span>
+                  <span>{ip.hostStatus}</span>
+                </div>
+              )}
+              {ip.operatingSystem && (
+                <div>
+                  <span className="detail-inline__label">Operating system </span>
+                  <span>{ip.operatingSystem}</span>
+                </div>
+              )}
+              {ip.asn && (
+                <div>
+                  <span className="detail-inline__label">ASN </span>
+                  <span className="mono">{ip.asn}</span>
+                </div>
+              )}
+              {ip.isp && (
+                <div>
+                  <span className="detail-inline__label">ISP </span>
+                  <span>{ip.isp}</span>
+                </div>
+              )}
+              {ip.services && ip.services.length > 0 && (
+                <div>
+                  <span className="detail-inline__label">{LABELS.services} </span>
+                  <span>{ip.services.join(", ")}</span>
+                </div>
+              )}
+              {ip.scanTypes && ip.scanTypes.length > 0 && (
+                <div>
+                  <span className="detail-inline__label">Scan sources </span>
+                  <span>{ip.scanTypes.join(", ")}</span>
+                </div>
+              )}
+              {ip.openPortCount != null && ip.openPortCount > 0 && (
+                <div>
+                  <span className="detail-inline__label">Open ports </span>
+                  <span>{ip.openPortCount}</span>
+                </div>
+              )}
               <div>
                 <span className="detail-inline__label">{LABELS.issues} </span>
                 <span>{ip.cveCount}</span>

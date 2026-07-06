@@ -28,6 +28,16 @@ export function cvssToSeverity(cvss: number): Severity {
   return "low";
 }
 
+export function sourceSeverityToUi(severity: string | undefined): Severity | null {
+  if (!severity) return null;
+  const normalized = severity.toLowerCase();
+  if (normalized.startsWith("crit")) return "critical";
+  if (normalized.startsWith("high")) return "high";
+  if (normalized.startsWith("med")) return "medium";
+  if (normalized.startsWith("low")) return "low";
+  return null;
+}
+
 /* Charts need real color values, not CSS var names. Reads the computed
    custom properties so they stay in sync with the stylesheet + theme. */
 export function severityColorValue(severity: Severity): string {

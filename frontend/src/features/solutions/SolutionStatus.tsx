@@ -1,12 +1,7 @@
-import type { SolutionStatus as Status } from "@/types";
-
-const LABEL: Record<Status, string> = {
-  open: "Not started",
-  triage: "Under review",
-  assigned: "In progress",
-  resolved: "Done",
-};
+import type { SolutionStatus as Status } from '@/types';
+import { useRemediation } from '@/context/RemediationContext';
 
 export function SolutionStatus({ status }: { status: Status }) {
-  return <span className={`status status--${status}`}>{LABEL[status]}</span>;
+  const { getStatusLabel } = useRemediation();
+  return <span className={`status status--${status}`}>{getStatusLabel(status)}</span>;
 }

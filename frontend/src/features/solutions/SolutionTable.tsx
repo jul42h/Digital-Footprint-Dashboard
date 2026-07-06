@@ -6,29 +6,15 @@ import { SortableTh } from "@/components/SortableTh";
 import { FilterChip, TableToolbar } from "@/components/TableToolbar";
 import { useTableState } from "@/hooks/useTableState";
 import { LABELS } from "@/lib/copy";
-import { SolutionStatus as StatusBadge } from "./SolutionStatus";
+import { useRemediation } from "@/context/RemediationContext";
+import { SOLUTION_STATUS_ORDER, STATUS_RANK } from "@/lib/remediationConfig";
+import { SolutionStatusSelect } from "./SolutionStatusSelect";
 import { useSolutions } from "./hooks";
 
 type StatusFilter = SolutionStatus | "all";
 type EffortFilter = SolutionEffort | "all";
 type VendorFixFilter = "all" | "available";
 type SolutionSortKey = "cveId" | "title" | "status" | "effort" | "vendorFix";
-
-const STATUS_ORDER: SolutionStatus[] = ["open", "triage", "assigned", "resolved"];
-
-const STATUS_LABEL: Record<SolutionStatus, string> = {
-  open: "Not started",
-  triage: "Under review",
-  assigned: "In progress",
-  resolved: "Done",
-};
-
-const STATUS_RANK: Record<SolutionStatus, number> = {
-  open: 0,
-  triage: 1,
-  assigned: 2,
-  resolved: 3,
-};
 
 const EFFORT_RANK: Record<string, number> = { low: 0, medium: 1, high: 2 };
 
@@ -68,6 +54,7 @@ export function SolutionTable({
   action,
 }: SolutionTableProps) {
   const navigate = useNavigate();
+  const { getStatusLabel } = useRemediation();
   const all = useSolutions();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [effortFilter, setEffortFilter] = useState<EffortFilter>("all");
@@ -103,9 +90,9 @@ export function SolutionTable({
               <FilterChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
                 All statuses
               </FilterChip>
-              {STATUS_ORDER.map((s) => (
+              {SOLUTION_STATUS_ORDER.map((s) => (
                 <FilterChip key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)}>
-                  {STATUS_LABEL[s]}
+                  {getStatusLabel(s)}
                 </FilterChip>
               ))}
               <FilterChip active={effortFilter === "low"} onClick={() => setEffortFilter((v) => (v === "low" ? "all" : "low"))}>
@@ -132,7 +119,7 @@ export function SolutionTable({
                 <SortableTh label={LABELS.issueId} sortKey="cveId" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 132 }} />
               )}
               <SortableTh label="What to do" sortKey="title" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} />
-              <SortableTh label={LABELS.status} sortKey="status" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 100 }} />
+              <SortableTh label={LABELS.status} sortKey="status" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 148 }} />
               <SortableTh label={LABELS.effort} sortKey="effort" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 72 }} />
               <SortableTh label={LABELS.vendorFix} sortKey="vendorFix" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 100 }} />
             </tr>
@@ -152,11 +139,11 @@ export function SolutionTable({
                     <div style={{ fontWeight: 500 }}>{s.title}</div>
                     <div className="table-subtext">{s.description}</div>
                   </td>
-                  <td>
-                    <StatusBadge status={s.status} />
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <SolutionStatusSelect solutionId={s.id} status={s.status} />
                   </td>
                   <td style={{ textTransform: "capitalize" }}>{s.effort}</td>
-                  <td>{s.vendorFixAvailable ? (s.fixedVersion ?? "Yes") : "No"}</td>
+                  <td>{s.vendorFixAvailable ? (s.fixedVersion ?? "Listed") : "Unknown"}</td>
                 </tr>
               ))
             )}

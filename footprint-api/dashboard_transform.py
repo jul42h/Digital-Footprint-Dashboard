@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional
 
 SEVERITY_ORDER = {
     "Critical": 5,
@@ -12,6 +13,9 @@ SEVERITY_ORDER = {
     "Low": 2,
     "Informational": 1,
 }
+
+CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d+", re.IGNORECASE)
+HOSTNAME_XML_PATTERN = re.compile(r'name="([^"]+)"')
 
 
 def _pick(item: Dict[str, Any], *keys: str) -> Any:
@@ -97,23 +101,76 @@ def _merge_unique(existing: List[Any], incoming: List[Any]) -> List[Any]:
     return list(dict.fromkeys([*existing, *incoming]))
 
 
+def _is_real_cve_id(cve_id: str) -> bool:
+    return bool(CVE_ID_PATTERN.match(cve_id))
+
+
+def _parse_hostnames(item: Dict[str, Any]) -> List[str]:
+    hostnames = _split_list(_pick(item, "hostnames", "hostname", "shodan_hostname"))
+    if hostnames:
+        return hostnames
+
+    raw_json = _as_str(_pick(item, "hostnames_json"))
+    if raw_json:
+        return [name.strip() for name in HOSTNAME_XML_PATTERN.findall(raw_json) if name.strip()]
+
+    single_hostname = _as_str(_pick(item, "hostname"))
+    return [single_hostname] if single_hostname else []
+
+
+def _parse_observed_at(value: Any) -> str:
+    text = _as_str(value)
+    if not text:
+        return ""
+
+    if text.isdigit():
+        try:
+            ts = int(text)
+            if ts > 1_000_000_000_000:
+                ts //= 1000
+            return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+        except (ValueError, OSError):
+            return text
+
+    try:
+        normalized = text.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized).astimezone(timezone.utc).isoformat()
+    except ValueError:
+        return text
+
+
 def _build_cve(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    cve_id = _as_str(_pick(item, "cve_id", "cve"))
-    if not cve_id:
+    cve_id = _as_str(_pick(item, "cve_id", "cve", "original_cve_id"))
+    if not cve_id or not _is_real_cve_id(cve_id):
         return None
 
     score = _parse_score(_pick(item, "cvss", "cve_score", "score", "cvss_v2"))
     severity_raw = _pick(item, "cvss_severity", "severity", "risk_level")
     severity = _normalize_severity(severity_raw) if severity_raw else _score_to_severity(score)
 
+    ports = _parse_ports(_pick(item, "port", "port_id", "ports"))
+    epss = _parse_score(_pick(item, "epss"))
+    kev = _pick(item, "kev", "known_exploited")
+
+    ranking_epss = _parse_score(_pick(item, "ranking_epss"))
+    verified_raw = _pick(item, "verified")
+    product = _as_str(_pick(item, "product", "products"))
+    service = _as_str(_pick(item, "service_name", "service"))
+
     return {
-        "id": cve_id,
+        "id": cve_id.upper(),
         "score": score,
         "severity": severity,
-        "publishedDate": _as_str(_pick(item, "observed_at", "published_date", "published", "timestamp")),
-        "lastUpdated": _as_str(_pick(item, "last_updated", "updated")) or None,
+        "publishedDate": _parse_observed_at(_pick(item, "observed_at", "published_date", "published", "processed_at", "timestamp")),
+        "lastUpdated": _parse_observed_at(_pick(item, "processed_at", "last_updated", "updated")) or None,
         "summary": _as_str(_pick(item, "summary", "description")) or None,
-        "kev": _parse_bool(_pick(item, "kev", "known_exploited")) or None,
+        "kev": _parse_bool(kev) if kev is not None else None,
+        "epss": round(epss, 5) if epss > 0 else None,
+        "rankingEpss": round(ranking_epss, 5) if ranking_epss > 0 else None,
+        "port": ports[0] if ports else None,
+        "product": product or None,
+        "service": service or None,
+        "verified": _parse_bool(verified_raw) if verified_raw is not None else None,
     }
 
 
@@ -131,6 +188,7 @@ def _empty_ip_record(ip: str) -> Dict[str, Any]:
         "city": None,
         "asn": None,
         "hostnames": [],
+        "domains": [],
         "operatingSystem": None,
         "ports": [],
         "transport": [],
@@ -146,6 +204,8 @@ def _empty_ip_record(ip: str) -> Dict[str, Any]:
         "timestamp": None,
         "summary": None,
         "lastSeen": None,
+        "hostStatus": None,
+        "scanTypes": [],
     }
 
 
@@ -153,6 +213,7 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
     cve = _build_cve(item)
     ports = _parse_ports(_pick(item, "port", "port_id", "ports", "open_ports"))
     open_ports = _parse_ports(_pick(item, "open_ports"))
+    port_state = _as_str(_pick(item, "port_state")).lower()
 
     merged_cves = list(existing["cves"])
     if cve:
@@ -163,17 +224,25 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
     country = _as_str(_pick(item, "location_country_code", "country", "country_code"))
     city = _as_str(_pick(item, "location_city", "city"))
     asn = _as_str(_pick(item, "asn"))
-    hostnames = _split_list(_pick(item, "hostnames", "hostname", "shodan_hostname"))
+    hostnames = _parse_hostnames(item)
+    domains = _split_list(_pick(item, "domains", "domain"))
     operating_system = _as_str(_pick(item, "os", "operating_system", "operatingSystem"))
     transport = _split_list(_pick(item, "transport", "protocol"))
-    services = _split_list(_pick(item, "service", "services", "service_name"))
+    services = _split_list(_pick(item, "service_name", "service", "services"))
     products = _split_list(_pick(item, "product", "products"))
     versions = _split_list(_pick(item, "version", "versions"))
     tags = _split_list(_pick(item, "tags", "tag"))
     vulnerabilities = _split_list(_pick(item, "vulnerabilities", "vulnerability"))
     isp = _as_str(_pick(item, "isp"))
-    timestamp = _as_str(_pick(item, "observed_at", "timestamp", "last_seen", "lastSeen"))
+    timestamp = _parse_observed_at(_pick(item, "observed_at", "processed_at", "timestamp", "last_seen", "lastSeen"))
     summary = _as_str(_pick(item, "summary", "description"))
+    host_status = _as_str(_pick(item, "host_status")) or None
+    scan_type = _as_str(_pick(item, "scan_type")) or None
+    scan_types = list(existing.get("scanTypes", []))
+    if scan_type:
+        scan_types = _merge_unique(scan_types, [scan_type])
+
+    discovered_open_ports = list(open_ports or ports) if port_state == "open" else []
 
     return {
         **existing,
@@ -182,6 +251,7 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
         "city": city or existing.get("city"),
         "asn": asn or existing.get("asn"),
         "hostnames": _merge_unique(existing["hostnames"], hostnames),
+        "domains": _merge_unique(existing.get("domains", []), domains),
         "operatingSystem": operating_system or existing.get("operatingSystem"),
         "ports": _merge_unique(existing["ports"], ports),
         "transport": _merge_unique(existing["transport"], transport),
@@ -192,11 +262,13 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
         "riskLevel": _compute_risk_level(merged_cves),
         "tags": _merge_unique(existing["tags"], tags),
         "vulnerabilities": _merge_unique(existing["vulnerabilities"], vulnerabilities),
-        "openPorts": _merge_unique(existing["openPorts"], open_ports or ports),
+        "openPorts": _merge_unique(existing["openPorts"], discovered_open_ports or (open_ports or ports)),
         "isp": isp or existing.get("isp"),
         "timestamp": timestamp or existing.get("timestamp"),
         "summary": summary or existing.get("summary"),
         "lastSeen": timestamp or existing.get("lastSeen"),
+        "hostStatus": host_status or existing.get("hostStatus"),
+        "scanTypes": scan_types,
     }
 
 
@@ -210,13 +282,16 @@ def _transform_rows_to_ips(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         existing = ip_map.get(ip, _empty_ip_record(ip))
         ip_map[ip] = _merge_ip_record(existing, item)
 
-    return sorted(ip_map.values(), key=lambda ip: len(ip["cves"]), reverse=True)
+    return sorted(
+        ip_map.values(),
+        key=lambda ip: (len(ip["cves"]), len(ip["ports"]), len(ip["services"])),
+        reverse=True,
+    )
 
 
 def _flatten_cves(ips: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
     for ip in ips:
-        port = ip["ports"][0] if ip["ports"] else None
         for cve in ip["cves"]:
             records.append(
                 {
@@ -225,10 +300,24 @@ def _flatten_cves(ips: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                     "organization": ip["organization"],
                     "country": ip["country"],
                     "operatingSystem": ip.get("operatingSystem"),
-                    "port": port,
+                    "port": cve.get("port") or (ip["ports"][0] if ip["ports"] else None),
+                    "product": cve.get("product"),
+                    "service": cve.get("service"),
+                    "verified": cve.get("verified"),
+                    "scanType": ip.get("scanTypes", [None])[0] if ip.get("scanTypes") else None,
                 }
             )
     return records
+
+
+def _compute_scan_sources(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for item in items:
+        scan_type = _as_str(_pick(item, "scan_type"))
+        if not scan_type:
+            continue
+        counts[scan_type] = counts.get(scan_type, 0) + 1
+    return dict(sorted(counts.items(), key=lambda entry: entry[1], reverse=True))
 
 
 def _parse_date(value: str) -> Optional[datetime]:
@@ -251,9 +340,20 @@ def _compute_stats(ips: List[Dict[str, Any]]) -> Dict[str, Any]:
     def count_by_severity(severity: str) -> int:
         return sum(1 for cve in all_cves if cve["severity"] == severity)
 
+    vulnerable_ips = sum(1 for ip in ips if ip["cves"])
+    discovered_hosts = sum(1 for ip in ips if ip["services"] or ip["ports"] or ip["hostnames"])
+    discovery_only_hosts = sum(
+        1 for ip in ips if not ip["cves"] and (ip["services"] or ip["ports"] or ip["hostnames"])
+    )
+    unique_cve_ids = {cve["id"] for ip in ips for cve in ip["cves"]}
+    kev_findings = sum(1 for ip in ips for cve in ip["cves"] if cve.get("kev"))
+    high_epss_findings = sum(1 for ip in ips for cve in ip["cves"] if (cve.get("epss") or 0) >= 0.1)
+    verified_findings = sum(1 for ip in ips for cve in ip["cves"] if cve.get("verified"))
+
     return {
         "totalIPs": len(ips),
         "totalCVEs": len(all_cves),
+        "uniqueCVEs": len(unique_cve_ids),
         "criticalCVEs": count_by_severity("Critical"),
         "highCVEs": count_by_severity("High"),
         "mediumCVEs": count_by_severity("Medium"),
@@ -265,6 +365,12 @@ def _compute_stats(ips: List[Dict[str, Any]]) -> Dict[str, Any]:
         "oldestVulnerability": published_dates[0].isoformat() if published_dates else None,
         "uniqueOrganizations": len({ip["organization"] for ip in ips if ip["organization"]}),
         "uniqueCountries": len({ip["country"] for ip in ips if ip["country"]}),
+        "vulnerableIPs": vulnerable_ips,
+        "discoveredHosts": discovered_hosts,
+        "discoveryOnlyHosts": discovery_only_hosts,
+        "kevFindings": kev_findings,
+        "highEpssFindings": high_epss_findings,
+        "verifiedFindings": verified_findings,
     }
 
 
@@ -274,6 +380,7 @@ def findings_to_dashboard(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "ips": ips,
         "stats": _compute_stats(ips),
         "cveRecords": _flatten_cves(ips),
+        "scanSourceCounts": _compute_scan_sources(items),
         "lastUpdated": datetime.now(timezone.utc).isoformat(),
         "source": "dynamodb",
     }

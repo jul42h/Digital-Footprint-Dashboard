@@ -30,7 +30,7 @@ export function generateExecutiveSummary(stats: DashboardStats, ips: SourceIPRec
   const topService = topEntry(serviceCounts);
 
   if (stats.totalCVEs === 0) {
-    return 'No vulnerability data loaded. Place shodan_data.xlsx in public/data/ or refresh when data is available.';
+    return 'No vulnerability findings loaded. Connect to the API and refresh when scan data is available.';
   }
 
   return [
