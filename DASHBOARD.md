@@ -51,6 +51,288 @@ Remediation status labels and per-item status changes are stored in `localStorag
 
 ---
 
+## Data: ingestion, utilization, and calculations
+
+This section describes where findings come from, how they are loaded into the app, and every major calculation the dashboard performs to produce the numbers you see.
+
+### 1. Source of truth — DynamoDB
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `DYNAMODB_TABLE_NAME` | `enriched-database` | Table scanned by the API |
+| `AWS_REGION` | `us-west-2` | AWS region for boto3 |
+
+Each **row** in the table is a finding record — typically one IP + CVE combination (or a host discovery row without a CVE). Rows are produced upstream by Shodan and related scan pipelines (CVE imports, DNS discovery, XML scans, etc.) and written to DynamoDB with fields such as:
+
+| DynamoDB field (examples) | Used for |
+|---------------------------|----------|
+| `ip`, `cve_id` | Primary keys; grouping by host |
+| `cvss`, `cve_score`, `score` | CVSS numeric score |
+| `cvss_severity`, `severity` | Severity label (or derived from score) |
+| `summary`, `description` | CVE text, threat inference |
+| `observed_at`, `timestamp`, `processed_at` | Observation timestamps |
+| `kev`, `known_exploited` | CISA Known Exploited Vulnerabilities flag |
+| `epss`, `ranking_epss` | Exploit Prediction Scoring System |
+| `verified` | Shodan-verified exposure |
+| `port`, `ports`, `open_ports` | Affected / open ports |
+| `product`, `service_name` | Software product and service |
+| `org`, `location_country_code`, `location_city` | Organization and geolocation |
+| `hostnames`, `domains`, `os` | Host identity and OS |
+| `scan_type` | Scan pipeline source (e.g. Shodan CVE import) |
+
+Rows with pseudo-CVE IDs matching `NO_CVE#…` are **dropped** — they are not real CVE identifiers.
+
+### 2. How data is pulled (backend)
+
+```
+Browser  →  GET /api/v1/dashboard  →  load_dashboard()
+                                              │
+                                              ▼
+                                    scan_all()  (full DynamoDB table scan)
+                                              │
+                                              ▼
+                                    findings_to_dashboard(items)
+                                              │
+                                              ▼
+                                    JSON cached in memory (_dashboard_cache)
+```
+
+**Pull mechanism** (`footprint-api/app.py`):
+
+- `scan_all()` paginates through the entire DynamoDB table with `table.scan()` until `LastEvaluatedKey` is exhausted.
+- `load_dashboard()` transforms all rows once and stores the result in an in-memory cache.
+- `GET /api/v1/dashboard` returns the cached payload (fast repeat loads).
+- `POST /api/v1/dashboard/refresh` sets `force_refresh=True`, re-scans DynamoDB, rebuilds the payload, and updates the cache.
+
+**Raw access** (not used by the main UI, but available):
+
+- `GET /findings` — all raw rows, or `?ip=` for one host
+- `GET /findings/{ip}/{cve_id}` — single row
+
+The React app does **not** query DynamoDB directly. It only talks to the FastAPI endpoints above.
+
+### 3. Backend transform (`dashboard_transform.py`)
+
+`findings_to_dashboard()` converts raw rows into the `DashboardData` JSON shape:
+
+#### Step A — Group rows by IP
+
+Each DynamoDB row is merged into an `ips[]` entry via `_merge_ip_record()`:
+
+- Lists (ports, services, products, hostnames, domains, etc.) are **unioned** across rows for the same IP.
+- CVEs on the same IP are deduplicated by CVE ID (latest row wins for that ID).
+- `riskLevel` on each IP = highest severity among its CVEs.
+
+#### Step B — Build CVE objects (`_build_cve`)
+
+For each row with a valid `CVE-YYYY-NNNN` ID:
+
+| Output field | Source |
+|--------------|--------|
+| `score` | `cvss`, `cve_score`, or `score` |
+| `severity` | `cvss_severity` / `severity`, or computed from score |
+| `publishedDate` | `observed_at`, `published_date`, `timestamp`, etc. (ISO UTC) |
+| `kev` | Boolean from `kev` / `known_exploited` |
+| `epss` | Float; omitted if zero |
+| `verified` | Boolean from `verified` |
+| `product`, `service`, `port` | From row fields |
+
+**Severity from CVSS score** (backend, same bands as frontend):
+
+| CVSS | Band |
+|------|------|
+| ≥ 9.0 | Critical |
+| ≥ 7.0 | High |
+| ≥ 4.0 | Medium |
+| ≥ 0.1 | Low |
+| else | Informational |
+
+#### Step C — Flatten CVE records
+
+`cveRecords[]` is one entry per **CVE instance** (CVE + IP + port context). The UI uses this for tables, charts, and per-finding detail without re-walking nested IP structures.
+
+#### Step D — Aggregate stats (`_compute_stats`)
+
+Computed **server-side** and sent in `stats`:
+
+| Stat | Calculation |
+|------|-------------|
+| `totalIPs` | Count of distinct IPs after grouping |
+| `totalCVEs` | Total CVE **instances** across all hosts (same CVE on 3 hosts = 3) |
+| `uniqueCVEs` | Distinct CVE IDs |
+| `criticalCVEs` … `informationalCVEs` | Instance counts per severity band |
+| `averageCVSS` | Mean of scores where score > 0 |
+| `highestCVSS` | Max score |
+| `newestVulnerability` / `oldestVulnerability` | Min/max of `publishedDate` among CVEs |
+| `uniqueOrganizations` / `uniqueCountries` | Distinct org/country on IP records |
+| `vulnerableIPs` | IPs with ≥ 1 CVE |
+| `discoveredHosts` | IPs with services, ports, or hostnames |
+| `discoveryOnlyHosts` | Discovered hosts with **no** CVEs |
+| `kevFindings` | CVE instances where `kev` is true |
+| `highEpssFindings` | CVE instances where `epss ≥ 0.1` (10%) |
+| `verifiedFindings` | CVE instances where `verified` is true |
+
+#### Step E — Scan source counts
+
+`scanSourceCounts` tallies raw rows by `scan_type` (e.g. how many records came from each pipeline).
+
+#### API payload shape
+
+```json
+{
+  "ips": [ /* grouped host records with nested cves[] */ ],
+  "stats": { /* aggregates above */ },
+  "cveRecords": [ /* flat CVE+IP rows */ ],
+  "scanSourceCounts": { "scan_type_name": count },
+  "lastUpdated": "ISO timestamp when transform ran",
+  "source": "dynamodb"
+}
+```
+
+### 4. How the frontend loads data
+
+| Step | File | What happens |
+|------|------|--------------|
+| 1 | `hooks/useDashboardData.ts` | On mount, calls `loadDashboardData()` |
+| 2 | `services/dashboardLoader.ts` | Checks API health; on failure returns `emptyDashboard()` |
+| 3 | `services/apiLoader.ts` | `fetch('/api/v1/dashboard')`, merges defaults into `stats` |
+| 4 | `lib/adapters.ts` | `deriveDashboardViews(data)` builds all UI views |
+| 5 | `context/DashboardContext.tsx` | Provides `data` + `derived` to every page |
+
+Refresh (`R` key or top bar): `POST /api/v1/dashboard/refresh` → reload `GET /api/v1/dashboard`.
+
+### 5. Frontend derivation (`lib/adapters.ts`)
+
+The API payload is further transformed **in the browser** for display:
+
+| Derived view | Function | What it does |
+|--------------|----------|--------------|
+| `cves` | `toCves()` | Merges `cveRecords` by CVE ID across hosts; keeps max CVSS, union of ports/assets, KEV/EPSS flags |
+| `ips` | `toIpRecords()` | Sorts hosts by max CVSS; adds `criticalCount`, `highCount`, `cveCount` per IP |
+| `solutions` | `toSolutions()` | One remediation item per **critical/high** CVE; default status `triage` if KEV else `open` |
+| `alerts` | `toAlerts()` | Top 12 CVEs that are KEV, high EPSS (≥10%), or critical |
+| `riskTrendView` | `toRiskTrendView()` | Observation timeline or snapshot fallback (see below) |
+| `vendors` / `products` | `toVendorsAndProducts()` | Groups by product string; vendor = first token of product name |
+
+### 6. Calculations performed in the UI
+
+These are **not** pre-computed by the API — they run in the frontend from `data` or `derived`:
+
+#### Network risk score (0–100)
+
+`utils/summaryGenerator.ts` → `computeNetworkRiskScore(stats)`:
+
+```
+weighted = critical×10 + high×7 + medium×4 + low×2 + informational×0.5
+raw      = (weighted / totalCVEs) × (averageCVSS / 10) × 10
+score    = min(100, round(raw, 1))
+```
+
+Shown in the home posture bar and Analytics KPI strip.
+
+#### Exploitability priority score
+
+`lib/exploitability.ts` → `exploitabilityScore(cve)` — used to sort the priority queue and remediation list:
+
+```
+base = cvss × 10
++ 100 if KEV (exploitKnown)
++ 50  if epss ≥ 0.5
++ 25  if epss ≥ 0.1
++ 10  if epss > 0
++ 15  if verified
+```
+
+Higher score = higher priority.
+
+#### Severity bands (UI)
+
+`lib/severity.ts` → `cvssToSeverity(cvss)` — same thresholds as the backend (9 / 7 / 4 / 0). Used for badges, donuts, and filters when re-deriving from a numeric score.
+
+#### Home posture metrics (`useDashboardSummary`)
+
+| Metric | Calculation |
+|--------|-------------|
+| **Pending remediations** | Solutions whose status is in the configured “pending” set (default: not started + under review) |
+| **Critical** | Count of unique CVEs with UI severity `critical` |
+| **KEV / High EPSS** | From `data.stats.kevFindings` and `data.stats.highEpssFindings` (server-computed instance counts) |
+| **At-risk assets** | IPs where `criticalCount > 0` |
+| **Unique CVEs** | `data.stats.uniqueCVEs` |
+| **Risk score** | `computeNetworkRiskScore` (above) |
+| **Exposure delta** | Last day minus previous day on the observation timeline (only when ≥2 days of data) |
+
+#### Severity donut
+
+Counts **unique CVEs** (`derived.cves`) per UI severity band — not instance counts.
+
+#### Observation panel (`toRiskTrendView`)
+
+Uses `cve.publishedDate` (observation timestamp from DynamoDB, not CVE publish date):
+
+1. **≥2 calendar days** → area chart, findings per day (last 14 days)
+2. **1 day, ≥2 distinct hours** → area chart, findings per hour
+3. **Single snapshot** → fallback bar chart, in order:
+   - Scan sources (`scanSourceCounts`)
+   - Findings by port (top 8 from `cveRecords`)
+   - Exploitability signals (KEV, high EPSS, verified, critical counts from `stats`)
+
+#### Threat categories
+
+`lib/inferThreat.ts` matches CVE **summary text** against keyword rules (RCE, injection, auth, etc.). Default category if no match: `misconfiguration`. Counts on `/threats` are per unique CVE after inference.
+
+#### Vendor risk score
+
+`toVendorsAndProducts()`:
+
+```
+vendor.riskScore = min(100, round(maxCvssAcrossVendorProducts × 10))
+```
+
+Vendor name is the first word/token of the product string (heuristic, not a separate DynamoDB vendor field).
+
+#### Analytics charts (`utils/chartData.ts`)
+
+Built on demand from `data`:
+
+- **CVEs over time** — bucket `cveRecords` by month of `publishedDate`
+- **Top IPs** — sort `ips` by CVE count on each host
+- **Port heatmap** — count `cveRecords` per port
+- **OS / services / products / countries** — frequency counts from IP and record fields
+- **Avg CVSS by org** — mean score per `organization` on flat records
+- **Domain footprint** — domains on IPs, weighted by CVE count per host
+
+#### Remediation progress donut
+
+Counts solutions by status. **Pending** center value uses the same pending-status filter as the posture bar. Status values come from `RemediationContext` (browser `localStorage`), overlaid on API-derived solution list.
+
+### 7. What is not from DynamoDB
+
+| Data | Storage |
+|------|---------|
+| Remediation status per item | Browser `localStorage` (`df-remediation-v1`) |
+| Remediation status labels / pending config | Browser `localStorage` |
+| Theme preference | Browser `localStorage` |
+| Empty fallback when API is down | Generated client-side (`emptyDashboard()`) |
+
+### 8. End-to-end utilization map
+
+| UI element | Primary data source |
+|------------|---------------------|
+| Posture bar counts | `stats` + `derived.cves` + `derived.ips` + remediation context |
+| Severity donut | `derived.cves` (unique, by severity) |
+| Observation panel | `cveRecords` timestamps / `scanSourceCounts` / `stats` |
+| Priority queue | `derived.solutions` sorted by `exploitabilityScore` |
+| At-risk assets table | `derived.ips` sorted by `maxCvss` |
+| CVE list/detail | `derived.cves` |
+| IP list/detail | `derived.ips` + nested CVE data from `data.ips` |
+| Remediations table | `derived.solutions` + local status overrides |
+| Vendors | `derived.vendors` / `derived.products` |
+| Analytics charts | `data` via `buildChartData` / `buildAnalyticsData` |
+| Geo map | `derived.ips` with country/city coordinates |
+| Settings record counts | `data.stats` + `data.source` |
+
+---
+
 ## Pages and what each section does
 
 ### Home (`/`)

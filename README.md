@@ -2,7 +2,7 @@
 
 Fresno State cybersecurity dashboard for external footprint visibility — CVEs, IP assets, remediations, vendors, and analytics. Served by the **footprint-api** FastAPI app with live DynamoDB data.
 
-**Full architecture and section-by-section guide:** [DASHBOARD.md](./DASHBOARD.md)
+**Full architecture and section-by-section guide:** [DASHBOARD.md](./DASHBOARD.md) — includes data ingestion from DynamoDB, field mapping, and how metrics are calculated.
 
 ## Project structure
 
