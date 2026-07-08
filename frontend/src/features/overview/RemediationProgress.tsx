@@ -29,8 +29,8 @@ export function RemediationProgress() {
                   data={counts.filter((c) => c.value > 0)}
                   dataKey="value"
                   nameKey="label"
-                  innerRadius="62%"
-                  outerRadius="80%"
+                  innerRadius="72%"
+                  outerRadius="95%"
                   paddingAngle={2}
                   stroke="var(--donut-stroke)"
                   strokeWidth={2}
