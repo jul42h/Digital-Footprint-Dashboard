@@ -3,6 +3,7 @@ NVD CVE -> S3 pipeline, exposed via FastAPI.
 
 Endpoints:
     POST /cves/sync                 Fetch CVEs from NVD (with optional filters) and upload to S3
+    POST /cves/sync-from-list       Fetch only the CVE IDs listed in a JSON file in S3 and upload results to S3
     POST /cves/sync-from-dynamodb   Fetch only the CVE IDs listed in your DynamoDB table and upload to S3
     GET  /cves/latest               Read the most recently synced CVE file back out of S3
     GET  /health                    Basic health check
@@ -13,6 +14,7 @@ Environment variables (set these in a .env file or your deployment config):
     AWS_REGION                     e.g. "us-east-1"
     S3_BUCKET_NAME                 name of the bucket to write to
     NVD_API_KEY                    optional but strongly recommended (raises NVD rate limit from 5/30s to 50/30s)
+    CVE_LIST_S3_KEY                key of the JSON file in S3 holding your unique CVE ID list (default: "cves/cve_watchlist.json")
     DYNAMODB_TABLE_NAME            name of the DynamoDB table holding the CVE IDs you want to check
     DYNAMODB_CVE_ID_ATTRIBUTE      attribute name in that table that holds the CVE ID (default: "cve_id")
     DYNAMODB_STATUS_ATTRIBUTE      optional attribute name to filter which items get checked (e.g. "status")
@@ -28,8 +30,11 @@ from typing import Optional, List
 import boto3
 import httpx
 from botocore.exceptions import ClientError
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
+
+load_dotenv()  # reads variables from a .env file in the working directory, if present
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nvd-cve-sync")
@@ -40,12 +45,14 @@ logger = logging.getLogger("nvd-cve-sync")
 
 NVD_BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 NVD_API_KEY = os.getenv("NVD_API_KEY")  # optional
-S3_BUCKET_NAME = "01-su2026-cybersecurity-internship"
-AWS_REGION = os.getenv("AWS_REGION", "us-west-2")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
 DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME")
 DYNAMODB_CVE_ID_ATTRIBUTE = os.getenv("DYNAMODB_CVE_ID_ATTRIBUTE", "cve_id")
 DYNAMODB_STATUS_ATTRIBUTE = os.getenv("DYNAMODB_STATUS_ATTRIBUTE")  # optional, e.g. "status"
+
+CVE_LIST_S3_KEY = os.getenv("CVE_LIST_S3_KEY", "cves/cve_watchlist.json")
 
 if not S3_BUCKET_NAME:
     logger.warning("S3_BUCKET_NAME is not set — /cves/sync will fail until it is configured.")
@@ -71,6 +78,15 @@ class SyncResult(BaseModel):
 
 class DynamoSyncResult(BaseModel):
     s3_key: str
+    requested: int
+    results_fetched: int
+    not_found: List[str]
+    synced_at: str
+
+
+class ListSyncResult(BaseModel):
+    s3_key: str
+    source_key: str
     requested: int
     results_fetched: int
     not_found: List[str]
@@ -203,6 +219,80 @@ async def fetch_specific_cves(cve_ids: List[str]) -> dict:
         "vulnerabilities": found,
         "fetchedAt": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# CVE list (S3 JSON file) helpers
+# ---------------------------------------------------------------------------
+
+def get_cve_ids_from_s3_list(key: Optional[str] = None) -> List[str]:
+    """
+    Reads a CVE ID list from S3. Supports several shapes:
+      1. A plain JSON array of strings:        ["CVE-2021-44228", "CVE-2022-1234"]
+      2. An object with a "cve_ids" field:      {"cve_ids": ["CVE-2021-44228", "CVE-2022-1234"]}
+      3. JSON Lines — one object per line:      {"cve_id": "CVE-2021-44228"}
+                                                 {"cve_id": "CVE-2022-1234"}
+    """
+    key = key or CVE_LIST_S3_KEY
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
+
+    try:
+        obj = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=key)
+        body = obj["Body"].read()
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise HTTPException(status_code=404, detail=f"CVE list not found at s3://{S3_BUCKET_NAME}/{key}")
+        logger.exception("Failed to read CVE list from S3")
+        raise HTTPException(status_code=502, detail=f"S3 read failed: {e}")
+
+    text = body.decode("utf-8")
+
+    # Try parsing as a single JSON document first (array, or {"cve_ids": [...]})
+    try:
+        raw = json.loads(text)
+        if isinstance(raw, list):
+            cve_ids = raw
+        elif isinstance(raw, dict) and "cve_ids" in raw:
+            cve_ids = raw["cve_ids"]
+        elif isinstance(raw, dict) and "cve_id" in raw:
+            # single-object file with just one CVE
+            cve_ids = [raw["cve_id"]]
+        else:
+            raise HTTPException(
+                status_code=422,
+                detail="CVE list JSON must be a list of strings, an object with a 'cve_ids' field, "
+                       "or JSON Lines of {'cve_id': ...} objects.",
+            )
+    except json.JSONDecodeError:
+        # Not a single valid JSON document — try JSON Lines: one {"cve_id": "..."} object per line
+        cve_ids = []
+        for line_num, line in enumerate(text.splitlines(), start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError as e:
+                logger.exception(f"Invalid JSON on line {line_num} of s3://{S3_BUCKET_NAME}/{key}")
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"File at s3://{S3_BUCKET_NAME}/{key} is not valid JSON, JSON array, "
+                           f"or JSON Lines — failed on line {line_num}: {e}",
+                )
+            if isinstance(obj, dict) and "cve_id" in obj:
+                cve_ids.append(obj["cve_id"])
+            elif isinstance(obj, str):
+                cve_ids.append(obj)
+
+    # de-duplicate while preserving order (cheap, but the file should already be unique)
+    seen = set()
+    deduped = []
+    for cid in cve_ids:
+        if cid and cid not in seen:
+            seen.add(cid)
+            deduped.append(cid)
+    return deduped
 
 
 # ---------------------------------------------------------------------------
@@ -343,6 +433,37 @@ async def sync_cves(
         s3_key=s3_key,
         total_results=result["totalResults"],
         results_fetched=result["resultsFetched"],
+        synced_at=result["fetchedAt"],
+    )
+
+
+@app.post("/cves/sync-from-list", response_model=ListSyncResult)
+async def sync_cves_from_list(
+    source_key: Optional[str] = Query(
+        None, description="Override CVE_LIST_S3_KEY for this call, e.g. 'cves/cve_watchlist.json'"
+    ),
+):
+    """
+    Reads your unique CVE ID list from a JSON file in S3, looks each one up on
+    NVD, and writes the combined results to S3 under the 'cves/' prefix.
+    """
+    key = source_key or CVE_LIST_S3_KEY
+    cve_ids = get_cve_ids_from_s3_list(key=key)
+    if not cve_ids:
+        raise HTTPException(status_code=404, detail=f"No CVE IDs found in s3://{S3_BUCKET_NAME}/{key}")
+
+    result = await fetch_specific_cves(cve_ids)
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    s3_key = f"cves/nvd_cves_from_list_{timestamp}.json"
+    upload_json_to_s3(result, s3_key)
+
+    return ListSyncResult(
+        s3_key=s3_key,
+        source_key=key,
+        requested=result["requested"],
+        results_fetched=result["resultsFetched"],
+        not_found=result["notFound"],
         synced_at=result["fetchedAt"],
     )
 
