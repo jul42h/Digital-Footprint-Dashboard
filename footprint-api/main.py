@@ -8,6 +8,17 @@ Endpoints:
     GET  /cves/latest               Read the most recently synced CVE file back out of S3
     GET  /health                    Basic health check
 
+Each sync endpoint writes three objects to S3 under the 'cves/' prefix:
+    *.json     the raw, nested NVD API response (kept for archival/debugging)
+    *.jsonl    one flat JSON object per line, one line per CVE
+    *.parquet  the same flat, one-row-per-CVE records as a Parquet file
+
+The .jsonl/.parquet records have NO nested lists or objects — every CVE's
+multi-valued fields (descriptions, CVSS metrics for each version, weaknesses/
+CWEs, references, CPE matches) are collapsed into a single row with
+delimited-string columns (see `flatten_vulnerability` / FLAT_CVE_COLUMNS),
+so the output loads directly into a database table.
+
 Environment variables (set these in a .env file or your deployment config):
     AWS_ACCESS_KEY_ID              (optional if using IAM role / default credential chain)
     AWS_SECRET_ACCESS_KEY          (optional if using IAM role / default credential chain)
@@ -21,6 +32,7 @@ Environment variables (set these in a .env file or your deployment config):
 """
 
 import os
+import io
 import json
 import asyncio
 import logging
@@ -29,6 +41,7 @@ from typing import Optional, List
 
 import boto3
 import httpx
+import pandas as pd
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
@@ -71,6 +84,8 @@ app = FastAPI(title="NVD CVE Sync Service")
 
 class SyncResult(BaseModel):
     s3_key: str
+    jsonl_key: str
+    parquet_key: str
     total_results: int
     results_fetched: int
     synced_at: str
@@ -78,6 +93,8 @@ class SyncResult(BaseModel):
 
 class DynamoSyncResult(BaseModel):
     s3_key: str
+    jsonl_key: str
+    parquet_key: str
     requested: int
     results_fetched: int
     not_found: List[str]
@@ -86,6 +103,8 @@ class DynamoSyncResult(BaseModel):
 
 class ListSyncResult(BaseModel):
     s3_key: str
+    jsonl_key: str
+    parquet_key: str
     source_key: str
     requested: int
     results_fetched: int
@@ -219,6 +238,172 @@ async def fetch_specific_cves(cve_ids: List[str]) -> dict:
         "vulnerabilities": found,
         "fetchedAt": datetime.now(timezone.utc).isoformat(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Flattening logic
+# ---------------------------------------------------------------------------
+#
+# The raw NVD payload is deeply nested (descriptions[], metrics.cvssMetricV2/
+# V30/V31/V40[], weaknesses[].description[], configurations[].nodes[].cpeMatch[],
+# references[]). For JSONL/Parquet output we want one row per CVE with every
+# multi-valued field collapsed into a delimited string column, so the result
+# loads cleanly into a database table with no nested/struct columns.
+
+_LIST_SEP = "; "
+
+
+def _join_unique(values: List[str]) -> str:
+    """De-dupes (preserving order) and joins a list of strings for a flat column."""
+    seen = set()
+    out = []
+    for v in values:
+        if v is None:
+            continue
+        v = str(v)
+        if v not in seen:
+            seen.add(v)
+            out.append(v)
+    return _LIST_SEP.join(out)
+
+
+def _first_english_description(descriptions: List[dict]) -> str:
+    for d in descriptions or []:
+        if d.get("lang") == "en":
+            return d.get("value", "")
+    return (descriptions or [{}])[0].get("value", "") if descriptions else ""
+
+
+def _extract_cvss_metric(metrics: dict, key: str) -> dict:
+    """
+    Pulls out the first metric entry for a given NVD metrics key
+    (cvssMetricV2, cvssMetricV30, cvssMetricV31, cvssMetricV40), preferring
+    the entry whose source is the primary NVD source if more than one exists.
+    """
+    entries = (metrics or {}).get(key, [])
+    if not entries:
+        return {}
+    primary = next((e for e in entries if e.get("type") == "Primary"), entries[0])
+    cvss_data = primary.get("cvssData", {}) or {}
+    return {
+        "vector": cvss_data.get("vectorString"),
+        "base_score": cvss_data.get("baseScore"),
+        # v2 stores severity at the metric level; v3.x/v4 store it in cvssData
+        "base_severity": primary.get("baseSeverity") or cvss_data.get("baseSeverity"),
+        "exploitability_score": primary.get("exploitabilityScore"),
+        "impact_score": primary.get("impactScore"),
+    }
+
+
+def _extract_cwe_ids(weaknesses: List[dict]) -> List[str]:
+    cwe_ids = []
+    for w in weaknesses or []:
+        for d in w.get("description", []):
+            if d.get("lang") == "en" and d.get("value"):
+                cwe_ids.append(d["value"])
+    return cwe_ids
+
+
+def _extract_cpe_criteria(configurations: List[dict]) -> List[str]:
+    criteria = []
+    for config in configurations or []:
+        for node in config.get("nodes", []):
+            for match in node.get("cpeMatch", []):
+                c = match.get("criteria")
+                if c:
+                    criteria.append(c)
+    return criteria
+
+
+def _extract_vendors_and_products(cpe_criteria: List[str]) -> (List[str], List[str]):
+    """
+    CPE 2.3 URIs look like: cpe:2.3:<part>:<vendor>:<product>:<version>:...
+    """
+    vendors, products = [], []
+    for c in cpe_criteria:
+        parts = c.split(":")
+        if len(parts) >= 5:
+            vendors.append(parts[3])
+            products.append(parts[4])
+    return vendors, products
+
+
+def flatten_vulnerability(vuln: dict, fetched_at: Optional[str] = None) -> dict:
+    """Flattens a single NVD `vulnerabilities[]` entry into one flat, non-nested dict."""
+    cve = vuln.get("cve", {})
+
+    metrics = cve.get("metrics", {})
+    v2 = _extract_cvss_metric(metrics, "cvssMetricV2")
+    v30 = _extract_cvss_metric(metrics, "cvssMetricV30")
+    v31 = _extract_cvss_metric(metrics, "cvssMetricV31")
+    v40 = _extract_cvss_metric(metrics, "cvssMetricV40")
+
+    references = cve.get("references", [])
+    cpe_criteria = _extract_cpe_criteria(cve.get("configurations", []))
+    vendors, products = _extract_vendors_and_products(cpe_criteria)
+
+    return {
+        "cve_id": cve.get("id"),
+        "source_identifier": cve.get("sourceIdentifier"),
+        "vuln_status": cve.get("vulnStatus"),
+        "published": cve.get("published"),
+        "last_modified": cve.get("lastModified"),
+        "description": _first_english_description(cve.get("descriptions", [])),
+        "cwe_ids": _join_unique(_extract_cwe_ids(cve.get("weaknesses", []))),
+        "cvss_v2_vector": v2.get("vector"),
+        "cvss_v2_base_score": v2.get("base_score"),
+        "cvss_v2_base_severity": v2.get("base_severity"),
+        "cvss_v2_exploitability_score": v2.get("exploitability_score"),
+        "cvss_v2_impact_score": v2.get("impact_score"),
+        "cvss_v30_vector": v30.get("vector"),
+        "cvss_v30_base_score": v30.get("base_score"),
+        "cvss_v30_base_severity": v30.get("base_severity"),
+        "cvss_v30_exploitability_score": v30.get("exploitability_score"),
+        "cvss_v30_impact_score": v30.get("impact_score"),
+        "cvss_v31_vector": v31.get("vector"),
+        "cvss_v31_base_score": v31.get("base_score"),
+        "cvss_v31_base_severity": v31.get("base_severity"),
+        "cvss_v31_exploitability_score": v31.get("exploitability_score"),
+        "cvss_v31_impact_score": v31.get("impact_score"),
+        "cvss_v40_vector": v40.get("vector"),
+        "cvss_v40_base_score": v40.get("base_score"),
+        "cvss_v40_base_severity": v40.get("base_severity"),
+        "cvss_v40_exploitability_score": v40.get("exploitability_score"),
+        "cvss_v40_impact_score": v40.get("impact_score"),
+        "reference_count": len(references),
+        "reference_urls": _join_unique([r.get("url") for r in references]),
+        "reference_sources": _join_unique([r.get("source") for r in references]),
+        "reference_tags": _join_unique([t for r in references for t in r.get("tags", [])]),
+        "cpe_count": len(cpe_criteria),
+        "cpe_criteria": _join_unique(cpe_criteria),
+        "vendors": _join_unique(vendors),
+        "products": _join_unique(products),
+        "fetched_at": fetched_at,
+    }
+
+
+def flatten_result(result: dict) -> List[dict]:
+    """Flattens an entire fetch result (as returned by fetch_cves / fetch_specific_cves)."""
+    fetched_at = result.get("fetchedAt")
+    return [flatten_vulnerability(v, fetched_at=fetched_at) for v in result.get("vulnerabilities", [])]
+
+
+# Column order/schema for flatten_vulnerability's output, used to give an empty
+# result set (e.g. zero matches) a well-defined Parquet schema instead of none.
+FLAT_CVE_COLUMNS = [
+    "cve_id", "source_identifier", "vuln_status", "published", "last_modified",
+    "description", "cwe_ids",
+    "cvss_v2_vector", "cvss_v2_base_score", "cvss_v2_base_severity",
+    "cvss_v2_exploitability_score", "cvss_v2_impact_score",
+    "cvss_v30_vector", "cvss_v30_base_score", "cvss_v30_base_severity",
+    "cvss_v30_exploitability_score", "cvss_v30_impact_score",
+    "cvss_v31_vector", "cvss_v31_base_score", "cvss_v31_base_severity",
+    "cvss_v31_exploitability_score", "cvss_v31_impact_score",
+    "cvss_v40_vector", "cvss_v40_base_score", "cvss_v40_base_severity",
+    "cvss_v40_exploitability_score", "cvss_v40_impact_score",
+    "reference_count", "reference_urls", "reference_sources", "reference_tags",
+    "cpe_count", "cpe_criteria", "vendors", "products", "fetched_at",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +555,45 @@ def upload_json_to_s3(payload: dict, key: str) -> None:
         raise HTTPException(status_code=502, detail=f"S3 upload failed: {e}")
 
 
+def upload_jsonl_to_s3(records: List[dict], key: str) -> None:
+    """Writes a list of flat dicts as newline-delimited JSON (one object per line)."""
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
+    body = "\n".join(json.dumps(r, default=str) for r in records).encode("utf-8")
+    try:
+        s3_client.put_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=key,
+            Body=body,
+            ContentType="application/jsonl",
+        )
+    except ClientError as e:
+        logger.exception("Failed to upload JSONL to S3")
+        raise HTTPException(status_code=502, detail=f"S3 upload failed: {e}")
+
+
+def upload_parquet_to_s3(records: List[dict], key: str) -> None:
+    """Writes a list of flat dicts as a Parquet file (no nested/struct columns)."""
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
+
+    df = pd.DataFrame.from_records(records, columns=FLAT_CVE_COLUMNS if not records else None)
+    buffer = io.BytesIO()
+    df.to_parquet(buffer, index=False, engine="pyarrow")
+    buffer.seek(0)
+
+    try:
+        s3_client.put_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=key,
+            Body=buffer.getvalue(),
+            ContentType="application/octet-stream",
+        )
+    except ClientError as e:
+        logger.exception("Failed to upload Parquet to S3")
+        raise HTTPException(status_code=502, detail=f"S3 upload failed: {e}")
+
+
 def read_json_from_s3(key: str) -> dict:
     try:
         obj = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=key)
@@ -429,8 +653,16 @@ async def sync_cves(
     s3_key = f"cves/nvd_cves_{timestamp}.json"
     upload_json_to_s3(result, s3_key)
 
+    flat_records = flatten_result(result)
+    jsonl_key = f"cves/nvd_cves_{timestamp}.jsonl"
+    parquet_key = f"cves/nvd_cves_{timestamp}.parquet"
+    upload_jsonl_to_s3(flat_records, jsonl_key)
+    upload_parquet_to_s3(flat_records, parquet_key)
+
     return SyncResult(
         s3_key=s3_key,
+        jsonl_key=jsonl_key,
+        parquet_key=parquet_key,
         total_results=result["totalResults"],
         results_fetched=result["resultsFetched"],
         synced_at=result["fetchedAt"],
@@ -458,8 +690,16 @@ async def sync_cves_from_list(
     s3_key = f"cves/nvd_cves_from_list_{timestamp}.json"
     upload_json_to_s3(result, s3_key)
 
+    flat_records = flatten_result(result)
+    jsonl_key = f"cves/nvd_cves_from_list_{timestamp}.jsonl"
+    parquet_key = f"cves/nvd_cves_from_list_{timestamp}.parquet"
+    upload_jsonl_to_s3(flat_records, jsonl_key)
+    upload_parquet_to_s3(flat_records, parquet_key)
+
     return ListSyncResult(
         s3_key=s3_key,
+        jsonl_key=jsonl_key,
+        parquet_key=parquet_key,
         source_key=key,
         requested=result["requested"],
         results_fetched=result["resultsFetched"],
@@ -489,8 +729,16 @@ async def sync_cves_from_dynamodb(
     s3_key = f"cves/nvd_cves_from_dynamodb_{timestamp}.json"
     upload_json_to_s3(result, s3_key)
 
+    flat_records = flatten_result(result)
+    jsonl_key = f"cves/nvd_cves_from_dynamodb_{timestamp}.jsonl"
+    parquet_key = f"cves/nvd_cves_from_dynamodb_{timestamp}.parquet"
+    upload_jsonl_to_s3(flat_records, jsonl_key)
+    upload_parquet_to_s3(flat_records, parquet_key)
+
     return DynamoSyncResult(
         s3_key=s3_key,
+        jsonl_key=jsonl_key,
+        parquet_key=parquet_key,
         requested=result["requested"],
         results_fetched=result["resultsFetched"],
         not_found=result["notFound"],
