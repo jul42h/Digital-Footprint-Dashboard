@@ -8,16 +8,27 @@ Endpoints:
     GET  /cves/latest               Read the most recently synced CVE file back out of S3
     GET  /health                    Basic health check
 
-Each sync endpoint writes three objects to S3 under the 'cves/' prefix:
-    *.json     the raw, nested NVD API response (kept for archival/debugging)
-    *.jsonl    one flat JSON object per line, one line per CVE
-    *.parquet  the same flat, one-row-per-CVE records as a Parquet file
+Each sync endpoint writes three objects to S3, named by source + UTC date:
+    cves/raw/cves_2026-07-09.json       the raw, nested NVD API response (archival/debugging)
+    cves/flat/cves_2026-07-09.json      the flattened records, JSON Lines content (one object per line)
+    cves/flat/cves_2026-07-09.parquet   the same flattened records as Parquet
 
-The .jsonl/.parquet records have NO nested lists or objects — every CVE's
-multi-valued fields (descriptions, CVSS metrics for each version, weaknesses/
-CWEs, references, CPE matches) are collapsed into a single row with
-delimited-string columns (see `flatten_vulnerability` / FLAT_CVE_COLUMNS),
-so the output loads directly into a database table.
+Stems are "cves" (/cves/sync), "cves_list" (/cves/sync-from-list), and
+"cves_db" (/cves/sync-from-dynamodb). If a name is already taken, the next
+free number in the series is used instead (cves_2026-07-09_2, _3, ...), so a
+sync never overwrites an earlier one. All three files from a single run always
+share the same stem.
+
+Note: the flat JSON Lines file intentionally uses a plain ".json" extension
+rather than ".jsonl" — the *content* is newline-delimited JSON, but it is
+surfaced as .json. Raw and flat outputs live under separate prefixes so the
+two .json files never collide, and so /cves/latest can find the flat file.
+
+The flat records have NO nested lists or objects — every CVE's multi-valued
+fields (descriptions, CVSS metrics for each version, weaknesses/CWEs,
+references, CPE matches) are collapsed into a single row with delimited-string
+columns (see `flatten_vulnerability` / FLAT_CVE_COLUMNS), so the output loads
+directly into a database table.
 
 Environment variables (set these in a .env file or your deployment config):
     AWS_ACCESS_KEY_ID              (optional if using IAM role / default credential chain)
@@ -37,7 +48,7 @@ import json
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 import boto3
 import httpx
@@ -66,6 +77,20 @@ DYNAMODB_CVE_ID_ATTRIBUTE = os.getenv("DYNAMODB_CVE_ID_ATTRIBUTE", "cve_id")
 DYNAMODB_STATUS_ATTRIBUTE = os.getenv("DYNAMODB_STATUS_ATTRIBUTE")  # optional, e.g. "status"
 
 CVE_LIST_S3_KEY = os.getenv("CVE_LIST_S3_KEY", "cves/cve_watchlist.json")
+
+# Separate prefixes keep the raw nested archive, the flattened output, and the
+# input watchlist from colliding with each other (they can all end in .json).
+RAW_PREFIX = "cves/raw/"
+FLAT_PREFIX = "cves/flat/"
+
+# Short, stable stems per sync source. Combined with the UTC date this gives
+# names like "cves_2026-07-09" / "cves_list_2026-07-09" / "cves_db_2026-07-09".
+BASENAME_SYNC = "cves"
+BASENAME_LIST = "cves_list"
+BASENAME_DYNAMO = "cves_db"
+
+# How many numbered suffixes to try before giving up (cves_<date>_2 ... _N).
+MAX_NAME_ATTEMPTS = 1000
 
 if not S3_BUCKET_NAME:
     logger.warning("S3_BUCKET_NAME is not set — /cves/sync will fail until it is configured.")
@@ -98,6 +123,7 @@ class DynamoSyncResult(BaseModel):
     requested: int
     results_fetched: int
     not_found: List[str]
+    error_count: int = 0
     synced_at: str
 
 
@@ -109,12 +135,64 @@ class ListSyncResult(BaseModel):
     requested: int
     results_fetched: int
     not_found: List[str]
+    error_count: int = 0
     synced_at: str
 
 
 # ---------------------------------------------------------------------------
 # NVD fetch logic
 # ---------------------------------------------------------------------------
+
+async def _nvd_get(
+    client: httpx.AsyncClient,
+    params: dict,
+    headers: dict,
+    max_attempts: int = 4,
+) -> dict:
+    """
+    Performs a single GET against the NVD API with retry/backoff.
+
+    NVD returns 403 for a bad/absent API key, and 429 (or intermittent 5xx)
+    when you exceed the rate limit. 429/5xx are transient and worth retrying
+    with exponential backoff; 403 is a config problem and fails fast.
+    """
+    backoff = 2.0
+    for attempt in range(1, max_attempts + 1):
+        try:
+            resp = await client.get(NVD_BASE_URL, params=params, headers=headers)
+        except (httpx.TimeoutException, httpx.TransportError) as e:
+            if attempt == max_attempts:
+                raise HTTPException(status_code=504, detail=f"NVD request failed after retries: {e}")
+            logger.warning(f"NVD request error ({e}); retrying in {backoff}s")
+            await asyncio.sleep(backoff)
+            backoff *= 2
+            continue
+
+        if resp.status_code == 403:
+            raise HTTPException(
+                status_code=502,
+                detail="NVD API rejected the request (403). Check NVD_API_KEY or rate limits.",
+            )
+
+        if resp.status_code == 429 or resp.status_code >= 500:
+            if attempt == max_attempts:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"NVD API returned {resp.status_code} after {max_attempts} attempts.",
+                )
+            retry_after = resp.headers.get("Retry-After")
+            wait = float(retry_after) if retry_after and retry_after.isdigit() else backoff
+            logger.warning(f"NVD returned {resp.status_code}; retrying in {wait}s")
+            await asyncio.sleep(wait)
+            backoff *= 2
+            continue
+
+        resp.raise_for_status()
+        return resp.json()
+
+    # Unreachable, but keeps static analyzers happy.
+    raise HTTPException(status_code=502, detail="NVD request failed.")
+
 
 async def fetch_cves(
     keyword_search: Optional[str] = None,
@@ -152,15 +230,7 @@ async def fetch_cves(
     # With a key: 50 requests / 30s. httpx timeout is generous since NVD can be slow.
     async with httpx.AsyncClient(timeout=60.0) as client:
         while True:
-            resp = await client.get(NVD_BASE_URL, params=params, headers=headers)
-
-            if resp.status_code == 403:
-                raise HTTPException(
-                    status_code=502,
-                    detail="NVD API rejected the request (403). Check NVD_API_KEY or rate limits.",
-                )
-            resp.raise_for_status()
-            data = resp.json()
+            data = await _nvd_get(client, params, headers)
 
             total_results = data.get("totalResults", 0)
             vulns = data.get("vulnerabilities", [])
@@ -171,6 +241,10 @@ async def fetch_cves(
 
             if max_records and fetched_so_far >= max_records:
                 all_vulnerabilities = all_vulnerabilities[:max_records]
+                break
+
+            # If NVD returns an empty page, stop rather than looping forever.
+            if not vulns:
                 break
 
             next_index = params["startIndex"] + results_per_page
@@ -205,26 +279,22 @@ async def fetch_specific_cves(cve_ids: List[str]) -> dict:
     async with httpx.AsyncClient(timeout=60.0) as client:
         for i, cve_id in enumerate(cve_ids):
             try:
-                resp = await client.get(
-                    NVD_BASE_URL, params={"cveId": cve_id}, headers=headers
-                )
-                if resp.status_code == 403:
-                    raise HTTPException(
-                        status_code=502,
-                        detail="NVD API rejected the request (403). Check NVD_API_KEY or rate limits.",
-                    )
-                resp.raise_for_status()
-                data = resp.json()
+                data = await _nvd_get(client, {"cveId": cve_id}, headers)
                 vulns = data.get("vulnerabilities", [])
                 if vulns:
                     found.extend(vulns)
                 else:
                     not_found.append(cve_id)
-            except httpx.HTTPStatusError as e:
+            except HTTPException:
+                # 403 / exhausted retries: a config or hard rate-limit problem.
+                # Abort the whole run rather than silently mangling every CVE.
+                raise
+            except (httpx.HTTPError, json.JSONDecodeError) as e:
+                # A single bad CVE lookup shouldn't kill the entire batch.
                 logger.warning(f"NVD lookup failed for {cve_id}: {e}")
                 errors.append({"cve_id": cve_id, "error": str(e)})
 
-            logger.info(f"Checked {i + 1}/{len(cve_ids)} CVEs from DynamoDB list")
+            logger.info(f"Checked {i + 1}/{len(cve_ids)} CVEs")
 
             # Don't sleep after the last request
             if i < len(cve_ids) - 1:
@@ -315,7 +385,7 @@ def _extract_cpe_criteria(configurations: List[dict]) -> List[str]:
     return criteria
 
 
-def _extract_vendors_and_products(cpe_criteria: List[str]) -> (List[str], List[str]):
+def _extract_vendors_and_products(cpe_criteria: List[str]) -> Tuple[List[str], List[str]]:
     """
     CPE 2.3 URIs look like: cpe:2.3:<part>:<vendor>:<product>:<version>:...
     """
@@ -403,6 +473,23 @@ FLAT_CVE_COLUMNS = [
     "cvss_v40_exploitability_score", "cvss_v40_impact_score",
     "reference_count", "reference_urls", "reference_sources", "reference_tags",
     "cpe_count", "cpe_criteria", "vendors", "products", "fetched_at",
+]
+
+# Type groups, used to give the Parquet file real column types (instead of
+# everything landing as a string) so it loads cleanly into a database.
+TIMESTAMP_COLUMNS = ["published", "last_modified", "fetched_at"]
+
+FLOAT_COLUMNS = [
+    f"cvss_{v}_{m}"
+    for v in ("v2", "v30", "v31", "v40")
+    for m in ("base_score", "exploitability_score", "impact_score")
+]
+
+INT_COLUMNS = ["reference_count", "cpe_count"]
+
+STRING_COLUMNS = [
+    c for c in FLAT_CVE_COLUMNS
+    if c not in TIMESTAMP_COLUMNS + FLOAT_COLUMNS + INT_COLUMNS
 ]
 
 
@@ -517,7 +604,8 @@ def get_cve_ids_from_dynamodb(
             for item in resp.get("Items", []):
                 cve_id = item.get(DYNAMODB_CVE_ID_ATTRIBUTE)
                 if cve_id:
-                    cve_ids.append(cve_id)
+                    # boto3 may hand back Decimal/other types; NVD needs a plain string.
+                    cve_ids.append(str(cve_id).strip())
 
             if "LastEvaluatedKey" not in resp:
                 break
@@ -556,20 +644,57 @@ def upload_json_to_s3(payload: dict, key: str) -> None:
 
 
 def upload_jsonl_to_s3(records: List[dict], key: str) -> None:
-    """Writes a list of flat dicts as newline-delimited JSON (one object per line)."""
+    """
+    Writes a list of flat dicts as JSON Lines (one JSON object per line).
+
+    The key deliberately ends in ".json" even though the content is JSON Lines.
+    ContentType is "application/json" so browsers/S3 console treat it as text
+    rather than prompting a binary download.
+    """
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
-    body = "\n".join(json.dumps(r, default=str) for r in records).encode("utf-8")
+
+    # Trailing newline so the file is POSIX-clean and appends/concats stay valid JSONL.
+    body = "".join(json.dumps(r, default=str) + "\n" for r in records).encode("utf-8")
     try:
         s3_client.put_object(
             Bucket=S3_BUCKET_NAME,
             Key=key,
             Body=body,
-            ContentType="application/jsonl",
+            ContentType="application/json",
         )
     except ClientError as e:
-        logger.exception("Failed to upload JSONL to S3")
+        logger.exception("Failed to upload JSON Lines to S3")
         raise HTTPException(status_code=502, detail=f"S3 upload failed: {e}")
+
+
+def build_flat_dataframe(records: List[dict]) -> pd.DataFrame:
+    """
+    Builds a DataFrame with a stable, fully-flat schema.
+
+    An empty result set still yields all FLAT_CVE_COLUMNS so Parquet gets a
+    usable schema instead of zero columns. Timestamp and numeric columns are
+    coerced to real types so the Parquet file lands in a database with correct
+    column types rather than everything-as-string.
+    """
+    df = pd.DataFrame.from_records(records, columns=FLAT_CVE_COLUMNS if not records else None)
+
+    # Guarantee column presence/order even if a record was missing a key.
+    df = df.reindex(columns=FLAT_CVE_COLUMNS)
+
+    for col in TIMESTAMP_COLUMNS:
+        df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+
+    for col in FLOAT_COLUMNS:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    for col in INT_COLUMNS:
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+
+    for col in STRING_COLUMNS:
+        df[col] = df[col].astype("string")
+
+    return df
 
 
 def upload_parquet_to_s3(records: List[dict], key: str) -> None:
@@ -577,10 +702,9 @@ def upload_parquet_to_s3(records: List[dict], key: str) -> None:
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
 
-    df = pd.DataFrame.from_records(records, columns=FLAT_CVE_COLUMNS if not records else None)
+    df = build_flat_dataframe(records)
     buffer = io.BytesIO()
     df.to_parquet(buffer, index=False, engine="pyarrow")
-    buffer.seek(0)
 
     try:
         s3_client.put_object(
@@ -605,12 +729,130 @@ def read_json_from_s3(key: str) -> dict:
         raise HTTPException(status_code=502, detail=f"S3 read failed: {e}")
 
 
-def find_latest_key(prefix: str = "cves/") -> Optional[str]:
-    """Returns the most recently modified object under the given prefix."""
+def s3_key_exists(key: str) -> bool:
+    """Returns True if an object already exists at this key."""
+    try:
+        s3_client.head_object(Bucket=S3_BUCKET_NAME, Key=key)
+        return True
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("404", "NoSuchKey", "NotFound"):
+            return False
+        logger.exception("Failed to check S3 key existence")
+        raise HTTPException(status_code=502, detail=f"S3 head_object failed: {e}")
+
+
+def _keys_for(stem: str) -> Tuple[str, str, str]:
+    """Builds the (raw, jsonl, parquet) key triple for a given filename stem."""
+    return (
+        f"{RAW_PREFIX}{stem}.json",
+        f"{FLAT_PREFIX}{stem}.json",
+        f"{FLAT_PREFIX}{stem}.parquet",
+    )
+
+
+def resolve_output_keys(basename: str) -> Tuple[str, str, str]:
+    """
+    Picks the next free name following the convention:
+
+        cves_2026-07-09          (first sync of the day)
+        cves_2026-07-09_2        (second sync that day)
+        cves_2026-07-09_3        (third, etc.)
+
+    The counter is advanced only when *all three* files for a candidate stem are
+    free, so the raw/jsonl/parquet outputs of one run always share the same
+    stem and never drift out of sync with each other.
+    """
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
+
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    for n in range(1, MAX_NAME_ATTEMPTS + 1):
+        stem = f"{basename}_{date_str}" if n == 1 else f"{basename}_{date_str}_{n}"
+        keys = _keys_for(stem)
+        if not any(s3_key_exists(k) for k in keys):
+            return keys
+
+    raise HTTPException(
+        status_code=507,
+        detail=f"Could not find a free output name for '{basename}_{date_str}' "
+               f"after {MAX_NAME_ATTEMPTS} attempts.",
+    )
+
+
+def write_all_outputs(result: dict, basename: str) -> Tuple[str, str, str]:
+    """
+    Writes the three artifacts for one sync and returns their S3 keys:
+        (raw_key, jsonl_key, parquet_key)
+
+    e.g. for the first /cves/sync of 2026-07-09:
+        cves/raw/cves_2026-07-09.json      nested NVD payload
+        cves/flat/cves_2026-07-09.json     JSON Lines content, .json extension
+        cves/flat/cves_2026-07-09.parquet  same flat records
+
+    A later sync the same day rolls over to ..._2, ..._3, and so on, so an
+    existing file is never overwritten.
+    """
+    raw_key, jsonl_key, parquet_key = resolve_output_keys(basename)
+
+    flat_records = flatten_result(result)
+
+    upload_json_to_s3(result, raw_key)
+    upload_jsonl_to_s3(flat_records, jsonl_key)
+    upload_parquet_to_s3(flat_records, parquet_key)
+
+    logger.info(
+        f"Wrote {len(flat_records)} flat CVE rows -> "
+        f"s3://{S3_BUCKET_NAME}/{jsonl_key} and {parquet_key}"
+    )
+    return raw_key, jsonl_key, parquet_key
+
+
+def read_jsonl_from_s3(key: str) -> List[dict]:
+    """Reads a JSON Lines object from S3 and returns it as a list of flat dicts."""
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
+    try:
+        obj = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=key)
+        text = obj["Body"].read().decode("utf-8")
+    except ClientError as e:
+        if e.response["Error"]["Code"] in ("NoSuchKey", "404"):
+            raise HTTPException(status_code=404, detail=f"No object found at key: {key}")
+        logger.exception("Failed to read from S3")
+        raise HTTPException(status_code=502, detail=f"S3 read failed: {e}")
+
+    records = []
+    for line_num, line in enumerate(text.splitlines(), start=1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Corrupt JSON Lines at s3://{S3_BUCKET_NAME}/{key}, line {line_num}: {e}",
+            )
+    return records
+
+
+def find_latest_key(prefix: str = FLAT_PREFIX, suffix: str = ".json") -> Optional[str]:
+    """
+    Returns the most recently modified object under the given prefix.
+
+    Scoped to FLAT_PREFIX + ".json" by default so it can never return a
+    .parquet file (unreadable as JSON) or the CVE watchlist input file, both of
+    which would otherwise sit under a broader "cves/" prefix.
+    """
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
+
     paginator = s3_client.get_paginator("list_objects_v2")
     latest_key, latest_time = None, None
     for page in paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix=prefix):
         for obj in page.get("Contents", []):
+            if suffix and not obj["Key"].endswith(suffix):
+                continue
             if latest_time is None or obj["LastModified"] > latest_time:
                 latest_time = obj["LastModified"]
                 latest_key = obj["Key"]
@@ -649,18 +891,10 @@ async def sync_cves(
         max_records=max_records,
     )
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    s3_key = f"cves/nvd_cves_{timestamp}.json"
-    upload_json_to_s3(result, s3_key)
-
-    flat_records = flatten_result(result)
-    jsonl_key = f"cves/nvd_cves_{timestamp}.jsonl"
-    parquet_key = f"cves/nvd_cves_{timestamp}.parquet"
-    upload_jsonl_to_s3(flat_records, jsonl_key)
-    upload_parquet_to_s3(flat_records, parquet_key)
+    raw_key, jsonl_key, parquet_key = write_all_outputs(result, BASENAME_SYNC)
 
     return SyncResult(
-        s3_key=s3_key,
+        s3_key=raw_key,
         jsonl_key=jsonl_key,
         parquet_key=parquet_key,
         total_results=result["totalResults"],
@@ -686,24 +920,17 @@ async def sync_cves_from_list(
 
     result = await fetch_specific_cves(cve_ids)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    s3_key = f"cves/nvd_cves_from_list_{timestamp}.json"
-    upload_json_to_s3(result, s3_key)
-
-    flat_records = flatten_result(result)
-    jsonl_key = f"cves/nvd_cves_from_list_{timestamp}.jsonl"
-    parquet_key = f"cves/nvd_cves_from_list_{timestamp}.parquet"
-    upload_jsonl_to_s3(flat_records, jsonl_key)
-    upload_parquet_to_s3(flat_records, parquet_key)
+    raw_key, jsonl_key, parquet_key = write_all_outputs(result, BASENAME_LIST)
 
     return ListSyncResult(
-        s3_key=s3_key,
+        s3_key=raw_key,
         jsonl_key=jsonl_key,
         parquet_key=parquet_key,
         source_key=key,
         requested=result["requested"],
         results_fetched=result["resultsFetched"],
         not_found=result["notFound"],
+        error_count=len(result.get("errors", [])),
         synced_at=result["fetchedAt"],
     )
 
@@ -725,31 +952,38 @@ async def sync_cves_from_dynamodb(
 
     result = await fetch_specific_cves(cve_ids)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    s3_key = f"cves/nvd_cves_from_dynamodb_{timestamp}.json"
-    upload_json_to_s3(result, s3_key)
-
-    flat_records = flatten_result(result)
-    jsonl_key = f"cves/nvd_cves_from_dynamodb_{timestamp}.jsonl"
-    parquet_key = f"cves/nvd_cves_from_dynamodb_{timestamp}.parquet"
-    upload_jsonl_to_s3(flat_records, jsonl_key)
-    upload_parquet_to_s3(flat_records, parquet_key)
+    raw_key, jsonl_key, parquet_key = write_all_outputs(result, BASENAME_DYNAMO)
 
     return DynamoSyncResult(
-        s3_key=s3_key,
+        s3_key=raw_key,
         jsonl_key=jsonl_key,
         parquet_key=parquet_key,
         requested=result["requested"],
         results_fetched=result["resultsFetched"],
         not_found=result["notFound"],
+        error_count=len(result.get("errors", [])),
         synced_at=result["fetchedAt"],
     )
 
 
 @app.get("/cves/latest")
 def get_latest_cves():
-    """Reads the most recently synced CVE JSON file back out of S3 for the dashboard."""
+    """
+    Reads the most recently synced *flattened* CVE file back out of S3 for the
+    dashboard. Returns the flat, one-row-per-CVE records (parsed from the
+    JSON Lines file), not the raw nested NVD payload.
+    """
     latest_key = find_latest_key()
     if not latest_key:
         raise HTTPException(status_code=404, detail="No CVE data has been synced yet.")
+    records = read_jsonl_from_s3(latest_key)
+    return {"s3_key": latest_key, "count": len(records), "records": records}
+
+
+@app.get("/cves/latest-raw")
+def get_latest_raw_cves():
+    """Reads the most recently synced raw, nested NVD payload back out of S3."""
+    latest_key = find_latest_key(prefix=RAW_PREFIX, suffix=".json")
+    if not latest_key:
+        raise HTTPException(status_code=404, detail="No raw CVE data has been synced yet.")
     return read_json_from_s3(latest_key)
