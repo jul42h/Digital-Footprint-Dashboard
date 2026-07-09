@@ -30,6 +30,15 @@ references, CPE matches) are collapsed into a single row with delimited-string
 columns (see `flatten_vulnerability` / FLAT_CVE_COLUMNS), so the output loads
 directly into a database table.
 
+Columns are deliberately limited to fields that support a risk judgement:
+what the flaw is, how severe it is (on a single canonical CVSS scale, with the
+version recorded), how reachable it is, whether a patch or a public exploit
+exists, what it affects, and how much to trust the record. Raw link dumps, CPE
+URI strings, reporter email addresses, and the parallel per-version CVSS score
+sets are dropped — they add tokens without adding insight. Missing values stay
+NULL rather than being defaulted, so an unscored CVE is legible as "not yet
+scored" instead of silently reading as low risk.
+
 Environment variables (set these in a .env file or your deployment config):
     AWS_ACCESS_KEY_ID              (optional if using IAM role / default credential chain)
     AWS_SECRET_ACCESS_KEY          (optional if using IAM role / default credential chain)
@@ -53,6 +62,8 @@ from typing import Optional, List, Tuple
 import boto3
 import httpx
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
@@ -323,8 +334,11 @@ async def fetch_specific_cves(cve_ids: List[str]) -> dict:
 _LIST_SEP = "; "
 
 
-def _join_unique(values: List[str]) -> str:
-    """De-dupes (preserving order) and joins a list of strings for a flat column."""
+def _join_unique(values: List[str]) -> Optional[str]:
+    """
+    De-dupes (preserving order) and joins a list of strings for a flat column.
+    Returns None rather than "" when empty, so absent data reads as NULL.
+    """
     seen = set()
     out = []
     for v in values:
@@ -334,43 +348,103 @@ def _join_unique(values: List[str]) -> str:
         if v not in seen:
             seen.add(v)
             out.append(v)
-    return _LIST_SEP.join(out)
+    return _LIST_SEP.join(out) if out else None
 
 
-def _first_english_description(descriptions: List[dict]) -> str:
+def _first_english_description(descriptions: List[dict]) -> Optional[str]:
+    """
+    Returns the English description, falling back to whatever is present.
+    None when NVD published no description at all (rejected/reserved CVEs),
+    so the gap is visible instead of appearing as an empty string.
+    """
     for d in descriptions or []:
-        if d.get("lang") == "en":
-            return d.get("value", "")
-    return (descriptions or [{}])[0].get("value", "") if descriptions else ""
+        if d.get("lang") == "en" and d.get("value"):
+            return d["value"]
+    for d in descriptions or []:
+        if d.get("value"):
+            return d["value"]
+    return None
+
+
+# NVD may publish several CVSS versions for one CVE. For analysis we resolve a
+# single canonical score, newest scale first, and record which one we used.
+# A v2 9.3 and a v3.1 9.3 are NOT the same claim, so `cvss_version` must travel
+# alongside `base_score` or the score is uninterpretable.
+CVSS_PREFERENCE = [
+    ("cvssMetricV40", "4.0"),
+    ("cvssMetricV31", "3.1"),
+    ("cvssMetricV30", "3.0"),
+    ("cvssMetricV2", "2.0"),
+]
 
 
 def _extract_cvss_metric(metrics: dict, key: str) -> dict:
     """
-    Pulls out the first metric entry for a given NVD metrics key
-    (cvssMetricV2, cvssMetricV30, cvssMetricV31, cvssMetricV40), preferring
-    the entry whose source is the primary NVD source if more than one exists.
+    Pulls out the metric entry for a given NVD metrics key, preferring the
+    entry NVD marks as Primary if more than one source scored the CVE.
     """
     entries = (metrics or {}).get(key, [])
     if not entries:
         return {}
     primary = next((e for e in entries if e.get("type") == "Primary"), entries[0])
     cvss_data = primary.get("cvssData", {}) or {}
+
+    # v3.x/v4 name these attackVector/attackComplexity/privilegesRequired/
+    # userInteraction. v2 uses accessVector/accessComplexity and has no concept
+    # of privilegesRequired or userInteraction — those stay null rather than
+    # being faked from v2's "authentication" field, which measures something else.
     return {
-        "vector": cvss_data.get("vectorString"),
         "base_score": cvss_data.get("baseScore"),
         # v2 stores severity at the metric level; v3.x/v4 store it in cvssData
-        "base_severity": primary.get("baseSeverity") or cvss_data.get("baseSeverity"),
+        "severity": primary.get("baseSeverity") or cvss_data.get("baseSeverity"),
         "exploitability_score": primary.get("exploitabilityScore"),
         "impact_score": primary.get("impactScore"),
+        "attack_vector": cvss_data.get("attackVector") or cvss_data.get("accessVector"),
+        "attack_complexity": cvss_data.get("attackComplexity") or cvss_data.get("accessComplexity"),
+        "privileges_required": cvss_data.get("privilegesRequired"),
+        "user_interaction": cvss_data.get("userInteraction"),
     }
+
+
+def _resolve_primary_cvss(metrics: dict) -> dict:
+    """
+    Returns the single best-available CVSS metric plus the version it came from.
+
+    If NVD published no CVSS at all (common for very new CVEs still in
+    "Awaiting Analysis"), every field is None. That is deliberate: a null score
+    lets the analyst say "no CVSS score has been published yet" instead of
+    silently treating an unscored CVE as low risk.
+    """
+    for key, version in CVSS_PREFERENCE:
+        metric = _extract_cvss_metric(metrics, key)
+        if metric.get("base_score") is not None:
+            return {"cvss_version": version, **metric}
+    return {
+        "cvss_version": None, "base_score": None, "severity": None,
+        "exploitability_score": None, "impact_score": None,
+        "attack_vector": None, "attack_complexity": None,
+        "privileges_required": None, "user_interaction": None,
+    }
+
+
+def _has_reference_tag(references: List[dict], tag: str) -> bool:
+    """True if any reference carries the given NVD tag (e.g. 'Patch', 'Exploit')."""
+    return any(tag in (r.get("tags") or []) for r in references or [])
+
+
+# NVD uses these placeholders to mean "no weakness was assigned". They are not
+# real CWE classifications, so they're dropped rather than passed through as if
+# they described the flaw.
+CWE_PLACEHOLDERS = {"NVD-CWE-noinfo", "NVD-CWE-Other", "unknown", "UNKNOWN"}
 
 
 def _extract_cwe_ids(weaknesses: List[dict]) -> List[str]:
     cwe_ids = []
     for w in weaknesses or []:
         for d in w.get("description", []):
-            if d.get("lang") == "en" and d.get("value"):
-                cwe_ids.append(d["value"])
+            value = d.get("value")
+            if d.get("lang") == "en" and value and value not in CWE_PLACEHOLDERS:
+                cwe_ids.append(value)
     return cwe_ids
 
 
@@ -398,56 +472,96 @@ def _extract_vendors_and_products(cpe_criteria: List[str]) -> Tuple[List[str], L
     return vendors, products
 
 
+# Cap on how many vendor/product names are carried per CVE. A single CVE can
+# match thousands of CPEs; the full list is noise and would dominate the token
+# budget of anything reading these rows. The count columns preserve the scale.
+MAX_LIST_ITEMS = 10
+
+
+def _join_capped(values: List[str], limit: int = MAX_LIST_ITEMS) -> Optional[str]:
+    """
+    De-dupes, then joins at most `limit` names, noting how many were elided.
+    Returns None (not "") when there is nothing to join, so "no data" is
+    distinguishable from "empty value" once the column reaches the database.
+    """
+    seen = set()
+    unique = []
+    for v in values:
+        if v and v not in seen:
+            seen.add(v)
+            unique.append(str(v))
+    if not unique:
+        return None
+    if len(unique) <= limit:
+        return _LIST_SEP.join(unique)
+    remainder = len(unique) - limit
+    return _LIST_SEP.join(unique[:limit]) + f" (+{remainder} more)"
+
+
 def flatten_vulnerability(vuln: dict, fetched_at: Optional[str] = None) -> dict:
-    """Flattens a single NVD `vulnerabilities[]` entry into one flat, non-nested dict."""
+    """
+    Flattens a single NVD `vulnerabilities[]` entry into one flat, non-nested dict.
+
+    Only fields that support a risk judgement are kept. Every column below
+    answers a question an analyst would actually ask:
+
+        what is it            -> cve_id, description, cwe_ids
+        how bad               -> base_score, severity, impact_score  (+ cvss_version)
+        how reachable         -> attack_vector, attack_complexity,
+                                 privileges_required, user_interaction,
+                                 exploitability_score
+        can it be fixed       -> has_patch
+        is it being used      -> has_exploit
+        what does it touch    -> vendors, products, affected_product_count
+        how much to trust it  -> vuln_status, reference_count, published,
+                                 last_modified, fetched_at
+
+    Deliberately dropped: source_identifier (an email address, no analytic
+    value), cpe_criteria (200-char URIs; vendors/products carry the meaning),
+    reference_urls / reference_sources / reference_tags (raw link dumps —
+    replaced by has_patch / has_exploit / reference_count), and the per-version
+    CVSS vector strings and score sets (superseded by the canonical resolution).
+    """
     cve = vuln.get("cve", {})
 
-    metrics = cve.get("metrics", {})
-    v2 = _extract_cvss_metric(metrics, "cvssMetricV2")
-    v30 = _extract_cvss_metric(metrics, "cvssMetricV30")
-    v31 = _extract_cvss_metric(metrics, "cvssMetricV31")
-    v40 = _extract_cvss_metric(metrics, "cvssMetricV40")
-
-    references = cve.get("references", [])
+    cvss = _resolve_primary_cvss(cve.get("metrics", {}))
+    references = cve.get("references", []) or []
     cpe_criteria = _extract_cpe_criteria(cve.get("configurations", []))
     vendors, products = _extract_vendors_and_products(cpe_criteria)
 
     return {
+        # --- identity & narrative -------------------------------------------
         "cve_id": cve.get("id"),
-        "source_identifier": cve.get("sourceIdentifier"),
-        "vuln_status": cve.get("vulnStatus"),
-        "published": cve.get("published"),
-        "last_modified": cve.get("lastModified"),
         "description": _first_english_description(cve.get("descriptions", [])),
         "cwe_ids": _join_unique(_extract_cwe_ids(cve.get("weaknesses", []))),
-        "cvss_v2_vector": v2.get("vector"),
-        "cvss_v2_base_score": v2.get("base_score"),
-        "cvss_v2_base_severity": v2.get("base_severity"),
-        "cvss_v2_exploitability_score": v2.get("exploitability_score"),
-        "cvss_v2_impact_score": v2.get("impact_score"),
-        "cvss_v30_vector": v30.get("vector"),
-        "cvss_v30_base_score": v30.get("base_score"),
-        "cvss_v30_base_severity": v30.get("base_severity"),
-        "cvss_v30_exploitability_score": v30.get("exploitability_score"),
-        "cvss_v30_impact_score": v30.get("impact_score"),
-        "cvss_v31_vector": v31.get("vector"),
-        "cvss_v31_base_score": v31.get("base_score"),
-        "cvss_v31_base_severity": v31.get("base_severity"),
-        "cvss_v31_exploitability_score": v31.get("exploitability_score"),
-        "cvss_v31_impact_score": v31.get("impact_score"),
-        "cvss_v40_vector": v40.get("vector"),
-        "cvss_v40_base_score": v40.get("base_score"),
-        "cvss_v40_base_severity": v40.get("base_severity"),
-        "cvss_v40_exploitability_score": v40.get("exploitability_score"),
-        "cvss_v40_impact_score": v40.get("impact_score"),
+
+        # --- severity (single canonical scale, version always attached) ------
+        "cvss_version": cvss["cvss_version"],
+        "base_score": cvss["base_score"],
+        "severity": cvss["severity"],
+        "impact_score": cvss["impact_score"],
+
+        # --- exploitability --------------------------------------------------
+        "exploitability_score": cvss["exploitability_score"],
+        "attack_vector": cvss["attack_vector"],
+        "attack_complexity": cvss["attack_complexity"],
+        "privileges_required": cvss["privileges_required"],
+        "user_interaction": cvss["user_interaction"],
+
+        # --- remediation posture ---------------------------------------------
+        "has_patch": _has_reference_tag(references, "Patch"),
+        "has_exploit": _has_reference_tag(references, "Exploit"),
+
+        # --- blast radius ------------------------------------------------------
+        "vendors": _join_capped(vendors),
+        "products": _join_capped(products),
+        "affected_product_count": len(cpe_criteria),
+
+        # --- confidence / freshness -------------------------------------------
+        "vuln_status": cve.get("vulnStatus"),
         "reference_count": len(references),
-        "reference_urls": _join_unique([r.get("url") for r in references]),
-        "reference_sources": _join_unique([r.get("source") for r in references]),
-        "reference_tags": _join_unique([t for r in references for t in r.get("tags", [])]),
-        "cpe_count": len(cpe_criteria),
-        "cpe_criteria": _join_unique(cpe_criteria),
-        "vendors": _join_unique(vendors),
-        "products": _join_unique(products),
+        "published": cve.get("published"),
+        "last_modified": cve.get("lastModified"),
         "fetched_at": fetched_at,
     }
 
@@ -461,35 +575,29 @@ def flatten_result(result: dict) -> List[dict]:
 # Column order/schema for flatten_vulnerability's output, used to give an empty
 # result set (e.g. zero matches) a well-defined Parquet schema instead of none.
 FLAT_CVE_COLUMNS = [
-    "cve_id", "source_identifier", "vuln_status", "published", "last_modified",
-    "description", "cwe_ids",
-    "cvss_v2_vector", "cvss_v2_base_score", "cvss_v2_base_severity",
-    "cvss_v2_exploitability_score", "cvss_v2_impact_score",
-    "cvss_v30_vector", "cvss_v30_base_score", "cvss_v30_base_severity",
-    "cvss_v30_exploitability_score", "cvss_v30_impact_score",
-    "cvss_v31_vector", "cvss_v31_base_score", "cvss_v31_base_severity",
-    "cvss_v31_exploitability_score", "cvss_v31_impact_score",
-    "cvss_v40_vector", "cvss_v40_base_score", "cvss_v40_base_severity",
-    "cvss_v40_exploitability_score", "cvss_v40_impact_score",
-    "reference_count", "reference_urls", "reference_sources", "reference_tags",
-    "cpe_count", "cpe_criteria", "vendors", "products", "fetched_at",
+    "cve_id", "description", "cwe_ids",
+    "cvss_version", "base_score", "severity", "impact_score",
+    "exploitability_score", "attack_vector", "attack_complexity",
+    "privileges_required", "user_interaction",
+    "has_patch", "has_exploit",
+    "vendors", "products", "affected_product_count",
+    "vuln_status", "reference_count",
+    "published", "last_modified", "fetched_at",
 ]
 
 # Type groups, used to give the Parquet file real column types (instead of
 # everything landing as a string) so it loads cleanly into a database.
 TIMESTAMP_COLUMNS = ["published", "last_modified", "fetched_at"]
 
-FLOAT_COLUMNS = [
-    f"cvss_{v}_{m}"
-    for v in ("v2", "v30", "v31", "v40")
-    for m in ("base_score", "exploitability_score", "impact_score")
-]
+FLOAT_COLUMNS = ["base_score", "impact_score", "exploitability_score"]
 
-INT_COLUMNS = ["reference_count", "cpe_count"]
+INT_COLUMNS = ["affected_product_count", "reference_count"]
+
+BOOL_COLUMNS = ["has_patch", "has_exploit"]
 
 STRING_COLUMNS = [
     c for c in FLAT_CVE_COLUMNS
-    if c not in TIMESTAMP_COLUMNS + FLOAT_COLUMNS + INT_COLUMNS
+    if c not in TIMESTAMP_COLUMNS + FLOAT_COLUMNS + INT_COLUMNS + BOOL_COLUMNS
 ]
 
 
@@ -628,6 +736,33 @@ def get_cve_ids_from_dynamodb(
 # S3 helpers
 # ---------------------------------------------------------------------------
 
+def flat_arrow_schema() -> "pa.Schema":
+    """
+    The Parquet schema, pinned explicitly rather than inferred from pandas dtypes.
+
+    Two reasons to pin it:
+      1. pandas' nullable "string" dtype serializes to Arrow `large_string`,
+         which Athena/Glue/Redshift Spectrum and older Spark handle poorly and
+         may re-infer differently between runs. We want plain `string`.
+      2. It is a structural guarantee that every column is a flat primitive.
+         There is no list<>, struct<>, or map<> type here, so a nested column
+         can never sneak into the output as the flattening logic evolves.
+    """
+    fields = []
+    for col in FLAT_CVE_COLUMNS:
+        if col in TIMESTAMP_COLUMNS:
+            fields.append((col, pa.timestamp("us", tz="UTC")))
+        elif col in FLOAT_COLUMNS:
+            fields.append((col, pa.float64()))
+        elif col in INT_COLUMNS:
+            fields.append((col, pa.int64()))
+        elif col in BOOL_COLUMNS:
+            fields.append((col, pa.bool_()))
+        else:
+            fields.append((col, pa.string()))
+    return pa.schema(fields)
+
+
 def upload_json_to_s3(payload: dict, key: str) -> None:
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
@@ -691,6 +826,11 @@ def build_flat_dataframe(records: List[dict]) -> pd.DataFrame:
     for col in INT_COLUMNS:
         df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
 
+    for col in BOOL_COLUMNS:
+        # "boolean" (nullable) rather than bool: an absent record must not be
+        # coerced into False, which would read as "no patch exists".
+        df[col] = df[col].astype("boolean")
+
     for col in STRING_COLUMNS:
         df[col] = df[col].astype("string")
 
@@ -703,8 +843,13 @@ def upload_parquet_to_s3(records: List[dict], key: str) -> None:
         raise HTTPException(status_code=500, detail="S3_BUCKET_NAME is not configured on the server.")
 
     df = build_flat_dataframe(records)
+
+    # from_pandas with an explicit schema both casts to the pinned types and
+    # raises if a column somehow isn't castable to a flat primitive.
+    table = pa.Table.from_pandas(df, schema=flat_arrow_schema(), preserve_index=False)
+
     buffer = io.BytesIO()
-    df.to_parquet(buffer, index=False, engine="pyarrow")
+    pq.write_table(table, buffer, compression="snappy")
 
     try:
         s3_client.put_object(
