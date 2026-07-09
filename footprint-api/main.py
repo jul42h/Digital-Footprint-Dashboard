@@ -58,7 +58,7 @@ DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME")
 DYNAMODB_CVE_ID_ATTRIBUTE = os.getenv("DYNAMODB_CVE_ID_ATTRIBUTE", "cve_id")
 DYNAMODB_STATUS_ATTRIBUTE = os.getenv("DYNAMODB_STATUS_ATTRIBUTE")
 
-CVE_LIST_S3_KEY = os.getenv("CVE_LIST_S3_KEY", "cves/cve_watchlist.json")
+CVE_LIST_S3_KEY = os.getenv("CVE_LIST_S3_KEY", "cves/cve-ids/")
 
 RAW_PREFIX = "cves/raw/"
 FLAT_PREFIX = "cves/flat/"
@@ -605,6 +605,25 @@ STRING_COLUMNS = [
 # CVE list helpers
 # ---------------------------------------------------------------------------
 
+def split_s3_uri_or_key(source: str) -> Tuple[str, str]:
+    """Return (bucket, key_or_prefix) from either an S3 URI or a plain key/prefix."""
+    source = source.strip()
+    if not source:
+        raise HTTPException(status_code=422, detail="CVE ID S3 source cannot be blank.")
+
+    if source.startswith("s3://"):
+        without_scheme = source[5:]
+        bucket, sep, key = without_scheme.partition("/")
+        if not bucket or not sep or not key:
+            raise HTTPException(
+                status_code=422,
+                detail="S3 source must look like s3://bucket-name/path/to/file-or-prefix/.",
+            )
+        return bucket, key
+
+    return require_s3_bucket(), source
+
+
 def _extract_cve_ids_from_loaded_json(raw: Any) -> List[Any]:
     if isinstance(raw, list):
         return raw
@@ -621,21 +640,8 @@ def _extract_cve_ids_from_loaded_json(raw: Any) -> List[Any]:
     )
 
 
-def get_cve_ids_from_s3_list(key: Optional[str] = None) -> List[str]:
-    key = key or CVE_LIST_S3_KEY
-    bucket = require_s3_bucket()
-
-    try:
-        obj = s3_client.get_object(Bucket=bucket, Key=key)
-        text = obj["Body"].read().decode("utf-8")
-    except ClientError as exc:
-        if exc.response["Error"].get("Code") in ("NoSuchKey", "404"):
-            raise HTTPException(status_code=404, detail=f"CVE list not found at s3://{bucket}/{key}") from exc
-        logger.exception("Failed to read CVE list from S3")
-        raise HTTPException(status_code=502, detail=f"S3 read failed: {exc}") from exc
-    except UnicodeDecodeError as exc:
-        raise HTTPException(status_code=422, detail=f"CVE list at s3://{bucket}/{key} is not valid UTF-8.") from exc
-
+def _parse_cve_ids_from_text(text: str, source_label: str) -> List[str]:
+    """Parse CVE IDs from JSON array/object or JSON Lines text."""
     try:
         raw = json.loads(text)
         return normalize_cve_ids(_extract_cve_ids_from_loaded_json(raw))
@@ -650,7 +656,7 @@ def get_cve_ids_from_s3_list(key: Optional[str] = None) -> List[str]:
             except json.JSONDecodeError as exc:
                 raise HTTPException(
                     status_code=422,
-                    detail=f"Invalid JSON Lines at s3://{bucket}/{key}, line {line_num}: {exc}",
+                    detail=f"Invalid JSON Lines at {source_label}, line {line_num}: {exc}",
                 ) from exc
             if isinstance(obj, dict) and "cve_id" in obj:
                 cve_ids.append(obj["cve_id"])
@@ -659,9 +665,68 @@ def get_cve_ids_from_s3_list(key: Optional[str] = None) -> List[str]:
             else:
                 raise HTTPException(
                     status_code=422,
-                    detail=f"JSON Lines line {line_num} must be a string or an object with a 'cve_id' field.",
+                    detail=f"JSON Lines line {line_num} in {source_label} must be a string or an object with a 'cve_id' field.",
                 )
         return normalize_cve_ids(cve_ids)
+
+
+def _read_cve_ids_from_s3_object(bucket: str, key: str) -> List[str]:
+    source_label = f"s3://{bucket}/{key}"
+    try:
+        obj = s3_client.get_object(Bucket=bucket, Key=key)
+        text = obj["Body"].read().decode("utf-8")
+    except ClientError as exc:
+        if exc.response["Error"].get("Code") in ("NoSuchKey", "404"):
+            raise HTTPException(status_code=404, detail=f"CVE list not found at {source_label}") from exc
+        logger.exception("Failed to read CVE list from S3")
+        raise HTTPException(status_code=502, detail=f"S3 read failed for {source_label}: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail=f"CVE list at {source_label} is not valid UTF-8.") from exc
+
+    return _parse_cve_ids_from_text(text, source_label)
+
+
+def list_cve_id_files_under_prefix(bucket: str, prefix: str) -> List[str]:
+    """List readable CVE ID files under an S3 prefix. Folder markers are skipped."""
+    paginator = s3_client.get_paginator("list_objects_v2")
+    keys: List[str] = []
+    try:
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                key = obj["Key"]
+                if key.endswith("/"):
+                    continue
+                keys.append(key)
+    except ClientError as exc:
+        logger.exception("Failed to list CVE ID files from S3")
+        raise HTTPException(status_code=502, detail=f"S3 list failed for s3://{bucket}/{prefix}: {exc}") from exc
+
+    return sorted(keys)
+
+
+def get_cve_ids_from_s3_list(source: Optional[str] = None) -> List[str]:
+    """
+    Read CVE IDs from S3. The source can be either:
+      - an exact object key, such as cves/cve-ids/cves.json
+      - a prefix ending in '/', such as cves/cve-ids/
+      - a full S3 URI, such as s3://01-su2026-cybersecurity-internship/cves/cve-ids/
+
+    When a prefix is provided, every object under that prefix is parsed and merged.
+    """
+    source = source or CVE_LIST_S3_KEY
+    bucket, key_or_prefix = split_s3_uri_or_key(source)
+
+    if key_or_prefix.endswith("/"):
+        keys = list_cve_id_files_under_prefix(bucket, key_or_prefix)
+        if not keys:
+            raise HTTPException(status_code=404, detail=f"No CVE ID files found under s3://{bucket}/{key_or_prefix}")
+
+        all_ids: List[str] = []
+        for key in keys:
+            all_ids.extend(_read_cve_ids_from_s3_object(bucket, key))
+        return normalize_cve_ids(all_ids)
+
+    return _read_cve_ids_from_s3_object(bucket, key_or_prefix)
 
 
 # ---------------------------------------------------------------------------
@@ -941,12 +1006,12 @@ async def sync_cves(
 
 @app.post("/cves/sync-from-list", response_model=ListSyncResult)
 async def sync_cves_from_list(
-    source_key: Optional[str] = Query(None, description="Override CVE_LIST_S3_KEY for this call"),
+    source_key: Optional[str] = Query(None, description="Override CVE_LIST_S3_KEY for this call. Accepts an exact key, prefix, or full S3 URI."),
 ) -> ListSyncResult:
     key = source_key or CVE_LIST_S3_KEY
     cve_ids = await asyncio.to_thread(get_cve_ids_from_s3_list, key)
     if not cve_ids:
-        raise HTTPException(status_code=404, detail=f"No CVE IDs found in s3://{S3_BUCKET_NAME}/{key}")
+        raise HTTPException(status_code=404, detail=f"No CVE IDs found in {key}")
 
     result = await fetch_specific_cves(cve_ids)
     raw_key, jsonl_key, parquet_key = await asyncio.to_thread(write_all_outputs, result, BASENAME_LIST)
