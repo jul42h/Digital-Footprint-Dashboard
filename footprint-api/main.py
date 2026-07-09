@@ -61,7 +61,10 @@ DYNAMODB_STATUS_ATTRIBUTE = os.getenv("DYNAMODB_STATUS_ATTRIBUTE")
 CVE_LIST_S3_KEY = os.getenv("CVE_LIST_S3_KEY", "cves/cve-ids/")
 
 RAW_PREFIX = "cves/raw/"
-FLAT_PREFIX = "cves/flat/"
+JSONL_PREFIX = "cves/flat/json/"
+PARQUET_PREFIX = "cves/flat/parquet/"
+# Used by /cves/latest to find the latest flat JSON Lines file.
+FLAT_PREFIX = JSONL_PREFIX
 
 BASENAME_SYNC = "cves"
 BASENAME_LIST = "cves_list"
@@ -837,7 +840,10 @@ def upload_jsonl_to_s3(records: Sequence[Dict[str, Any]], key: str) -> None:
             Bucket=bucket,
             Key=key,
             Body=body,
-            ContentType="application/x-ndjson",
+            # The object key ends in .json intentionally. Use application/json
+            # so S3/browser downloads do not rename it to .ndjson.
+            ContentType="application/json",
+            ContentDisposition=f'attachment; filename="{key.rsplit("/", 1)[-1]}"',
         )
     except ClientError as exc:
         logger.exception("Failed to upload JSON Lines to S3")
@@ -918,8 +924,8 @@ def make_run_stem(basename: str, now: Optional[datetime] = None) -> str:
 def keys_for_stem(stem: str) -> Tuple[str, str, str]:
     return (
         f"{RAW_PREFIX}{stem}.json",
-        f"{FLAT_PREFIX}{stem}.json",
-        f"{FLAT_PREFIX}{stem}.parquet",
+        f"{JSONL_PREFIX}{stem}.json",
+        f"{PARQUET_PREFIX}{stem}.parquet",
     )
 
 
