@@ -33,5 +33,7 @@ export function useDashboardData() {
     [data],
   );
 
-  return { data, derived, loading, error, refreshing, reload: () => load(true) };
+  const reload = useCallback(() => load(true), [load]);
+
+  return { data, derived, loading, error, refreshing, reload };
 }

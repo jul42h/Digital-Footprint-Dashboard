@@ -342,19 +342,18 @@ The overview summarizes posture and where to act first.
 | Section | What it shows | Source |
 |---------|---------------|--------|
 | **Posture bar** | Pending remediations, critical count, KEV, high EPSS, at-risk assets, unique CVEs, risk score | `DashboardPosture` + `useDashboardSummary` |
-| **AI priority brief** | Short executive takeaway for top CVEs (`mode=brief`) | `AiBriefStrip` → `POST /api/cve-analysis` |
-| **Severity breakdown** | Donut of unique CVEs by CVSS band (critical → low) | `SeverityDonut` |
-| **Observation panel** | Findings over time when multiple days/hours exist; otherwise scan sources, ports, or exploitability signals from live data | `RiskTrendChart` + `toRiskTrendView` |
-| **Priority queue** | Top critical/high items ranked by KEV → EPSS → CVSS (read-only status) | `CompactRemediationQueue` |
-| **Remediation progress** | Donut of solution statuses (not started, under review, in progress, done) | `RemediationProgress` |
-| **Highest-risk assets** | IPs with CVEs, sortable by severity filter | `AtRiskAssets` |
+| **AI brief** | Top 5 highest-risk findings (`intent=brief`); posture over a wider set | `AiBriefStrip` → `POST /api/cve-analysis` |
+| **Severity breakdown** | Compact donut of unique CVEs by CVSS band | `SeverityDonut` |
+| **Priority signals** | KEV / high EPSS / critical / open fixes with Analyze or View | `PrioritySignals` |
+| **Priority queue** | Top critical/high items ranked by KEV → EPSS → CVSS | `CompactRemediationQueue` |
+| **Highest-risk assets** | IPs with CVEs | `AtRiskAssets` |
 
 Link: **What do these metrics mean?** → `/guide` · floating **Analyze** panel for deep dives
 
 ### Security issues (`/cves`, `/cves/:id`)
 
 - **List** — All distinct CVEs with CVSS, severity, KEV/EPSS flags, affected assets, filters, and sort.
-- **Detail** — Summary, scores, ports, related assets, **Analyst notes** (`mode=detail` via `/api/cve-analysis`), and remediations.
+- **Detail** — Summary, scores, ports, related assets, **Analyst notes** (`intent=analyze` via `/api/cve-analysis`), and remediations.
 
 Data: `derived.cves` from `toCves()` (merged by CVE ID across hosts).
 
@@ -391,11 +390,11 @@ Deeper charts not shown on the home page:
 
 ### Risk analysis (floating Analyze panel)
 
-CVE-centric AI analysis — not free-text chat.
+CVE-centric AI analysis — preset prompts only (no free-text).
 
-- Select up to 5 CVE IDs (priority chips or paste); history in `localStorage`
-- Calls `POST /api/cve-analysis` with `{ cve_ids, mode: "detail" }`
-- Home brief uses the same endpoint with `mode: "brief"` and a short preview
+- Select up to 8 CVE IDs (priority chips / Top priority / Known exploited); history in `localStorage`
+- Calls `POST /api/cve-analysis` with `{ cve_ids, findings, intent }` (`analyze` \| `remediate` \| `next_steps`)
+- Home brief uses the same endpoint with `intent: "brief"` on the **top 5** ranked findings (plus wider posture findings)
 - FastAPI relays to the **AI Risk Analyzer** Lambda (no Bedrock call from the API process)
 
 Legacy route `/ask` still opens the panel and redirects home.
@@ -436,7 +435,7 @@ Glossary for CVE, CVSS, KEV, EPSS, dashboard metrics, remediation workflow, scan
 | `/api/v1/health` | GET | Health check |
 | `/api/v1/dashboard` | GET | Full `DashboardData` JSON for the UI |
 | `/api/v1/dashboard/refresh` | POST | Re-scan DynamoDB and refresh cache |
-| `/api/cve-analysis` | POST | AI summary for 1–5 CVE IDs (`mode`: `brief` \| `detail`) via Lambda |
+| `/api/cve-analysis` | POST | AI risk intelligence via Lambda (`findings` preferred; `intent`: brief \| analyze \| remediate \| next_steps) |
 | `/findings` | GET | Raw findings (`?ip=` optional) |
 | `/findings/{ip}/{cve_id}` | GET | Single finding row |
 

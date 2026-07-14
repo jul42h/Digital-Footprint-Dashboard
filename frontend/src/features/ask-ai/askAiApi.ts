@@ -1,18 +1,33 @@
 import { apiUrl } from "@/lib/api";
-import type { AnalysisMode, CveAnalysisResponse } from "./types";
+import { sanitizeAiText } from "./sanitizeAiText";
+import type {
+  AnalysisFinding,
+  AnalysisIntent,
+  AnalysisMode,
+  CveAnalysisResponse,
+} from "./types";
+import { intentFromMode, modeFromIntent, MAX_CVE_IDS_PAYLOAD, MAX_FINDINGS_PER_REQUEST } from "./types";
 
-const MEMORY = new Map<string, CveAnalysisResponse>();
-const STORAGE_KEY = "df-cve-analysis-cache-v1";
-/** Avoid re-paying Lambda for the same CVE set within a browser session window. */
-const CACHE_TTL_MS = 30 * 60 * 1000;
+const MEMORY = new Map<string, { savedAt: number; data: CveAnalysisResponse }>();
+const STORAGE_KEY = "df-cve-analysis-cache-v6";
+const BRIEF_SIGNAL_KEY = "df-home-brief-signal-v4";
+
+/** Home brief auto-refreshes at most every 2 hours unless priority signals change. */
+export const BRIEF_REFRESH_MS = 2 * 60 * 60 * 1000;
+const DETAIL_TTL_MS = 30 * 60 * 1000;
 
 type StoredEntry = { savedAt: number; data: CveAnalysisResponse };
 type StoredCache = Record<string, StoredEntry>;
 
+function ttlForIntent(intent: AnalysisIntent): number {
+  return intent === "brief" ? BRIEF_REFRESH_MS : DETAIL_TTL_MS;
+}
+
 function parseErrorDetail(text: string, status: number): string {
   try {
-    const parsed = JSON.parse(text) as { detail?: unknown };
+    const parsed = JSON.parse(text) as { detail?: unknown; error?: unknown };
     if (typeof parsed.detail === "string") return parsed.detail;
+    if (typeof parsed.error === "string") return parsed.error;
     if (Array.isArray(parsed.detail)) {
       return parsed.detail
         .map((item) =>
@@ -29,7 +44,11 @@ function parseErrorDetail(text: string, status: number): string {
 }
 
 function assertUsableResult(data: CveAnalysisResponse): CveAnalysisResponse {
-  if (data.ai_summary?.trim()) return data;
+  if (String(data.status || "").toLowerCase() === "error") {
+    throw new Error(data.error || data.reason || "Analysis failed");
+  }
+  const cleaned = sanitizeAiText(data.ai_summary);
+  if (cleaned) return { ...data, ai_summary: cleaned };
   if (data.reason?.trim()) {
     throw new Error(data.reason.trim());
   }
@@ -40,13 +59,26 @@ function assertUsableResult(data: CveAnalysisResponse): CveAnalysisResponse {
   throw new Error("Analysis completed with no summary returned.");
 }
 
-export function cacheKey(cveIds: string[], mode: AnalysisMode): string {
-  return `${mode}:${[...cveIds].map((id) => id.toUpperCase()).sort().join(",")}`;
+export function cacheKey(cveIds: string[], intent: AnalysisIntent): string {
+  return `${intent}:${[...cveIds].map((id) => id.toUpperCase()).sort().join(",")}`;
+}
+
+/** Fingerprint for major change — top CVEs or their KEV/severity shifted. */
+export function briefSignalKey(
+  items: Array<{ id: string; severity: string; exploitKnown?: boolean }>,
+): string {
+  return items
+    .map((c) => `${c.id.toUpperCase()}:${c.severity}:${c.exploitKnown ? "1" : "0"}`)
+    .join("|");
+}
+
+function priorityStorageKey(cveIds: string[]): string {
+  return [...cveIds].map((id) => id.toUpperCase()).sort().join("|");
 }
 
 function readStored(): StoredCache {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as StoredCache;
     return parsed && typeof parsed === "object" ? parsed : {};
@@ -57,71 +89,143 @@ function readStored(): StoredCache {
 
 function writeStored(cache: StoredCache): void {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   } catch {
-    /* quota / private mode — memory cache still works */
+    /* ignore */
   }
 }
 
-function getCached(key: string): CveAnalysisResponse | null {
+function getCachedEntry(key: string, intent: AnalysisIntent): StoredEntry | null {
   const mem = MEMORY.get(key);
-  if (mem) return mem;
+  if (mem) {
+    if (Date.now() - mem.savedAt > ttlForIntent(intent)) {
+      MEMORY.delete(key);
+    } else {
+      return mem;
+    }
+  }
 
   const stored = readStored();
   const entry = stored[key];
   if (!entry) return null;
-  if (Date.now() - entry.savedAt > CACHE_TTL_MS) {
+  if (Date.now() - entry.savedAt > ttlForIntent(intent)) {
     delete stored[key];
     writeStored(stored);
     return null;
   }
-  MEMORY.set(key, entry.data);
-  return entry.data;
+  MEMORY.set(key, entry);
+  return entry;
 }
 
 function setCached(key: string, data: CveAnalysisResponse): void {
-  MEMORY.set(key, data);
+  const entry = { savedAt: Date.now(), data };
+  MEMORY.set(key, entry);
   const stored = readStored();
-  stored[key] = { savedAt: Date.now(), data };
-  // Drop expired keys while writing
+  stored[key] = entry;
   const now = Date.now();
-  for (const [k, entry] of Object.entries(stored)) {
-    if (now - entry.savedAt > CACHE_TTL_MS) delete stored[k];
+  for (const [k, e] of Object.entries(stored)) {
+    const intent = (k.split(":")[0] || "analyze") as AnalysisIntent;
+    if (now - e.savedAt > ttlForIntent(intent)) delete stored[k];
   }
   writeStored(stored);
 }
 
 export function peekCachedAnalysis(
   cveIds: string[],
-  mode: AnalysisMode,
+  intent: AnalysisIntent,
 ): CveAnalysisResponse | null {
-  return getCached(cacheKey(cveIds, mode));
+  return getCachedEntry(cacheKey(cveIds, intent), intent)?.data ?? null;
 }
 
-export function clearAnalysisCache(): void {
-  MEMORY.clear();
+export function peekCachedAnalysisMeta(
+  cveIds: string[],
+  intent: AnalysisIntent,
+): { data: CveAnalysisResponse; savedAt: number; ageMs: number } | null {
+  const entry = getCachedEntry(cacheKey(cveIds, intent), intent);
+  if (!entry) return null;
+  return { data: entry.data, savedAt: entry.savedAt, ageMs: Date.now() - entry.savedAt };
+}
+
+function readBriefSignal(priorityKey: string): string | null {
   try {
-    sessionStorage.removeItem(STORAGE_KEY);
+    const raw = localStorage.getItem(BRIEF_SIGNAL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { priorityKey: string; signalKey: string };
+    if (parsed.priorityKey !== priorityKey) return null;
+    return parsed.signalKey;
+  } catch {
+    return null;
+  }
+}
+
+export function rememberBriefSignal(cveIds: string[], signalKey: string): void {
+  try {
+    localStorage.setItem(
+      BRIEF_SIGNAL_KEY,
+      JSON.stringify({
+        priorityKey: priorityStorageKey(cveIds),
+        signalKey,
+        savedAt: Date.now(),
+      }),
+    );
   } catch {
     /* ignore */
   }
 }
 
+export function shouldAutoRefreshBrief(
+  cveIds: string[],
+  signalKey: string,
+): { refresh: boolean; reason: "missing" | "changed" | "stale" | "fresh"; ageMs: number } {
+  const priorityKey = priorityStorageKey(cveIds);
+  const meta = peekCachedAnalysisMeta(cveIds, "brief");
+  if (!meta) return { refresh: true, reason: "missing", ageMs: 0 };
+
+  const storedSignal = readBriefSignal(priorityKey);
+  if (!storedSignal || storedSignal !== signalKey) {
+    return { refresh: true, reason: "changed", ageMs: meta.ageMs };
+  }
+
+  if (meta.ageMs >= BRIEF_REFRESH_MS) {
+    return { refresh: true, reason: "stale", ageMs: meta.ageMs };
+  }
+
+  return { refresh: false, reason: "fresh", ageMs: meta.ageMs };
+}
+
 export async function analyzeCves(
   cveIds: string[],
-  options: { mode?: AnalysisMode; bypassCache?: boolean } = {},
+  options: {
+    intent?: AnalysisIntent;
+    /** @deprecated use intent */
+    mode?: AnalysisMode;
+    findings?: AnalysisFinding[];
+    bypassCache?: boolean;
+  } = {},
 ): Promise<CveAnalysisResponse> {
-  const mode = options.mode ?? "detail";
-  const key = cacheKey(cveIds, mode);
+  const intent =
+    options.intent ?? (options.mode ? intentFromMode(options.mode) : "analyze");
+  const mode = modeFromIntent(intent);
+  const ids = [...cveIds].map((id) => id.toUpperCase()).filter(Boolean);
+  const key = cacheKey(ids, intent);
   if (!options.bypassCache) {
-    const hit = getCached(key);
+    const hit = getCachedEntry(key, intent)?.data;
     if (hit) return hit;
+  }
+
+  const body: Record<string, unknown> = {
+    mode,
+    intent,
+    cve_ids: ids.slice(0, MAX_CVE_IDS_PAYLOAD),
+  };
+  if (options.findings?.length) {
+    body.findings = options.findings.slice(0, MAX_FINDINGS_PER_REQUEST);
   }
 
   const response = await fetch(apiUrl("/api/cve-analysis"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cve_ids: cveIds, mode }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const detail = await response.text();

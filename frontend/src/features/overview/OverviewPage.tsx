@@ -1,43 +1,81 @@
-import { Link } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { QuickStartBanner } from "@/features/onboarding/QuickStartBanner";
+import { ViewAllLink } from "@/components/ViewAllLink";
+import { APP_NAME, HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { AtRiskAssets } from "./AtRiskAssets";
 import { AiBriefStrip } from "./AiBriefStrip";
-import { DashboardPosture } from "./DashboardPosture";
 import { CompactRemediationQueue } from "./CompactRemediationQueue";
-import { SeverityDonut } from "./SeverityDonut";
+import { DashboardPosture } from "./DashboardPosture";
+import { PrioritySignals } from "./PrioritySignals";
+import { RiskScoreRing } from "./RiskScoreRing";
 
+const SeverityDonut = lazy(() =>
+  import("./SeverityDonut").then((m) => ({ default: m.SeverityDonut })),
+);
+
+/** Home: posture snapshot, visuals, AI brief, and priority queues. */
 export function OverviewPage() {
   return (
-    <div className="page dashboard dashboard--home dashboard--home-streamlined">
-      <PageHeader
-        eyebrow="Overview"
-        title="Digital Footprint"
-        subtitle="What needs attention across Fresno State's external assets."
-        action={
-          <Link to="/guide" className="view-all-link">
-            Guide
-          </Link>
-        }
-      />
+    <div className="page dashboard dashboard--home dashboard--home-business">
+      <PageHeader title={APP_NAME} subtitle={HELP_TEXT.homePage} />
 
-      <QuickStartBanner />
       <DashboardPosture />
-      <AiBriefStrip />
 
-      <div className="dashboard-home dashboard-home--streamlined">
-        <section className="dashboard-home__severity" aria-label="Severity breakdown">
-          <Link to="/cves" className="dashboard__chart-link">
-            <SeverityDonut />
-          </Link>
+      <div className="home-visuals">
+        <section className="home-visuals__score home-panel" aria-labelledby="home-exposure-label">
+          <h2 id="home-exposure-label" className="home-panel__title">
+            Exposure score
+          </h2>
+          <p className="home-panel__hint">{HELP_TEXT.exposureScore}</p>
+          <RiskScoreRing />
         </section>
 
-        <aside className="dashboard-home__actions" aria-label="What to fix first">
-          <CompactRemediationQueue limit={5} compact />
-        </aside>
+        <section className="home-visuals__severity" aria-label="Findings by severity">
+          <Suspense fallback={<div className="chart-placeholder">Loading…</div>}>
+            <SeverityDonut title="Findings by severity" compact />
+          </Suspense>
+        </section>
 
-        <section className="dashboard-home__assets" aria-label="Highest-risk assets">
-          <AtRiskAssets limit={5} compact />
+        <PrioritySignals />
+      </div>
+
+      <section className="home-brief-block home-block" aria-labelledby="home-brief-label">
+        <header className="home-block__head">
+          <div>
+            <h2 id="home-brief-label" className="home-block__title">
+              AI brief
+            </h2>
+            <p className="home-block__lede">{HELP_TEXT.aiBrief}</p>
+          </div>
+        </header>
+        <AiBriefStrip variant="business" />
+      </section>
+
+      <div className="home-focus">
+        <section className="home-block" aria-labelledby="home-fix-label">
+          <header className="home-block__head">
+            <div>
+              <h2 id="home-fix-label" className="home-block__title">
+                {NAV_LABELS.fixes}
+              </h2>
+              <p className="home-block__lede">{HELP_TEXT.fixFirst}</p>
+            </div>
+            <ViewAllLink to="/solutions" className="home-block__link" />
+          </header>
+          <CompactRemediationQueue limit={4} compact hideTitle />
+        </section>
+
+        <section className="home-block" aria-labelledby="home-assets-label">
+          <header className="home-block__head">
+            <div>
+              <h2 id="home-assets-label" className="home-block__title">
+                {NAV_LABELS.systems}
+              </h2>
+              <p className="home-block__lede">{HELP_TEXT.atRiskAssets}</p>
+            </div>
+            <ViewAllLink to="/ips" className="home-block__link" />
+          </header>
+          <AtRiskAssets limit={4} compact hideTitle />
         </section>
       </div>
     </div>

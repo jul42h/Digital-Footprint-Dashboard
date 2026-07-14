@@ -16,34 +16,85 @@ type NavIconName =
   | "guide"
   | "settings";
 
-const NAV: Array<{
+interface NavItem {
   to: string;
   label: string;
   end: boolean;
   icon: NavIconName;
   count?: (d: DerivedData) => number;
-}> = [
-  { to: "/", label: NAV_LABELS.home, end: true, icon: "home" },
-  { to: "/cves", label: NAV_LABELS.issues, end: false, icon: "issues", count: (d) => d.cves.length },
-  { to: "/threats", label: NAV_LABELS.threats, end: false, icon: "threats", count: (d) => new Set(d.cves.map((c) => c.threatType)).size },
-  { to: "/ips", label: NAV_LABELS.systems, end: false, icon: "systems", count: (d) => d.ips.length },
+}
+
+interface NavGroup {
+  id: string;
+  label: string;
+  items: NavItem[];
+}
+
+/** Grouped for analyst workflow: monitor → investigate → act → reference. */
+const NAV_GROUPS: NavGroup[] = [
   {
-    to: "/solutions",
-    label: NAV_LABELS.fixes,
-    end: false,
-    icon: "fixes",
-    count: (d) => d.solutions.length,
+    id: "monitor",
+    label: "Monitor",
+    items: [
+      { to: "/", label: NAV_LABELS.home, end: true, icon: "home" },
+      {
+        to: "/cves",
+        label: NAV_LABELS.issues,
+        end: false,
+        icon: "issues",
+        count: (d) => d.cves.length,
+      },
+      {
+        to: "/threats",
+        label: NAV_LABELS.threats,
+        end: false,
+        icon: "threats",
+        count: (d) => new Set(d.cves.map((c) => c.threatType)).size,
+      },
+    ],
   },
   {
-    to: "/vendors",
-    label: NAV_LABELS.providers,
-    end: false,
-    icon: "providers",
-    count: (d) => d.vendors.length,
+    id: "investigate",
+    label: "Investigate",
+    items: [
+      {
+        to: "/ips",
+        label: NAV_LABELS.systems,
+        end: false,
+        icon: "systems",
+        count: (d) => d.ips.length,
+      },
+      {
+        to: "/vendors",
+        label: NAV_LABELS.providers,
+        end: false,
+        icon: "providers",
+        count: (d) => d.vendors.length,
+      },
+      { to: "/analytics", label: NAV_LABELS.analytics, end: false, icon: "analytics" },
+    ],
   },
-  { to: "/analytics", label: NAV_LABELS.analytics, end: false, icon: "analytics" },
-  { to: "/guide", label: NAV_LABELS.guide, end: false, icon: "guide" },
-  { to: "/settings", label: NAV_LABELS.settings, end: false, icon: "settings" },
+  {
+    id: "act",
+    label: "Act",
+    items: [
+      {
+        to: "/solutions",
+        label: NAV_LABELS.fixes,
+        end: false,
+        icon: "fixes",
+        count: (d) => d.solutions.length,
+      },
+    ],
+  },
+  {
+    id: "reference",
+    label: "Reference",
+    items: [
+      { to: "/guide", label: NAV_LABELS.guide, end: false, icon: "guide" },
+      { to: "/settings", label: NAV_LABELS.settings, end: false, icon: "settings" },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -82,34 +133,52 @@ export function Sidebar() {
       </div>
 
       <nav className="sidebar__nav">
-        {NAV.map((item) => {
-          const badge = item.count?.(derived);
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              title={sidebarCollapsed ? item.label : undefined}
-              onClick={closeSidebarOverlay}
-              className={({ isActive }) =>
-                `sidebar__link${isActive ? " sidebar__link--active" : ""}`
-              }
+        {NAV_GROUPS.map((group) => (
+          <div key={group.id} className="sidebar__group">
+            {!sidebarCollapsed && (
+              <p className="sidebar__group-label" id={`nav-${group.id}`}>
+                {group.label}
+              </p>
+            )}
+            <div
+              className="sidebar__group-links"
+              role="group"
+              aria-labelledby={sidebarCollapsed ? undefined : `nav-${group.id}`}
+              aria-label={sidebarCollapsed ? group.label : undefined}
             >
-              <span className="sidebar__link-main">
-                <NavIcon name={item.icon} />
-                {!sidebarCollapsed && <span className="sidebar__link-text">{item.label}</span>}
-              </span>
-              {badge != null && badge > 0 && (
-                <span
-                  className={`sidebar__badge${sidebarCollapsed ? " sidebar__badge--dot" : ""}`}
-                  aria-label={`${badge} items`}
-                >
-                  {sidebarCollapsed ? "" : badge}
-                </span>
-              )}
-            </NavLink>
-          );
-        })}
+              {group.items.map((item) => {
+                const badge = item.count?.(derived);
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    onClick={closeSidebarOverlay}
+                    className={({ isActive }) =>
+                      `sidebar__link${isActive ? " sidebar__link--active" : ""}`
+                    }
+                  >
+                    <span className="sidebar__link-main">
+                      <NavIcon name={item.icon} />
+                      {!sidebarCollapsed && (
+                        <span className="sidebar__link-text">{item.label}</span>
+                      )}
+                    </span>
+                    {badge != null && badge > 0 && (
+                      <span
+                        className={`sidebar__badge${sidebarCollapsed ? " sidebar__badge--dot" : ""}`}
+                        aria-label={`${badge} items`}
+                      >
+                        {sidebarCollapsed ? "" : badge}
+                      </span>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
     </aside>
   );

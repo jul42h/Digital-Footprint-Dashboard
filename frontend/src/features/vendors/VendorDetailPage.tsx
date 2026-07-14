@@ -12,9 +12,9 @@ export function VendorDetailPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="page" style={{ maxWidth: 760 }}>
+    <div className="page page--narrow">
       <Link to="/vendors" className="back-link">
-        ← Back to {NAV_LABELS.providers.toLowerCase()}
+        ← {NAV_LABELS.providers}
       </Link>
 
       {!vendor ? (

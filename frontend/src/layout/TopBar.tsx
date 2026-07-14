@@ -73,15 +73,6 @@ export function TopBar() {
         <button
           type="button"
           className="btn btn--ghost"
-          title="Show quick start tips"
-          aria-label="Show quick start tips"
-          onClick={() => window.dispatchEvent(new Event("df-show-quickstart"))}
-        >
-          Tips
-        </button>
-        <button
-          type="button"
-          className="btn btn--ghost"
           title="Keyboard shortcuts (?)"
           aria-label="Keyboard shortcuts"
           onClick={() => window.dispatchEvent(new Event("df-show-shortcuts"))}

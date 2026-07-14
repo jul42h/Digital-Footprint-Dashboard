@@ -14,9 +14,9 @@ export function IpDetailPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="page" style={{ maxWidth: 760 }}>
+    <div className="page page--narrow">
       <Link to="/ips" className="back-link">
-        ← Back to {NAV_LABELS.systems.toLowerCase()}
+        ← {NAV_LABELS.systems}
       </Link>
 
       {!ip ? (

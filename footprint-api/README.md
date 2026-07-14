@@ -48,7 +48,7 @@ API docs: http://localhost:8000/docs
 | `GET` | `/api/v1/health` | Health check |
 | `GET` | `/api/v1/dashboard` | Full dashboard payload for the React app |
 | `POST` | `/api/v1/dashboard/refresh` | Re-scan DynamoDB and refresh cached dashboard |
-| `POST` | `/api/cve-analysis` | AI summary for 1–5 CVE IDs via the AI Risk Analyzer Lambda |
+| `POST` | `/api/cve-analysis` | AI risk intelligence via Lambda (`findings` preferred; up to 100 findings / 25 CVE IDs; `intent`: brief \| analyze \| remediate \| next_steps) |
 | `GET` | `/findings` | Raw findings (`?ip=` optional) |
 | `GET` | `/findings/{ip}/{cve_id}` | Single finding |
 | `GET` | `/health` | Legacy health check |
@@ -56,43 +56,45 @@ API docs: http://localhost:8000/docs
 ## CVE AI analysis
 
 ```
-React (home brief / Analyze panel / CVE detail)
-   → POST /api/cve-analysis  { "cve_ids": [...], "mode": "brief"|"detail" }
-   → ask_ai.cve_dashboard_api (boto3 Lambda invoke)
-   → AI Risk Analyzer Lambda
-   → { status, cve_ids_analyzed, ai_summary, … }
+React
+  → POST /api/cve-analysis
+     {
+       "cve_ids": [...],
+       "findings": [{ "cve_id", "ip", "cvss", "epss", "kev", "summary", "port", … }],
+       "mode": "brief"|"detail",
+       "intent": "brief"|"analyze"|"remediate"|"next_steps"
+     }
+  → Lambda → { status, ai_summary, cve_ids_analyzed, intent, mode, … }
 ```
 
-| Dashboard surface | `mode` | Expected `ai_summary` style |
-|-------------------|--------|-----------------------------|
-| Home priority brief | `brief` | 2–3 dense sentences: meaning + risk signal + next step (short, not shallow). |
-| Analyze panel / CVE detail | `detail` | Full write-up: impact, exploitability, affected systems, remediation order. |
+`findings` is preferred (structured risk context). `cve_ids` remains for compatibility.
+
+| Dashboard surface | `intent` | `mode` | Expected `ai_summary` |
+|-------------------|----------|--------|------------------------|
+| Home AI brief | `brief` | `brief` | Top 5 findings: Risk Posture, What Stands Out, Priority Action |
+| Analyze → Explain risk | `analyze` | `detail` | Summary, Top Risks, Why It Matters, Confidence and Gaps |
+| Analyze → How to fix | `remediate` | `detail` | Priority Order, Recommended Actions, Validation, Limitations |
+| Analyze → What next | `next_steps` | `detail` | Immediate, This Week, Owners, Data Needed |
+| CVE detail Analyst notes | `analyze` | `detail` | Same as Explain risk |
+
+If `intent` is omitted, it is derived from `mode` (`brief` → `brief`, `detail` → `analyze`).
+
+Reference Lambda (copy into AWS): `ask_ai/lambda_ai_risk_analyzer.py`
 
 The API never calls Bedrock directly. Grant `lambda:InvokeFunction` on the analyzer Lambda to the runtime role/credentials.
 
-### Lambda changes required (same OpenAI model)
-
-Keep one OpenAI model for both modes. Speed and tone come from **prompt + tokens + context**, not a second model.
+### Lambda behavior (aligned with repo reference)
 
 1. **Packaging:** include `openai` (layer or zip).
-2. **Accept `mode`** (default `detail` if missing):
-   ```json
-   { "cve_ids": ["CVE-…"], "mode": "brief" }
-   ```
-3. **Same model, different completion budget:**
-   - **`brief`:** `max_tokens` ≈ 220–280. Prompt for **2–3 dense sentences** (not a slogan): what the priority findings mean for this footprint, the main risk signal (e.g. KEV / high CVSS), and one concrete next step. Slim fields: id, severity, KEV/EPSS, short title.
-   - **`detail`:** `max_tokens` ≈ 600–900; fuller context; analyst-style write-up.
-4. **No model retries on `brief`** (fail once, surface error) so a hung call doesn’t double the wait.
-5. **Reuse the OpenAI client** across warm invokes (create outside the handler or cache globally).
-6. **Optional infra:** provisioned concurrency = 1 (or a scheduled warm ping) to avoid cold starts — still the same model.
-7. Return the existing response shape (`status`, `ai_summary`, `cve_ids_analyzed`, …).
+2. Accept `intent` + `mode` (+ preferred `findings`).
+3. Brief uses **top 5** ranked findings; other intents use up to **8** detailed findings; posture aggregates over all valid inputs (up to 500).
+4. Sanitize model output (`_sanitize_output`) before returning `ai_summary`.
+5. Return `status`, `ai_summary`, `cve_ids_analyzed`, `mode`, `intent`, `signal_summary`, finding counts.
 
 ### Dashboard speed behaviors (already in the UI)
 
-- Home brief is **on-demand** (“Generate brief”), not on every page load.
-- Successful analyses are cached in **memory + sessionStorage** for 30 minutes (shared by home, panel, and CVE detail).
-- Priority CVE chips render immediately; AI text loads only when requested.
-
+- Home brief **auto-generates** when missing, when the top-5 KEV/severity signal changes, or when the last brief is **≥ 2 hours** old (manual Refresh still available).
+- Successful analyses are cached in **localStorage** (brief TTL 2h; other intents TTL 30m).
 ## Environment variables
 
 | Variable | Default | Description |

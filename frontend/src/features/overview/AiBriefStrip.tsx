@@ -1,71 +1,161 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { analyzeCves, peekCachedAnalysis } from "@/features/ask-ai/askAiApi";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  analyzeCves,
+  briefSignalKey,
+  peekCachedAnalysis,
+  rememberBriefSignal,
+  shouldAutoRefreshBrief,
+} from "@/features/ask-ai/askAiApi";
 import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
-import { pickPriorityCves, toBriefPreview } from "@/features/ask-ai/cveSelection";
-import type { CveAnalysisResponse } from "@/features/ask-ai/types";
+import { pickPriorityCves } from "@/features/ask-ai/cveSelection";
+import { toAnalysisFindings } from "@/features/ask-ai/findings";
+import { sanitizeAiText } from "@/features/ask-ai/sanitizeAiText";
+import {
+  BRIEF_TOP_FINDINGS,
+  MAX_FINDINGS_PER_REQUEST,
+  type CveAnalysisResponse,
+} from "@/features/ask-ai/types";
 import { useCves } from "@/features/cves/hooks";
+import { AiBriefMarkdown, briefHasMoreSections } from "./AiBriefMarkdown";
 
-const HOME_BRIEF_CVE_LIMIT = 3;
+/** Extra findings for posture context; Lambda briefs only the top BRIEF_TOP_FINDINGS. */
+const HOME_BRIEF_POSTURE_LIMIT = MAX_FINDINGS_PER_REQUEST;
 
-/** Home strip: on-demand short but substantive brief (mode=brief). */
-export function AiBriefStrip() {
+function formatAge(ageMs: number): string {
+  if (ageMs < 60_000) return "just now";
+  const mins = Math.round(ageMs / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs}h ago`;
+}
+
+/** Home AI brief scoped to the Lambda brief sample (top 5). */
+export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "business" }) {
+  const business = variant === "business";
   const { openWithCves } = useAskAiUi();
   const cves = useCves();
-  const priority = useMemo(() => pickPriorityCves(cves, HOME_BRIEF_CVE_LIMIT), [cves]);
-  const priorityIds = useMemo(() => priority.map((c) => c.id), [priority]);
-  const priorityKey = priorityIds.join("|");
+
+  /** Exact set the brief narrative is about (≤5). */
+  const briefFocus = useMemo(
+    () => pickPriorityCves(cves, BRIEF_TOP_FINDINGS),
+    [cves],
+  );
+  /** Wider set for posture_summary so the top 5 are placed in context. */
+  const posturePool = useMemo(
+    () => pickPriorityCves(cves, HOME_BRIEF_POSTURE_LIMIT),
+    [cves],
+  );
+
+  const focusIds = useMemo(() => briefFocus.map((c) => c.id.toUpperCase()), [briefFocus]);
+  const focusKey = useMemo(() => focusIds.join("|"), [focusIds]);
+  const signalKey = useMemo(() => briefSignalKey(briefFocus), [briefFocus]);
+
   const [data, setData] = useState<CveAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!priorityKey) {
-      setData(null);
-      setError(null);
-      setLoading(false);
-      setExpanded(false);
-      return;
-    }
-    const cached = peekCachedAnalysis(priorityKey.split("|"), "brief");
-    setData(cached);
-    setError(null);
-    setLoading(false);
-    setExpanded(false);
-  }, [priorityKey]);
+  const [ageMs, setAgeMs] = useState<number | null>(null);
+  const inFlight = useRef(false);
+  const signalRef = useRef(signalKey);
+  signalRef.current = signalKey;
 
   const runBrief = useCallback(
-    async (bypassCache = false) => {
-      if (!priorityIds.length || loading) return;
+    async (bypassCache: boolean) => {
+      if (!focusIds.length || inFlight.current) return;
+      inFlight.current = true;
       setLoading(true);
       setError(null);
       setExpanded(false);
       try {
-        const payload = await analyzeCves(priorityIds, {
-          mode: "brief",
+        // Put focus findings first; Lambda re-ranks but this keeps identity clear.
+        const focusKeys = new Set(focusIds);
+        const ordered = [
+          ...briefFocus,
+          ...posturePool.filter((c) => !focusKeys.has(c.id.toUpperCase())),
+        ];
+        const payload = await analyzeCves(focusIds, {
+          intent: "brief",
+          findings: toAnalysisFindings(ordered, HOME_BRIEF_POSTURE_LIMIT),
           bypassCache,
         });
+        rememberBriefSignal(focusIds, signalRef.current);
         setData(payload);
+        setAgeMs(0);
       } catch (err: unknown) {
         setData(null);
         setError(err instanceof Error ? err.message : "Brief unavailable");
       } finally {
         setLoading(false);
+        inFlight.current = false;
       }
     },
-    [priorityIds, loading],
+    [briefFocus, focusIds, posturePool],
   );
 
-  const analyzedIds = data?.cve_ids_analyzed?.length ? data.cve_ids_analyzed : priorityIds;
-  const rawSummary = data?.ai_summary?.trim() ?? "";
-  const { preview, truncated } = rawSummary
-    ? toBriefPreview(rawSummary)
-    : { preview: "", truncated: false };
-  const displayText = expanded && rawSummary ? rawSummary : preview;
-  const hasBrief = Boolean(preview);
-  const kevCount = priority.filter((c) => c.exploitKnown).length;
+  useEffect(() => {
+    if (!focusKey) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      setExpanded(false);
+      setAgeMs(null);
+      return;
+    }
+
+    const decision = shouldAutoRefreshBrief(focusIds, signalKey);
+
+    if (!decision.refresh) {
+      const cached = peekCachedAnalysis(focusIds, "brief");
+      if (cached) {
+        setData(cached);
+        setAgeMs(decision.ageMs);
+        setError(null);
+        setExpanded(false);
+        return;
+      }
+    } else {
+      const cached = peekCachedAnalysis(focusIds, "brief");
+      if (cached) {
+        setData(cached);
+        setAgeMs(decision.ageMs);
+      }
+    }
+
+    void runBrief(true);
+  }, [focusKey, focusIds, signalKey, runBrief]);
+
+  const rawSummary = sanitizeAiText(data?.ai_summary);
+  const hasBrief = Boolean(rawSummary);
+  const canExpand = hasBrief && briefHasMoreSections(rawSummary, 1);
+
+  const focusCount = briefFocus.length;
+  const briefedCount = Math.min(
+    BRIEF_TOP_FINDINGS,
+    data?.findings_detailed ?? focusCount,
+  );
+  const setSize =
+    data?.total_findings_analyzed ?? data?.signal_summary?.findings_analyzed ?? posturePool.length;
+
+  const scopeLine = (() => {
+    if (!focusCount) return null;
+    const top =
+      focusCount < BRIEF_TOP_FINDINGS
+        ? `All ${focusCount} available finding${focusCount === 1 ? "" : "s"}`
+        : `Top ${BRIEF_TOP_FINDINGS} highest-risk findings`;
+    const parts = [top];
+    if (setSize > BRIEF_TOP_FINDINGS) {
+      parts.push(`${setSize} in set`);
+    }
+    if (data?.signal_summary?.unique_assets != null) {
+      const n = data.signal_summary.unique_assets;
+      parts.push(`${n} asset${n === 1 ? "" : "s"}`);
+    }
+    if (hasBrief && ageMs != null) {
+      parts.push(`Updated ${formatAge(ageMs)}`);
+    }
+    return parts.join(" · ");
+  })();
 
   const copyBrief = async () => {
     if (!rawSummary) return;
@@ -79,71 +169,56 @@ export function AiBriefStrip() {
   };
 
   return (
-    <section className="ai-brief" aria-label="Priority risk brief">
-      <div className="ai-brief__meta">
-        <span className="ai-brief__meta-label">AI brief</span>
-        <span className="ai-brief__meta-count">
-          {priorityIds.length === 0
-            ? "—"
-            : `${priorityIds.length} CVE${priorityIds.length === 1 ? "" : "s"}`}
-        </span>
-        {kevCount > 0 && (
-          <span className="ai-brief__meta-flag">{kevCount} KEV</span>
-        )}
-      </div>
+    <section
+      className={`ai-brief${business ? " ai-brief--business" : ""}`}
+      aria-label="AI brief"
+    >
+      {!business && (
+        <div className="ai-brief__meta">
+          <span className="ai-brief__meta-label">AI brief</span>
+          <span className="ai-brief__meta-count">
+            {focusCount === 0 ? "—" : `Top ${briefedCount}`}
+          </span>
+        </div>
+      )}
 
       <div className="ai-brief__body">
-        {loading ? (
+        {business && scopeLine && <p className="ai-brief__scope">{scopeLine}</p>}
+
+        {loading && !hasBrief ? (
           <p className="ai-brief__summary ai-brief__summary--skeleton" aria-live="polite">
-            Writing a concise priority brief…
+            Generating brief…
           </p>
+        ) : focusCount === 0 ? (
+          <p className="ai-brief__summary">No findings loaded yet.</p>
+        ) : hasBrief ? (
+          <>
+            <AiBriefMarkdown content={rawSummary} collapsed={!expanded} maxCollapsedSections={1} />
+            {canExpand && (
+              <button
+                type="button"
+                className="ai-brief__more"
+                onClick={() => setExpanded((v) => !v)}
+              >
+                {expanded ? "Show less" : "Show full brief"}
+              </button>
+            )}
+          </>
         ) : (
-          <p className={`ai-brief__summary${expanded ? " ai-brief__summary--full" : ""}`}>
-            {priorityIds.length === 0
-              ? "No issues loaded yet — refresh the dashboard when the API is connected."
-              : displayText ||
-                error ||
-                "These are your highest-priority findings (KEV and severity first). Generate a brief for a short, actionable read — why they matter and what to do next."}
+          <p className="ai-brief__summary">
+            {error || "Brief unavailable — try Refresh."}
           </p>
         )}
-
-        {hasBrief && truncated && (
-          <button
-            type="button"
-            className="ai-brief__more"
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? "Show shorter" : "Show more"}
-          </button>
-        )}
-
-        {priority.length > 0 && (
-          <ul className="ai-brief__highlights">
-            {priority.map((cve) => (
-              <li key={cve.id}>
-                <Link to={`/cves/${cve.id}`}>{cve.id}</Link>
-                {cve.exploitKnown && <span className="ai-brief__chip-flag">KEV</span>}
-                <span className="ai-brief__chip-sev">{cve.severity}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {analyzedIds.length > 0 &&
-          data?.cve_ids_analyzed?.length &&
-          analyzedIds.join("|") !== priorityIds.join("|") && (
-            <p className="ai-brief__note">Analyzer returned a different CVE set than selected.</p>
-          )}
       </div>
 
       <div className="ai-brief__actions">
         <button
           type="button"
           className="ai-brief__ask"
-          onClick={() => void runBrief(hasBrief)}
-          disabled={priorityIds.length === 0 || loading}
+          onClick={() => void runBrief(true)}
+          disabled={focusCount === 0 || loading}
         >
-          {loading ? "Working…" : hasBrief ? "Refresh" : "Generate brief"}
+          {loading ? "…" : "Refresh"}
         </button>
         {hasBrief && (
           <button
@@ -158,10 +233,10 @@ export function AiBriefStrip() {
         <button
           type="button"
           className="ai-brief__ask ai-brief__ask--secondary"
-          onClick={() => openWithCves(priorityIds)}
-          disabled={priorityIds.length === 0 || loading}
+          onClick={() => openWithCves(focusIds)}
+          disabled={focusCount === 0 || loading}
         >
-          Deeper analysis
+          Analyze
         </button>
       </div>
     </section>

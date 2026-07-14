@@ -7,7 +7,13 @@ import {
 } from "@/lib/severity";
 import { useSeverityCounts } from "./hooks";
 
-export function SeverityDonut() {
+export function SeverityDonut({
+  title = "Severity breakdown",
+  compact = false,
+}: {
+  title?: string;
+  compact?: boolean;
+}) {
   const counts = useSeverityCounts();
   const total = counts.reduce((s, c) => s + c.count, 0);
 
@@ -19,45 +25,48 @@ export function SeverityDonut() {
   }));
 
   return (
-    <Card title="Severity breakdown" className="chart-card chart-card--compact">
+    <Card
+      title={title}
+      className={`chart-card chart-card--compact${compact ? " chart-card--severity-home" : ""}`}
+    >
       <div className="chart-card__body">
-        <div className="severity-donut">
-        <div className="severity-donut__visual">
-          <div className="severity-donut__chart">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  dataKey="value"
-                  nameKey="label"
-                  innerRadius="68%"
-                  outerRadius="88%"
-                  paddingAngle={2}
-                  stroke="var(--donut-stroke)"
-                  strokeWidth={2}
-                >
-                  {chartData.map((d) => (
-                    <Cell key={d.severity} fill={d.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="donut-center">
-              <span className="donut-center__value">{total}</span>
-              <span className="donut-center__label">unique</span>
+        <div className={`severity-donut${compact ? " severity-donut--home" : ""}`}>
+          <div className="severity-donut__visual">
+            <div className="severity-donut__chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="label"
+                    innerRadius="68%"
+                    outerRadius="88%"
+                    paddingAngle={2}
+                    stroke="var(--donut-stroke)"
+                    strokeWidth={2}
+                  >
+                    {chartData.map((d) => (
+                      <Cell key={d.severity} fill={d.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="donut-center">
+                <span className="donut-center__value">{total}</span>
+                <span className="donut-center__label">unique</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <ul className="donut-legend severity-donut__legend">
-          {chartData.map((d) => (
-            <li key={d.severity} className="donut-legend__item">
-              <span className="donut-legend__swatch" style={{ background: d.color }} />
-              <span className="donut-legend__label">{d.label}</span>
-              <span className="donut-legend__count">{d.value}</span>
-            </li>
-          ))}
-        </ul>
+          <ul className="donut-legend severity-donut__legend">
+            {chartData.map((d) => (
+              <li key={d.severity} className="donut-legend__item">
+                <span className="donut-legend__swatch" style={{ background: d.color }} />
+                <span className="donut-legend__label">{d.label}</span>
+                <span className="donut-legend__count">{d.value}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </Card>

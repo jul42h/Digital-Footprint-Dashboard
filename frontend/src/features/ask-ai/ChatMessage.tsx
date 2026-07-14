@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import type { ChatMessage as ChatMessageType } from "./types";
+import { sanitizeAiText } from "./sanitizeAiText";
+import type { AnalysisIntent, ChatMessage as ChatMessageType } from "./types";
+import { INTENT_USER_LABEL } from "./types";
 
-function renderInline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|CVE-\d{4}-\d+)/g);
-  return parts.map((part, i) => {
+function renderInline(text: string): ReactNode[] {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|CVE-\d{4}-\d{4,7})/gi);
+  return parts.filter(Boolean).map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
     }
@@ -15,10 +17,11 @@ function renderInline(text: string) {
         </code>
       );
     }
-    if (/^CVE-\d{4}-\d+$/.test(part)) {
+    if (/^CVE-\d{4}-\d{4,7}$/i.test(part)) {
+      const id = part.toUpperCase();
       return (
-        <Link key={i} to={`/cves/${part}`} className="ask-ai-cve-link">
-          {part}
+        <Link key={i} to={`/cves/${id}`} className="ask-ai-cve-link">
+          {id}
         </Link>
       );
     }
@@ -26,70 +29,167 @@ function renderInline(text: string) {
   });
 }
 
-export function ChatMessageBubble({
-  message,
-  compact = false,
-}: {
-  message: ChatMessageType;
-  compact?: boolean;
-}) {
+export type Section = { title: string | null; body: string };
+
+export function splitIntoSections(content: string): Section[] {
+  const cleaned = sanitizeAiText(content);
+  if (!cleaned) return [];
+
+  const lines = cleaned.split("\n");
+  const sections: Section[] = [];
+  let title: string | null = null;
+  let buf: string[] = [];
+
+  const flush = () => {
+    const body = buf.join("\n").trim();
+    if (!title && !body) return;
+    sections.push({ title, body });
+    title = null;
+    buf = [];
+  };
+
+  for (const line of lines) {
+    const heading =
+      line.match(/^\s*#{1,3}\s+(.+?)\s*$/) || line.match(/^\s*\*\*(.+?)\*\*\s*$/);
+    if (heading) {
+      flush();
+      title = heading[1].replace(/\*\*/g, "").trim();
+      continue;
+    }
+    buf.push(line);
+  }
+  flush();
+
+  return sections.filter((s) => s.title || s.body);
+}
+
+function renderBlocks(text: string): ReactNode[] {
+  const lines = text.split("\n");
+  const blocks: ReactNode[] = [];
+  let para: string[] = [];
+  let listItems: string[] = [];
+
+  const flushPara = () => {
+    if (!para.length) return;
+    blocks.push(
+      <p key={`p-${blocks.length}`} className="ask-ai-msg__para">
+        {renderInline(para.join(" "))}
+      </p>,
+    );
+    para = [];
+  };
+
+  const flushList = () => {
+    if (!listItems.length) return;
+    blocks.push(
+      <ul key={`l-${blocks.length}`} className="ask-ai-msg__list">
+        {listItems.map((item, i) => (
+          <li key={i}>{renderInline(item)}</li>
+        ))}
+      </ul>,
+    );
+    listItems = [];
+  };
+
+  for (const line of lines) {
+    const item = line.match(/^\s*(?:[-*•]|\d+[.)])\s+(.*)$/);
+    if (item) {
+      flushPara();
+      listItems.push(item[1]);
+      continue;
+    }
+    flushList();
+    if (!line.trim()) {
+      flushPara();
+      continue;
+    }
+    para.push(line.trim());
+  }
+  flushList();
+  flushPara();
+  return blocks;
+}
+
+export function ChatMessageBubble({ message }: { message: ChatMessageType }) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
+  const displayContent = useMemo(
+    () => (isUser ? message.content : sanitizeAiText(message.content)),
+    [isUser, message.content],
+  );
+  const sections = useMemo(
+    () => (isUser ? [] : splitIntoSections(displayContent)),
+    [isUser, displayContent],
+  );
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(displayContent || message.content);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
+      window.setTimeout(() => setCopied(false), 1400);
     } catch {
       /* ignore */
     }
   };
 
+  const intent = message.intent
+    ? INTENT_USER_LABEL[message.intent as AnalysisIntent] ?? null
+    : null;
+
   return (
     <article
-      className={`ask-ai-msg ask-ai-msg--${message.role}${compact ? " ask-ai-msg--compact" : ""}`}
-      aria-label={isUser ? "Your message" : "AI analysis"}
+      className={`ask-ai-msg ask-ai-msg--${message.role}`}
+      aria-label={isUser ? "Your request" : "AI response"}
     >
-      <div className="ask-ai-msg__body">
-        {message.cveIds && message.cveIds.length > 0 && (
-          <div className="ask-ai-msg__cves">
-            {message.cveIds.map((id) => (
-              <Link key={id} to={`/cves/${id}`} className="ask-ai-chip">
-                {id}
-              </Link>
-            ))}
-          </div>
-        )}
-        <div className="ask-ai-msg__content">
-          {message.content.split("\n").map((line, idx) => (
-            <p key={idx} className={line.trim() ? undefined : "ask-ai-msg__break"}>
-              {line.trim() ? renderInline(line) : "\u00A0"}
-            </p>
-          ))}
+      {isUser ? (
+        <div className="ask-ai-msg__user">
+          <span className="ask-ai-msg__user-intent">{message.content}</span>
+          {message.cveIds && message.cveIds.length > 0 && (
+            <span className="ask-ai-msg__user-count">
+              {message.cveIds.length} finding{message.cveIds.length === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
-
-        {!isUser && (
-          <div className="ask-ai-msg__actions">
-            <button type="button" className="ask-ai-icon-btn" onClick={copy}>
-              {copied ? "Copied" : "Copy"}
-            </button>
+      ) : (
+        <div className="ask-ai-msg__assistant">
+          {intent && <p className="ask-ai-msg__intent">{intent}</p>}
+          <div className="ask-ai-msg__content">
+            {sections.length === 0 ? (
+              <p className="ask-ai-msg__para">{displayContent}</p>
+            ) : (
+              sections.map((section, i) => (
+                <section key={`${section.title ?? "body"}-${i}`} className="ask-ai-section">
+                  {section.title && <h3 className="ask-ai-msg__heading">{section.title}</h3>}
+                  {section.body && renderBlocks(section.body)}
+                </section>
+              ))
+            )}
           </div>
-        )}
-      </div>
+          {message.cveIds && message.cveIds.length > 0 && (
+            <div className="ask-ai-msg__cves">
+              {message.cveIds.map((id) => (
+                <Link key={id} to={`/cves/${id}`} className="ask-ai-chip">
+                  {id}
+                </Link>
+              ))}
+            </div>
+          )}
+          <button type="button" className="ask-ai-msg__copy" onClick={() => void copy()}>
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+      )}
     </article>
   );
 }
 
 export function TypingIndicator() {
   return (
-    <div className="ask-ai-msg ask-ai-msg--assistant ask-ai-msg--typing ask-ai-msg--compact" aria-live="polite">
-      <div className="ask-ai-msg__body">
-        <div className="ask-ai-typing" aria-label="Generating analysis">
-          <span />
-          <span />
-          <span />
-        </div>
+    <div className="ask-ai-msg ask-ai-msg--assistant" aria-live="polite">
+      <div className="ask-ai-typing" aria-label="Working">
+        <span />
+        <span />
+        <span />
       </div>
     </div>
   );

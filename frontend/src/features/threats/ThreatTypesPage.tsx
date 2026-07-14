@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
+import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { THREAT_COLOR, THREAT_LABEL, THREAT_ORDER, THREAT_TECH_LABEL } from "@/lib/threats";
 import { useThreatDistribution } from "@/features/overview/hooks";
+import { Link } from "react-router-dom";
 
 export function ThreatTypesPage() {
   const distribution = useThreatDistribution();
@@ -9,13 +10,7 @@ export function ThreatTypesPage() {
 
   return (
     <div className="page">
-      <Link to="/" className="back-link">
-        ← Overview
-      </Link>
-      <PageHeader
-        title="Threat categories"
-        subtitle="Plain-language guide to how vulnerabilities are grouped in your footprint."
-      />
+      <PageHeader title={NAV_LABELS.threats} subtitle={HELP_TEXT.threatsPage} />
       <div className="threat-index">
         {THREAT_ORDER.map((type) => {
           const count = distribution.find((d) => d.type === type)?.count ?? 0;

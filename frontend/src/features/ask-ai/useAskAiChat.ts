@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
+import { useCves } from "@/features/cves/hooks";
 import { analyzeCves } from "./askAiApi";
-import { extractCveIds, normalizeCveId } from "./cveSelection";
+import { normalizeCveId } from "./cveSelection";
+import { findingsForCveIds } from "./findings";
+import { sanitizeAiText } from "./sanitizeAiText";
 import {
+  INTENT_USER_LABEL,
   MAX_CVE_IDS_PER_REQUEST,
-  type AnalysisMode,
+  type AnalysisIntent,
   type ChatMessage,
   type CveAnalysisResponse,
 } from "./types";
 
-const STORAGE_KEY = "df-cve-analysis-chat-v1";
+const STORAGE_KEY = "df-cve-analysis-chat-v5";
 
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -26,100 +30,101 @@ function loadHistory(): ChatMessage[] {
 }
 
 function formatSummary(data: CveAnalysisResponse): string {
-  if (data.ai_summary?.trim()) return data.ai_summary.trim();
+  const cleaned = sanitizeAiText(data.ai_summary);
+  if (cleaned) return cleaned;
   if (data.reason?.trim()) return data.reason.trim();
-  return "Analysis completed with no summary returned.";
+  return "No summary returned.";
+}
+
+function uniqueIds(ids: string[]): string[] {
+  const out: string[] = [];
+  for (const id of ids) {
+    const n = id.toUpperCase();
+    if (n && !out.includes(n)) out.push(n);
+  }
+  return out.slice(0, MAX_CVE_IDS_PER_REQUEST);
 }
 
 export function useCveAnalysisChat() {
+  const cves = useCves();
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-30)));
   }, [messages]);
 
   const clearChat = useCallback(() => {
     setMessages([]);
     setError(null);
-    setInput("");
     setSelectedIds([]);
-    // Keep analysis session cache so home brief / detail reuse still works.
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  const addCveId = useCallback((raw: string) => {
-    const id = normalizeCveId(raw);
-    if (!id) return false;
+  const toggleCveId = useCallback((raw: string) => {
+    const id = normalizeCveId(raw) ?? raw.toUpperCase();
+    if (!/^CVE-\d{4}-\d{4,7}$/.test(id)) return;
     setSelectedIds((prev) => {
-      if (prev.includes(id) || prev.length >= MAX_CVE_IDS_PER_REQUEST) return prev;
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_CVE_IDS_PER_REQUEST) return prev;
       return [...prev, id];
     });
-    return true;
   }, []);
 
-  const removeCveId = useCallback((id: string) => {
-    setSelectedIds((prev) => prev.filter((x) => x !== id));
-  }, []);
-
-  const setPendingIds = useCallback((ids: string[]) => {
-    setSelectedIds(ids.slice(0, MAX_CVE_IDS_PER_REQUEST));
+  const setSelectedIdsCap = useCallback((ids: string[]) => {
+    setSelectedIds(uniqueIds(ids));
   }, []);
 
   const analyze = useCallback(
-    async (ids?: string[], mode: AnalysisMode = "detail") => {
-      const fromInput = extractCveIds(input);
-      const merged = [...(ids ?? selectedIds), ...fromInput];
-      const unique: string[] = [];
-      for (const id of merged) {
-        const normalized = id.toUpperCase();
-        if (!unique.includes(normalized)) unique.push(normalized);
-      }
-      const cveIds = unique.slice(0, MAX_CVE_IDS_PER_REQUEST);
+    async (ids: string[], intent: AnalysisIntent) => {
+      const cveIds = uniqueIds(ids);
       if (!cveIds.length || loading) return;
 
       setError(null);
       setLoading(true);
-      setInput("");
       setSelectedIds(cveIds);
 
-      const userMsg: ChatMessage = {
-        id: uid(),
-        role: "user",
-        content:
-          mode === "detail"
-            ? `Deep dive: ${cveIds.join(", ")}`
-            : `Brief: ${cveIds.join(", ")}`,
-        cveIds,
-        mode,
-        createdAt: Date.now(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: uid(),
+          role: "user",
+          content: INTENT_USER_LABEL[intent],
+          cveIds,
+          intent,
+          createdAt: Date.now(),
+        },
+      ]);
 
       try {
-        // Cache hit returns immediately (sessionStorage / memory) — still one code path.
-        const data = await analyzeCves(cveIds, { mode });
-        const assistantMsg: ChatMessage = {
-          id: uid(),
-          role: "assistant",
-          content: formatSummary(data),
-          cveIds: data.cve_ids_analyzed?.length ? data.cve_ids_analyzed : cveIds,
-          mode,
-          createdAt: Date.now(),
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
+        const findings = findingsForCveIds(cves, cveIds);
+        const data = await analyzeCves(cveIds, {
+          intent,
+          findings: findings.length ? findings : undefined,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            role: "assistant",
+            content: formatSummary(data),
+            cveIds: data.cve_ids_analyzed?.length ? data.cve_ids_analyzed : cveIds,
+            intent,
+            createdAt: Date.now(),
+          },
+        ]);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "CVE analysis failed";
+        const message = err instanceof Error ? err.message : "Analysis failed";
         setError(message);
         setMessages((prev) => [
           ...prev,
           {
             id: uid(),
             role: "assistant",
-            content: `I could not complete that analysis. ${message}`,
+            content: message,
+            intent,
             createdAt: Date.now(),
           },
         ]);
@@ -127,20 +132,17 @@ export function useCveAnalysisChat() {
         setLoading(false);
       }
     },
-    [input, loading, selectedIds],
+    [cves, loading],
   );
 
   return {
     messages,
     selectedIds,
-    input,
-    setInput,
     loading,
     error,
     analyze,
     clearChat,
-    addCveId,
-    removeCveId,
-    setPendingIds,
+    toggleCveId,
+    setSelectedIdsCap,
   };
 }

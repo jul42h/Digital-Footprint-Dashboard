@@ -27,7 +27,7 @@ export const LABELS = {
   ipAddress: "Network address",
   viewAll: "View all",
   learnMore: "See details",
-  activelyTargeted: "Actively targeted online",
+  activelyTargeted: "Known exploited",
   published: "Reported on",
   networkPorts: "Network ports",
   system: "Affected system",
@@ -43,44 +43,40 @@ export const LABELS = {
   location: "Location",
 } as const;
 
-/** Short explanations shown under section headers and charts. */
+/** Short explanations under page headers and key sections. */
 export const HELP_TEXT = {
+  homePage:
+    "Snapshot of exposure, priority signals, and where to act first across your external footprint.",
   postureBar:
-    "Summary counts from your latest scan. Click a metric to jump to that section. Exposure score is 0–100 (higher means more risk).",
-  exposureScore:
-    "Combined risk score from severity mix and average CVSS across all findings. Higher is worse.",
-  exposureTrend:
-    "Findings grouped by observation day from scan timestamps. Switches to hourly or snapshot breakdowns when the dataset spans a single window.",
-  severityDonut: "Unique CVEs grouped by CVSS severity band.",
-  threatDistribution: "Categories inferred from CVE descriptions — not from scan metadata.",
+    "Key counts from the latest scan. Select a metric to open the related list.",
+  exposureScore: "Overall footprint risk from 0–100. Higher means greater exposure.",
+  severityDonut: "Unique CVEs grouped by CVSS severity.",
+  prioritySignals: "Exploitability and urgency cues you can act on immediately.",
+  aiBrief: "AI summary of the top five highest-risk findings in context of the full set.",
+  fixFirst: "Highest-priority remediations, ranked by known exploitation and severity.",
+  atRiskAssets: "Internet-facing hosts with open vulnerabilities, ordered by highest CVSS.",
   geoMap:
-    "Locations come from Shodan geolocation on each scanned IP. City coordinates are used when available; otherwise the country center is shown.",
-  geoMapEmpty:
-    "No country or city data was available for vulnerable assets in this dataset.",
+    "Asset locations from Shodan geodata. City coordinates when available; otherwise country center.",
+  geoMapEmpty: "No location data available for vulnerable assets in this dataset.",
   geoMapUnlocated: (count: number) =>
-    `${count} vulnerable asset${count === 1 ? "" : "s"} could not be placed on the map (missing location data).`,
-  domainFootprint: "Domains linked to scanned hosts, weighted by CVE findings on each asset.",
+    `${count} vulnerable asset${count === 1 ? "" : "s"} could not be placed on the map.`,
   dataUnavailable:
-    "Dashboard data could not be loaded from the API. Start footprint-api and press Refresh (R).",
+    "Dashboard data could not be loaded. Start footprint-api and press Refresh (R).",
   dataEmpty:
-    "The API responded but no findings were returned. Check DynamoDB connectivity and table contents.",
-  priorityQueue:
-    "Highest-priority critical and high findings (KEV and EPSS ranked). Status is read-only here — change it on the Remediations page.",
-  remediationProgress: "Status of recommended fixes for critical and high severity issues.",
-  atRiskAssets: "Scanned systems with open vulnerabilities, ordered by highest CVSS.",
+    "The API responded with no findings. Check DynamoDB connectivity and table contents.",
   cvesPage:
-    "CVEs discovered on your external footprint, ranked by risk. Use filters to narrow by severity, transport, or known exploitation.",
+    "CVEs on your external footprint, ranked by risk. Filter by severity, transport, or known exploitation.",
   ipsPage:
-    "Internet-facing hosts Shodan observed for your organization, with services and vulnerability counts per address.",
+    "Internet-facing hosts observed for your organization, with services and vulnerability counts.",
   solutionsPage:
-    "Prioritized actions for critical and high findings. Track progress from not started through completion.",
+    "Prioritized actions for critical and high findings. Update status on each row to track progress.",
   vendorsPage:
-    "Software vendors and products tied to vulnerable services in your environment.",
+    "Software providers and products tied to vulnerable services in your environment.",
+  threatsPage:
+    "How findings are grouped by vulnerability pattern (inferred from CVE descriptions).",
   analyticsPage:
-    "Extended charts for geography, ports, operating systems, and services — useful for spotting patterns across the footprint.",
-  settingsPage:
-    "Where dashboard data is loaded from and how to refresh it.",
-  guidePage:
-    "Definitions for CVE, CVSS, KEV, EPSS, remediation statuses, and other dashboard terminology.",
+    "Geography, ports, operating systems, and services — patterns across the footprint.",
+  settingsPage: "Data source, refresh, and remediation status labels.",
+  guidePage: "Definitions for CVE, CVSS, KEV, EPSS, remediation statuses, and dashboard terms.",
   loading: "Loading your security footprint…",
 } as const;

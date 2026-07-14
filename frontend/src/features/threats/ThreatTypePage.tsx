@@ -2,6 +2,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { CveTable } from "@/features/cves/CveTable";
+import { NAV_LABELS } from "@/lib/copy";
 import {
   isThreatType,
   THREAT_COLOR,
@@ -16,15 +17,15 @@ export function ThreatTypePage() {
   const { type } = useParams<{ type: string }>();
 
   if (!type || !isThreatType(type)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/threats" replace />;
   }
 
   const accent = THREAT_COLOR[type];
 
   return (
     <div className="page threat-page">
-      <Link to="/" className="back-link">
-        ← Overview
+      <Link to="/threats" className="back-link">
+        ← {NAV_LABELS.threats}
       </Link>
 
       <PageHeader

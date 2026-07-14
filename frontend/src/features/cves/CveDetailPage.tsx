@@ -5,6 +5,8 @@ import { SeverityBadge } from "@/components/SeverityBadge";
 import { CvssScore } from "@/components/CvssScore";
 import { SolutionTable } from "@/features/solutions/SolutionTable";
 import { analyzeCves, peekCachedAnalysis } from "@/features/ask-ai/askAiApi";
+import { toAnalysisFindings } from "@/features/ask-ai/findings";
+import { sanitizeAiText } from "@/features/ask-ai/sanitizeAiText";
 import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
 import { LABELS, NAV_LABELS } from "@/lib/copy";
 import { useCve } from "./hooks";
@@ -32,8 +34,8 @@ export function CveDetailPage() {
       setSummary(null);
       return;
     }
-    const cached = peekCachedAnalysis([cve.id], "detail");
-    setSummary(cached?.ai_summary?.trim() ?? null);
+    const cached = peekCachedAnalysis([cve.id], "analyze");
+    setSummary(sanitizeAiText(cached?.ai_summary) || null);
     setError(null);
   }, [cve?.id]);
 
@@ -42,8 +44,12 @@ export function CveDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const result = await analyzeCves([cve.id], { mode: "detail", bypassCache });
-      setSummary(result.ai_summary?.trim() || "No summary returned.");
+      const result = await analyzeCves([cve.id], {
+        intent: "analyze",
+        findings: toAnalysisFindings([cve]),
+        bypassCache,
+      });
+      setSummary(sanitizeAiText(result.ai_summary) || "No summary returned.");
     } catch (err) {
       setSummary(null);
       setError(err instanceof Error ? err.message : "Analysis failed");
@@ -53,9 +59,9 @@ export function CveDetailPage() {
   };
 
   return (
-    <div className="page" style={{ maxWidth: 760 }}>
+    <div className="page page--narrow">
       <Link to="/cves" className="back-link">
-        ← Back to {NAV_LABELS.issues.toLowerCase()}
+        ← {NAV_LABELS.issues}
       </Link>
 
       {!cve ? (

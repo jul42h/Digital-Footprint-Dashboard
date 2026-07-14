@@ -40,11 +40,11 @@ export function AnalyticsPage() {
       />
 
       <div className="kpi-strip">
-        <KpiCard kpi={{ label: "Network risk score", value: String(riskScore), tone: riskScore >= 70 ? "critical" : "neutral" }} />
+        <KpiCard kpi={{ label: "Exposure score", value: String(riskScore), tone: riskScore >= 70 ? "critical" : "neutral" }} />
         <KpiCard kpi={{ label: "Unique CVEs", value: String(data.stats.uniqueCVEs), tone: "neutral" }} />
-        <KpiCard kpi={{ label: "KEV findings", value: String(data.stats.kevFindings), tone: data.stats.kevFindings > 0 ? "critical" : "neutral" }} />
+        <KpiCard kpi={{ label: "Known exploited", value: String(data.stats.kevFindings), tone: data.stats.kevFindings > 0 ? "critical" : "neutral" }} />
         <KpiCard kpi={{ label: "High EPSS", value: String(data.stats.highEpssFindings), tone: data.stats.highEpssFindings > 0 ? "high" : "neutral" }} />
-        <KpiCard kpi={{ label: "Vulnerable hosts", value: String(data.stats.vulnerableIPs), tone: data.stats.vulnerableIPs > 0 ? "high" : "neutral" }} />
+        <KpiCard kpi={{ label: "At-risk hosts", value: String(data.stats.vulnerableIPs), tone: data.stats.vulnerableIPs > 0 ? "high" : "neutral" }} />
         <KpiCard kpi={{ label: "Discovered hosts", value: String(data.stats.discoveredHosts), tone: "neutral" }} />
       </div>
 

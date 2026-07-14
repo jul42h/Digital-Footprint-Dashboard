@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { DashboardContext } from "@/context/DashboardContext";
 import { RemediationProvider } from "@/context/RemediationContext";
 import { useDashboardData } from "@/hooks/useDashboardData";
@@ -7,6 +8,21 @@ import { router } from "./router";
 
 function DashboardShell() {
   const state = useDashboardData();
+
+  const value = useMemo(
+    () =>
+      state.data && state.derived
+        ? {
+            data: state.data,
+            derived: state.derived,
+            loading: state.loading,
+            error: state.error,
+            refreshing: state.refreshing,
+            reload: state.reload,
+          }
+        : null,
+    [state.data, state.derived, state.loading, state.error, state.refreshing, state.reload],
+  );
 
   if (state.loading && !state.data) {
     return (
@@ -24,19 +40,10 @@ function DashboardShell() {
     );
   }
 
-  if (!state.data || !state.derived) return null;
+  if (!value) return null;
 
   return (
-    <DashboardContext.Provider
-      value={{
-        data: state.data,
-        derived: state.derived,
-        loading: state.loading,
-        error: state.error,
-        refreshing: state.refreshing,
-        reload: state.reload,
-      }}
-    >
+    <DashboardContext.Provider value={value}>
       <RemediationProvider>
         <RouterProvider router={router} />
       </RemediationProvider>

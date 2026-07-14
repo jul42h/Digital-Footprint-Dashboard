@@ -15,9 +15,11 @@ type SeverityFilter = Severity | "all";
 export function AtRiskAssets({
   limit = 5,
   compact = false,
+  hideTitle = false,
 }: {
   limit?: number;
   compact?: boolean;
+  hideTitle?: boolean;
 }) {
   const navigate = useNavigate();
   const ips = useIps();
@@ -31,12 +33,9 @@ export function AtRiskAssets({
     return list.sort((a, b) => b.maxCvss - a.maxCvss).slice(0, limit);
   }, [compact, ips, limit, severityFilter]);
 
-  return (
-    <Card
-      title="Highest-risk assets"
-      action={<ViewAllLink to="/ips" />}
-    >
-      {!compact && (
+  const table = (
+    <>
+      {!compact && !hideTitle && (
         <>
           <p className="card-footnote card-footnote--tight">{HELP_TEXT.atRiskAssets}</p>
           <div className="table-toolbar__filters" style={{ marginBottom: 10 }}>
@@ -54,8 +53,8 @@ export function AtRiskAssets({
       <table className="mini-table">
         <thead>
           <tr>
-            <th>Asset</th>
-            <th>Vulns</th>
+            <th>Host</th>
+            <th>Issues</th>
             <th>Severity</th>
           </tr>
         </thead>
@@ -90,6 +89,16 @@ export function AtRiskAssets({
           )}
         </tbody>
       </table>
+    </>
+  );
+
+  if (hideTitle) {
+    return <div className="home-panel">{table}</div>;
+  }
+
+  return (
+    <Card title="At-risk assets" action={<ViewAllLink to="/ips" />}>
+      {table}
     </Card>
   );
 }

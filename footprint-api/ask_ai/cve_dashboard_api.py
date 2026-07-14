@@ -1,30 +1,16 @@
 """
 CVE Risk Dashboard API.
 
-Exposes an HTTP endpoint that the dashboard frontend calls to get an
-AI-generated summary for a set of CVE ids. This service does NOT call
-Amazon Bedrock directly -- it invokes the existing "AI Risk Analyzer"
-Lambda synchronously via boto3 and relays the result.
+Relays dashboard analysis requests to the AI Risk Analyzer Lambda.
+Does not call Bedrock / OpenAI directly.
 
-ARCHITECTURE NOTE: this deliberately uses IAM-authenticated
-    boto3 lambda_client.invoke(), not API Gateway or a Lambda Function URL.
-This service already runs with AWS credentials (an IAM role if hosted on
-EC2/ECS/similar, or an IAM user's keys otherwise), so a direct, IAM-signed
-invoke gives the same security boundary as a SigV4-authenticated HTTP
-endpoint would, without the extra infrastructure (API Gateway resources,
-routes, another layer of auth to configure).
-
-PREREQUISITE (not code): the IAM role/user this service runs as must have
-an attached policy granting "lambda:InvokeFunction" on the target Lambda's
-ARN, e.g.:
-    {
-      "Version": "2012-10-17",
-      "Statement": [{
-        "Effect": "Allow",
-        "Action": "lambda:InvokeFunction",
-        "Resource": "arn:aws:lambda:<region>:<account-id>:function:<function-name>"
-      }]
-    }
+Payload (vital fields only):
+  {
+    "cve_ids": ["CVE-…"],          # optional if findings present
+    "findings": [ {…}, … ],        # structured records for the Lambda (preferred)
+    "mode": "brief" | "detail",
+    "intent": "brief" | "analyze" | "remediate" | "next_steps"
+  }
 """
 
 from __future__ import annotations
@@ -32,58 +18,55 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from asyncio import to_thread
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
-# ============================================================================
-# CONFIG -- set these via environment variables, do not hardcode.
-# ============================================================================
-
-# The deployed name (or ARN) of the AI Risk Analyzer Lambda function.
 LAMBDA_FUNCTION_NAME = os.environ.get("CVE_ANALYZER_LAMBDA_NAME", "ai-risk-analyzer")
-
-# The AWS region the LAMBDA FUNCTION ITSELF is deployed in (NOT the Bedrock
-# model region -- those are independent, as established when building the
-# Lambda). This is just which region's Lambda control plane to call.
 LAMBDA_INVOKE_REGION = os.environ.get("CVE_ANALYZER_LAMBDA_REGION", "us-west-2")
-
-# The Lambda function's own configured timeout (Configuration -> General
-# configuration -> Timeout), in seconds. This MUST be kept in sync with
-# whatever is actually set on the Lambda -- it's used below to size the
-# boto3 client's read timeout so this service doesn't give up on the
-# connection before Lambda has a chance to finish and respond.
 LAMBDA_CONFIGURED_TIMEOUT_SECONDS = int(
     os.environ.get("CVE_ANALYZER_LAMBDA_TIMEOUT_SECONDS", "60")
 )
 
-# Max CVE ids accepted per request. Matches the Lambda's own MAX_FINDINGS
-# cap; enforcing it here too gives the caller immediate feedback (a 422)
-# instead of a silent server-side truncation.
-MAX_CVE_IDS_PER_REQUEST = 5
+# Align with Lambda caps (practical UI payload stays under Lambda maxes).
+# Lambda: MAX_INPUT_FINDINGS=500, MAX_CVE_IDS=25, BRIEF_TOP_FINDINGS=5,
+# MAX_DETAIL_FINDINGS=8 for non-brief intents.
+MAX_CVE_IDS_PER_REQUEST = 25
+MAX_FINDINGS_PER_REQUEST = 100
 
+_HARMONY_FINAL_RE = re.compile(r"<\|channel\|>\s*final\s*<\|message\|>", re.I)
+_HARMONY_TOKEN_RE = re.compile(r"<\|[^|]*\|>")
+_REASON_BLOCK_RE = re.compile(
+    r"<\s*(think|thinking|reasoning|analysis|scratchpad)\b[^>]*>"
+    r".*?<\s*/\s*\1\s*>",
+    re.I | re.S,
+)
+_REASON_TAG_RE = re.compile(
+    r"<\s*/?\s*(think|thinking|reasoning|analysis|scratchpad|final|commentary)"
+    r"\b[^>]*>",
+    re.I,
+)
+_FENCE_RE = re.compile(r"\A\s*```[A-Za-z]*\s*\n(.*?)\n?\s*```\s*\Z", re.S)
+_HEADING_RE = re.compile(r"^#{1,4}\s+\S", re.M)
+_LEAD_CHANNEL_RE = re.compile(
+    r"\A(assistant)?\s*(analysis|commentary|final)\b[:.\s]*", re.I
+)
+_BOILERPLATE_RE = re.compile(
+    r"(?:^|\n)\s*_?Output truncated at the token limit\.?_?\s*(?=\n|$)",
+    re.I,
+)
 
-# ============================================================================
-# Boto3 Lambda client
-# ============================================================================
-# read_timeout is set comfortably ABOVE the Lambda's own configured timeout.
-# If this were left at boto3's default (60s) and the Lambda's timeout were
-# raised above that, this client would abandon the HTTP connection before
-# Lambda even finished -- producing a confusing client-side timeout even
-# though the Lambda invocation might have succeeded moments later.
-#
-# retries are disabled (max_attempts=1, i.e. exactly one attempt, no
-# retries). This call is NOT safely retryable: each successful invocation
-# triggers a real, billed Amazon Bedrock inference call. A transient
-# network blip during boto3's own retry logic could otherwise cause the
-# same request to invoke Bedrock twice without the caller knowing.
+AnalysisMode = Literal["brief", "detail"]
+AnalysisIntent = Literal["brief", "analyze", "remediate", "next_steps"]
+
 _boto_config = Config(
     read_timeout=LAMBDA_CONFIGURED_TIMEOUT_SECONDS + 15,
     connect_timeout=10,
@@ -94,79 +77,173 @@ _lambda_client = boto3.client(
     "lambda", region_name=LAMBDA_INVOKE_REGION, config=_boto_config
 )
 
-
-# ============================================================================
-# Router + schemas (mounted into the main Footprint Dashboard API)
-# ============================================================================
-
 router = APIRouter(tags=["cve-analysis"])
 
 
+def _sanitize_ai_summary(text: Any) -> Optional[str]:
+    """Mirror Lambda `_sanitize_output` so leaked scaffolding never hits the UI."""
+    if text is None:
+        return None
+    cleaned = str(text).replace("\r\n", "\n")
+
+    finals = list(_HARMONY_FINAL_RE.finditer(cleaned))
+    if finals:
+        cleaned = cleaned[finals[-1].end() :]
+
+    cleaned = _REASON_BLOCK_RE.sub("", cleaned)
+    cleaned = _HARMONY_TOKEN_RE.sub("", cleaned)
+    cleaned = _REASON_TAG_RE.sub("", cleaned)
+
+    fenced = _FENCE_RE.match(cleaned)
+    if fenced:
+        cleaned = fenced.group(1)
+
+    heading = _HEADING_RE.search(cleaned)
+    if heading and heading.start() > 0:
+        cleaned = cleaned[heading.start() :]
+
+    cleaned = _LEAD_CHANNEL_RE.sub("", cleaned.lstrip())
+    cleaned = _BOILERPLATE_RE.sub("\n", cleaned)
+    cleaned = re.sub(r"[ \t]+$", "", cleaned, flags=re.M)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned or None
+
+
+def _intent_to_mode(intent: AnalysisIntent) -> AnalysisMode:
+    return "brief" if intent == "brief" else "detail"
+
+
+def _mode_to_intent(mode: AnalysisMode) -> AnalysisIntent:
+    return "brief" if mode == "brief" else "analyze"
+
+
+def _normalize_cve_list(value: Optional[List[str]]) -> List[str]:
+    if not value:
+        return []
+    normalized: List[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        cve_id = str(raw).strip().upper()
+        if not cve_id or cve_id in seen:
+            continue
+        seen.add(cve_id)
+        normalized.append(cve_id)
+        if len(normalized) >= MAX_CVE_IDS_PER_REQUEST:
+            break
+    return normalized
+
+
+def _cve_ids_from_findings(findings: List[Dict[str, Any]]) -> List[str]:
+    out: List[str] = []
+    seen: set[str] = set()
+    for finding in findings:
+        if not isinstance(finding, dict):
+            continue
+        raw = finding.get("cve_id") or finding.get("original_cve_id")
+        cve_id = str(raw or "").strip().upper()
+        if not cve_id or cve_id in seen:
+            continue
+        seen.add(cve_id)
+        out.append(cve_id)
+        if len(out) >= MAX_CVE_IDS_PER_REQUEST:
+            break
+    return out
+
+
 class AnalyzeCVEsRequest(BaseModel):
-    cve_ids: List[str] = Field(
-        ...,
-        min_length=1,
+    cve_ids: Optional[List[str]] = Field(
+        default=None,
         max_length=MAX_CVE_IDS_PER_REQUEST,
-        description="CVE identifiers to analyze, e.g. ['CVE-2026-12345'].",
+        description="CVE identifiers. Optional when findings are provided.",
     )
-    # brief = home strip (short executive); detail = panel / CVE page (analyst depth).
-    # Relayed to Lambda so its prompt can match the dashboard surface.
-    mode: Literal["brief", "detail"] = Field(
-        default="detail",
-        description="Output style: brief (1–2 sentences) or detail (full analyst write-up).",
+    findings: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        max_length=MAX_FINDINGS_PER_REQUEST,
+        description="Structured findings for the Lambda (preferred).",
     )
+    mode: Optional[AnalysisMode] = None
+    intent: Optional[AnalysisIntent] = None
 
     @field_validator("cve_ids")
     @classmethod
-    def normalize_cve_ids(cls, value: List[str]) -> List[str]:
-        normalized: List[str] = []
-        seen: set[str] = set()
-        for raw in value:
-            cve_id = raw.strip().upper()
-            if not cve_id or cve_id in seen:
-                continue
-            seen.add(cve_id)
-            normalized.append(cve_id)
-        if not normalized:
-            raise ValueError("At least one CVE id is required.")
-        if len(normalized) > MAX_CVE_IDS_PER_REQUEST:
-            raise ValueError(f"At most {MAX_CVE_IDS_PER_REQUEST} CVE ids are allowed.")
-        return normalized
+    def normalize_cve_ids(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        if value is None:
+            return None
+        return _normalize_cve_list(value)
+
+    @field_validator("findings")
+    @classmethod
+    def normalize_findings(
+        cls, value: Optional[List[Dict[str, Any]]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        if value is None:
+            return None
+        cleaned = [item for item in value if isinstance(item, dict)]
+        if not cleaned:
+            return None
+        return cleaned[:MAX_FINDINGS_PER_REQUEST]
+
+    @model_validator(mode="after")
+    def resolve_payload(self) -> "AnalyzeCVEsRequest":
+        findings = self.findings or []
+        cve_ids = list(self.cve_ids or [])
+
+        if findings:
+            from_findings = _cve_ids_from_findings(findings)
+            merged: List[str] = []
+            seen: set[str] = set()
+            for cve_id in from_findings + cve_ids:
+                if cve_id not in seen:
+                    seen.add(cve_id)
+                    merged.append(cve_id)
+            cve_ids = merged[:MAX_CVE_IDS_PER_REQUEST]
+
+        if not cve_ids and not findings:
+            raise ValueError("At least one CVE id or finding is required.")
+
+        intent = self.intent
+        mode = self.mode
+        if intent is None and mode is None:
+            intent = "analyze"
+            mode = "detail"
+        elif intent is None and mode is not None:
+            intent = _mode_to_intent(mode)
+        elif intent is not None and mode is None:
+            mode = _intent_to_mode(intent)
+
+        assert intent is not None and mode is not None
+        self.intent = intent
+        self.mode = _intent_to_mode(intent)
+        self.cve_ids = cve_ids
+        self.findings = findings or None
+        return self
 
 
 class AnalyzeCVEsResponse(BaseModel):
     status: str
+    statusCode: Optional[int] = None
     invocation_source: Optional[str] = None
     reason: Optional[str] = None
+    error: Optional[str] = None
     cve_ids_analyzed: List[str] = []
     total_valid_cve_ids: Optional[int] = None
+    total_findings_provided: Optional[int] = None
+    total_findings_analyzed: Optional[int] = None
+    total_findings_skipped: Optional[int] = None
+    findings_detailed: Optional[int] = None
+    max_findings: Optional[int] = None
+    signal_summary: Optional[Dict[str, Any]] = None
     ai_summary: Optional[str] = None
     mode: Optional[str] = None
+    intent: Optional[str] = None
 
-
-# ============================================================================
-# Lambda invocation helper
-# ============================================================================
 
 def _invoke_analyzer_lambda(payload: dict) -> dict:
-    """
-    Synchronously invoke the AI Risk Analyzer Lambda and return its parsed
-    response payload.
-
-    This function makes a BLOCKING network call (boto3 has no native async
-    support) and must always be run off the event loop via
-    asyncio.to_thread -- see the endpoint below. Calling this directly from
-    an `async def` route would stall every other request this service is
-    handling for the full duration of the Lambda invocation (which can be
-    many seconds, given it's waiting on a model response).
-    """
     if not LAMBDA_FUNCTION_NAME:
-        # Fail fast and clearly if the operator forgot to configure this,
-        # rather than letting boto3 raise an opaque error deeper down.
         logger.error("CVE_ANALYZER_LAMBDA_NAME is not configured.")
         raise HTTPException(
             status_code=503,
-            detail="Analysis service is not configured (missing Lambda function name).",
+            detail="Analysis service is not configured.",
         )
 
     try:
@@ -176,55 +253,45 @@ def _invoke_analyzer_lambda(payload: dict) -> dict:
             Payload=json.dumps(payload).encode("utf-8"),
         )
     except (BotoCoreError, ClientError) as exc:
-        # This branch covers errors that prevent the Lambda from executing
-        # at all: permissions issues, throttling, the client timing out
-        # while waiting, network errors, etc. -- NOT errors raised by the
-        # Lambda's own code (those come back as FunctionError, handled below).
-        logger.error("Failed to invoke Lambda %s: %s", LAMBDA_FUNCTION_NAME, exc)
+        logger.exception("Failed to invoke analyzer Lambda")
         raise HTTPException(
             status_code=502,
-            detail="Could not reach the analysis service. Please try again shortly.",
-        )
+            detail=f"Could not reach analysis service: {exc}",
+        ) from exc
 
-    raw_payload = response["Payload"].read()
+    raw = response.get("Payload")
+    if raw is None:
+        raise HTTPException(status_code=502, detail="Empty response from analysis service")
 
     try:
-        result = json.loads(raw_payload)
-    except json.JSONDecodeError:
-        logger.error("Lambda returned a non-JSON payload: %r", raw_payload)
+        body = raw.read()
+        result = json.loads(body.decode("utf-8") if isinstance(body, (bytes, bytearray)) else body)
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        logger.exception("Analyzer Lambda returned invalid JSON")
         raise HTTPException(
-            status_code=502, detail="Received a malformed response from the analysis service."
-        )
+            status_code=502,
+            detail="Analysis service returned an invalid response",
+        ) from exc
 
+    # Function error (uncaught exception in Lambda)
     if response.get("FunctionError"):
-        # The Lambda ran but raised an exception. Its payload is an error
-        # object: {"errorMessage": ..., "errorType": ..., "stackTrace": [...]}
-        # -- NOT the normal {"status": ..., "ai_summary": ...} shape.
-        error_type = result.get("errorType", "UnknownError")
-        error_message = result.get("errorMessage", "The analysis function raised an error.")
-        logger.error(
-            "Lambda %s raised %s: %s | payload=%s",
-            LAMBDA_FUNCTION_NAME,
-            error_type,
-            error_message,
-            result,
+        error_payload = result if isinstance(result, dict) else {}
+        error_message = (
+            error_payload.get("errorMessage")
+            or error_payload.get("error")
+            or error_payload.get("Message")
+            or str(result)
         )
+        error_type = str(error_payload.get("errorType") or "LambdaError")
 
         if error_type == "RuntimeError":
-            # Matches the Lambda's own RuntimeError for a missing/misconfigured
-            # Bedrock API key -- an operator problem, not the caller's fault.
             raise HTTPException(
                 status_code=503,
                 detail="Analysis service is misconfigured. Please contact an administrator.",
             )
         if error_type in ("ValueError", "TypeError"):
-            # Matches the Lambda's own input-validation errors (bad/missing
-            # cve_ids shape) -- this IS the caller's fault, surface as 400.
             raise HTTPException(status_code=400, detail=error_message)
 
-        # Anything else (Bedrock/model call failure, unexpected exception).
-        # Include Lambda's errorType/message so operators can fix config without
-        # digging through CloudWatch for every dashboard failure.
         raise HTTPException(
             status_code=502,
             detail=(
@@ -236,21 +303,32 @@ def _invoke_analyzer_lambda(payload: dict) -> dict:
     return result
 
 
-# ============================================================================
-# Routes
-# ============================================================================
-
 @router.post("/api/cve-analysis", response_model=AnalyzeCVEsResponse)
 async def analyze_cves(request: AnalyzeCVEsRequest) -> dict:
-    """
-    Request an AI-generated summary for a set of CVE ids.
-
-    Relays cve_ids + mode to the Lambda and returns its response. mode selects
-    prompt style: brief (home) vs detail (panel / CVE detail page).
-    """
-    payload = {"cve_ids": request.cve_ids, "mode": request.mode}
+    """Relay findings (preferred) + cve_ids + intent/mode to the analyzer Lambda."""
+    payload: Dict[str, Any] = {
+        "mode": request.mode,
+        "intent": request.intent,
+    }
+    if request.cve_ids:
+        payload["cve_ids"] = request.cve_ids
+    if request.findings:
+        payload["findings"] = request.findings
 
     result = await to_thread(_invoke_analyzer_lambda, payload)
-    if isinstance(result, dict) and "mode" not in result:
-        result = {**result, "mode": request.mode}
+
+    if isinstance(result, dict) and str(result.get("status", "")).lower() == "error":
+        message = result.get("error") or result.get("reason") or "Analysis failed"
+        code = int(result.get("statusCode") or 400)
+        if code >= 500:
+            raise HTTPException(status_code=502, detail=str(message))
+        raise HTTPException(status_code=400, detail=str(message))
+
+    if isinstance(result, dict):
+        if "mode" not in result:
+            result = {**result, "mode": request.mode}
+        if "intent" not in result:
+            result = {**result, "intent": request.intent}
+        if "ai_summary" in result:
+            result = {**result, "ai_summary": _sanitize_ai_summary(result.get("ai_summary"))}
     return result

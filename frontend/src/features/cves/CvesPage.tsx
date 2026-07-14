@@ -35,7 +35,7 @@ export function CvesPage() {
         />
         <KpiCard
           kpi={{
-            label: "KEV findings",
+            label: "Known exploited",
             value: String(data.stats.kevFindings),
             tone: data.stats.kevFindings > 0 ? "high" : "neutral",
           }}

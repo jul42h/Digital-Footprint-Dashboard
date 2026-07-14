@@ -21,7 +21,7 @@ export function SettingsPage() {
   const apiBase = getApiBaseUrl() || "(same origin as FastAPI)";
 
   return (
-    <div className="page" style={{ maxWidth: 720 }}>
+    <div className="page page--narrow">
       <PageHeader
         title={NAV_LABELS.settings}
         subtitle={HELP_TEXT.settingsPage}

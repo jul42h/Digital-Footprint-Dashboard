@@ -17,11 +17,11 @@ export function IpsPage() {
       />
 
       <div className="kpi-strip">
-        <KpiCard kpi={{ label: "Addresses scanned", value: String(ips.length), tone: "neutral" }} />
-        <KpiCard kpi={{ label: "Total issues", value: String(totalIssues), tone: "neutral" }} />
+        <KpiCard kpi={{ label: "Hosts scanned", value: String(ips.length), tone: "neutral" }} />
+        <KpiCard kpi={{ label: "Open issues", value: String(totalIssues), tone: "neutral" }} />
         <KpiCard
           kpi={{
-            label: "Critical severity",
+            label: "Hosts with critical",
             value: String(withCritical),
             tone: withCritical > 0 ? "critical" : "neutral",
           }}

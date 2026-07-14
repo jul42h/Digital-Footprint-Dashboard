@@ -21,7 +21,7 @@ export function SolutionsPage() {
     <div className="page">
       <PageHeader
         title={NAV_LABELS.fixes}
-        subtitle={`${HELP_TEXT.solutionsPage} Use the Status dropdown on each row to update progress — no code changes needed.`}
+        subtitle={HELP_TEXT.solutionsPage}
       />
 
       <div className="kpi-strip">

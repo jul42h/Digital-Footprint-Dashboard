@@ -1,49 +1,37 @@
 import { Link } from "react-router-dom";
+import { HELP_TEXT } from "@/lib/copy";
 import { SEVERITY_COLOR } from "@/lib/severity";
-import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import { useDashboardSummary } from "./useDashboardSummary";
 
+/**
+ * Home KPI strip — aligned with nav destinations.
+ * Exposure score is shown in the ring below (not repeated here).
+ */
 export function DashboardPosture() {
   const { data } = useDashboard();
-  const {
-    exposureScore,
-    exposureDelta,
-    critical,
-    assetsAtRisk,
-    pendingRemediations,
-  } = useDashboardSummary();
-
-  const exposureLabel =
-    exposureDelta === 0 ? "Risk score" : `Δ ${exposureDelta > 0 ? "+" : ""}${exposureDelta}`;
+  const { critical, assetsAtRisk, pendingRemediations } = useDashboardSummary();
 
   const metrics = [
-    {
-      key: "score",
-      value: exposureScore,
-      label: exposureLabel,
-      title: HELP_TEXT.exposureScore,
-      primary: true,
-    },
     {
       key: "critical",
       to: "/cves",
       value: critical,
-      label: "Critical",
+      label: "Critical issues",
       tone: critical > 0 ? SEVERITY_COLOR.critical : undefined,
     },
     {
       key: "kev",
       to: "/cves",
       value: data.stats.kevFindings,
-      label: "KEV",
+      label: "Known exploited",
       tone: data.stats.kevFindings > 0 ? SEVERITY_COLOR.high : undefined,
     },
     {
       key: "fixes",
       to: "/solutions",
       value: pendingRemediations,
-      label: NAV_LABELS.fixes,
+      label: "Pending remediations",
       tone: pendingRemediations > 0 ? SEVERITY_COLOR.high : undefined,
     },
     {
@@ -55,7 +43,11 @@ export function DashboardPosture() {
   ];
 
   return (
-    <div className="posture-bar posture-bar--overview posture-bar--compact-home" role="list">
+    <div
+      className="posture-bar posture-bar--overview posture-bar--home-business"
+      role="list"
+      aria-label={HELP_TEXT.postureBar}
+    >
       {metrics.map((metric) => {
         const content = (
           <>
@@ -69,11 +61,7 @@ export function DashboardPosture() {
           </>
         );
 
-        const className = [
-          "posture-metric",
-          metric.primary ? "posture-metric--primary" : "",
-          metric.to ? "posture-metric--link" : "",
-        ]
+        const className = ["posture-metric", metric.to ? "posture-metric--link" : ""]
           .filter(Boolean)
           .join(" ");
 
@@ -86,7 +74,7 @@ export function DashboardPosture() {
         }
 
         return (
-          <div key={metric.key} className={className} title={metric.title} role="listitem">
+          <div key={metric.key} className={className} role="listitem">
             {content}
           </div>
         );

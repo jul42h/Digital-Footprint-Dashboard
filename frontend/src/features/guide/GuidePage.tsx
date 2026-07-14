@@ -18,11 +18,11 @@ export function GuidePage() {
     <div className="page guide-page">
       <PageHeader
         eyebrow="Reference"
-        title="Metric & data guide"
+        title={NAV_LABELS.guide}
         subtitle={HELP_TEXT.guidePage}
         action={
           <Link to="/" className="view-all-link">
-            ← Back to overview
+            ← Back to Home
           </Link>
         }
       />
@@ -30,22 +30,28 @@ export function GuidePage() {
       <section id="getting-started">
         <Card title="Getting started">
           <p className="guide-page__intro">
-            Suggested path for a first visit — also available as a dismissible tip strip on Home
-            (re-open anytime from <strong>Tips</strong> in the top bar).
+            Suggested workflow. Use the glossary below when you need definitions (KEV, EPSS, CVSS,
+            remediation status).
           </p>
           <ol className="guide-start-list">
             <li>
-              <Link to="/">Overview</Link> — posture bar for urgency, then optional AI brief on the same page.
+              <strong>Measure</strong> — <Link to="/">{NAV_LABELS.home}</Link> posture counts and
+              exposure score.
             </li>
             <li>
-              <Link to="/cves">{NAV_LABELS.issues}</Link> — open a CVE for scores, assets, and remediations.
+              <strong>Understand</strong> — AI brief on Home (refreshes every 2 hours or when top
+              findings change).
             </li>
             <li>
-              <Link to="/solutions">{NAV_LABELS.fixes}</Link> — track what you are fixing.
+              <strong>Focus</strong> — <Link to="/cves">{NAV_LABELS.issues}</Link> with severity /
+              KEV filters, then open a CVE.
             </li>
             <li>
-              Use the floating <strong>Analyze</strong> button only when you want a deeper write-up on selected
-              CVEs (not required for daily triage).
+              <strong>Act</strong> — <Link to="/solutions">{NAV_LABELS.fixes}</Link> to track
+              remediation status.
+            </li>
+            <li>
+              Optional: floating <strong>Analyze</strong> for a deeper write-up on selected findings.
             </li>
           </ol>
         </Card>
@@ -96,7 +102,7 @@ export function GuidePage() {
       <Card title="Related pages">
         <ul className="guide-related">
           <li>
-            <Link to="/">Overview</Link> — posture, optional AI brief, severity, and priority queue
+            <Link to="/">{NAV_LABELS.home}</Link> — posture, AI brief, severity, and priority queues
           </li>
           <li>
             <Link to="/cves">{NAV_LABELS.issues}</Link> — filter by KEV, EPSS, and severity

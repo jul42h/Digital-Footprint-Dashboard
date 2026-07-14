@@ -4,7 +4,6 @@ const SHORTCUTS = [
   { keys: "R", action: "Refresh data" },
   { keys: "[", action: "Toggle sidebar" },
   { keys: "?", action: "Show shortcuts" },
-  { keys: "Tips", action: "Re-open quick start (top bar)" },
   { keys: "Esc", action: "Close dialog" },
 ] as const;
 
