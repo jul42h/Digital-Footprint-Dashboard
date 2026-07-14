@@ -347,8 +347,9 @@ The overview summarizes posture and where to act first.
 | **Priority queue** | Top critical/high items ranked by KEV → EPSS → CVSS (read-only status) | `CompactRemediationQueue` |
 | **Remediation progress** | Donut of solution statuses (not started, under review, in progress, done) | `RemediationProgress` |
 | **Highest-risk assets** | IPs with CVEs, sortable by severity filter | `AtRiskAssets` |
+| **AI Risk Intelligence** | Executive summary, AI risk score, top findings, threat intel, prioritized remediation | `AiRiskIntelligencePanel` → `GET /api/v1/risk-intelligence` |
 
-Link: **What do these metrics mean?** → `/guide`
+Link: **What do these metrics mean?** → `/guide` · **Ask AI** → `/ask`
 
 ### Security issues (`/cves`, `/cves/:id`)
 
@@ -388,6 +389,16 @@ Deeper charts not shown on the home page:
 - Top IPs, vulnerable ports, OS distribution
 - Domain footprint, services, products, countries, avg CVSS by org
 
+### Ask AI (`/ask`)
+
+Cybersecurity analyst chatbot grounded in the latest DynamoDB scan payload.
+
+- Quick actions (patch priority, riskiest assets, CVE/host explainers, internet exposure, mitigations, risk score)
+- Chat history (browser `localStorage`), typing indicator, copy response, clear chat
+- Frontend calls `POST /api/v1/ask` only — never Amazon Bedrock directly
+
+Backend flow: FastAPI → (optional Lambda via `ASK_AI_LAMBDA_ARN`) → selective context retrieval → Bedrock when `BEDROCK_ENABLED=1`, otherwise a deterministic analyst engine that still returns structured JSON.
+
 ### Guide (`/guide`)
 
 Glossary for CVE, CVSS, KEV, EPSS, dashboard metrics, remediation workflow, scan sources, and threat categories. Includes anchor links (e.g. `/guide#kev`).
@@ -424,10 +435,12 @@ Glossary for CVE, CVSS, KEV, EPSS, dashboard metrics, remediation workflow, scan
 | `/api/v1/health` | GET | Health check |
 | `/api/v1/dashboard` | GET | Full `DashboardData` JSON for the UI |
 | `/api/v1/dashboard/refresh` | POST | Re-scan DynamoDB and refresh cache |
+| `/api/v1/ask` | POST | Ask AI cybersecurity analyst (structured JSON) |
+| `/api/v1/risk-intelligence` | GET | Home-page AI risk brief |
 | `/findings` | GET | Raw findings (`?ip=` optional) |
 | `/findings/{ip}/{cve_id}` | GET | Single finding row |
 
-Environment variables: see `footprint-api/README.md` (`DYNAMODB_TABLE_NAME`, `AWS_REGION`, `FRONTEND_DIST`, etc.).
+Environment variables: see `footprint-api/README.md` (`DYNAMODB_TABLE_NAME`, `AWS_REGION`, `BEDROCK_*`, `ASK_AI_*`, `FRONTEND_DIST`, etc.).
 
 ---
 
@@ -461,7 +474,7 @@ npm run api:serve    # terminal 2 — or set FRONTEND_DEV_URL=http://127.0.0.1:5
 - **UI:** React 19, React Router, Recharts, CSS custom properties (themes)
 - **Build:** Vite, TypeScript
 - **API:** FastAPI, boto3, uvicorn
-- **Data:** AWS DynamoDB
+- **Data:** AWS DynamoDB (primary), optional Athena / S3 enrichment + Amazon Bedrock for Ask AI
 
 ---
 

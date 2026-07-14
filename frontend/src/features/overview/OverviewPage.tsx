@@ -1,46 +1,41 @@
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { AtRiskAssets } from "./AtRiskAssets";
+import { AiBriefStrip } from "./AiBriefStrip";
 import { DashboardPosture } from "./DashboardPosture";
 import { CompactRemediationQueue } from "./CompactRemediationQueue";
-import { RemediationProgress } from "./RemediationProgress";
-import { RiskTrendChart } from "./RiskTrendChart";
 import { SeverityDonut } from "./SeverityDonut";
 
 export function OverviewPage() {
   return (
-    <div className="page dashboard dashboard--home">
+    <div className="page dashboard dashboard--home dashboard--home-streamlined">
       <PageHeader
         eyebrow="Overview"
         title="Digital Footprint"
-        subtitle="External security posture across Fresno State's internet-facing assets."
+        subtitle="What needs attention across Fresno State's external assets."
         action={
           <Link to="/guide" className="view-all-link">
-            What do these metrics mean?
+            Glossary
           </Link>
         }
       />
 
       <DashboardPosture />
+      <AiBriefStrip />
 
-      <div className="dashboard-home">
+      <div className="dashboard-home dashboard-home--streamlined">
         <section className="dashboard-home__severity" aria-label="Severity breakdown">
           <Link to="/cves" className="dashboard__chart-link">
             <SeverityDonut />
           </Link>
         </section>
 
-        <section className="dashboard-home__insight" aria-label="Observation snapshot">
-          <RiskTrendChart />
-        </section>
-
-        <aside className="dashboard-home__actions" aria-label="Remediation workflow">
-          <CompactRemediationQueue limit={4} />
-          <RemediationProgress />
+        <aside className="dashboard-home__actions" aria-label="What to fix first">
+          <CompactRemediationQueue limit={5} compact />
         </aside>
 
         <section className="dashboard-home__assets" aria-label="Highest-risk assets">
-          <AtRiskAssets limit={6} />
+          <AtRiskAssets limit={5} compact />
         </section>
       </div>
     </div>

@@ -5,7 +5,16 @@ import { APP_NAME, APP_TAGLINE, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
 import type { DerivedData } from "@/lib/adapters";
 
-type NavIconName = "home" | "issues" | "threats" | "systems" | "fixes" | "providers" | "analytics" | "guide" | "settings";
+type NavIconName =
+  | "home"
+  | "issues"
+  | "threats"
+  | "systems"
+  | "fixes"
+  | "providers"
+  | "analytics"
+  | "guide"
+  | "settings";
 
 const NAV: Array<{
   to: string;

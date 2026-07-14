@@ -9,6 +9,7 @@ export const NAV_LABELS = {
   fixes: "Remediations",
   providers: "Software providers",
   analytics: "Analytics",
+  askAi: "Ask AI",
   guide: "Guide",
   settings: "Settings",
 } as const;
@@ -82,5 +83,9 @@ export const HELP_TEXT = {
     "Where dashboard data is loaded from and how to refresh it.",
   guidePage:
     "Definitions for CVE, CVSS, KEV, EPSS, remediation statuses, and other dashboard terminology.",
+  askAiPage:
+    "Floating cybersecurity analyst chatbot. Available from the Ask AI button on any page.",
+  aiRiskIntelligence:
+    "Short analyst brief: overall risk, top finding, top asset, and what to fix first. Open Ask AI for deeper investigation.",
   loading: "Loading your security footprint…",
 } as const;

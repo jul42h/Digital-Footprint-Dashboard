@@ -2,6 +2,8 @@ import { LayoutProvider, useLayout } from "@/context/LayoutContext";
 import { Outlet } from "react-router-dom";
 import { DataStatusBanner } from "@/components/DataStatusBanner";
 import { KeyboardShortcutsHelp } from "@/components/KeyboardShortcutsHelp";
+import { AskAiProvider } from "@/features/ask-ai/AskAiContext";
+import { AskAiWidget } from "@/features/ask-ai/AskAiWidget";
 import { BackToTop } from "./BackToTop";
 import { ScrollToTop } from "./ScrollToTop";
 import { Sidebar } from "./Sidebar";
@@ -31,6 +33,7 @@ function AppShell() {
         </main>
         <BackToTop />
       </div>
+      <AskAiWidget />
       <KeyboardShortcutsHelp />
     </div>
   );
@@ -39,7 +42,9 @@ function AppShell() {
 export function AppLayout() {
   return (
     <LayoutProvider>
-      <AppShell />
+      <AskAiProvider>
+        <AppShell />
+      </AskAiProvider>
     </LayoutProvider>
   );
 }

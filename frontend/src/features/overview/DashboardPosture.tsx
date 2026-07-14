@@ -9,7 +9,6 @@ export function DashboardPosture() {
   const {
     exposureScore,
     exposureDelta,
-    totalVulns,
     critical,
     assetsAtRisk,
     pendingRemediations,
@@ -20,11 +19,10 @@ export function DashboardPosture() {
 
   const metrics = [
     {
-      key: "fixes",
-      to: "/solutions",
-      value: pendingRemediations,
-      label: NAV_LABELS.fixes,
-      tone: pendingRemediations > 0 ? SEVERITY_COLOR.high : undefined,
+      key: "score",
+      value: exposureScore,
+      label: exposureLabel,
+      title: HELP_TEXT.exposureScore,
       primary: true,
     },
     {
@@ -42,11 +40,11 @@ export function DashboardPosture() {
       tone: data.stats.kevFindings > 0 ? SEVERITY_COLOR.high : undefined,
     },
     {
-      key: "epss",
-      to: "/cves",
-      value: data.stats.highEpssFindings,
-      label: "High EPSS",
-      tone: data.stats.highEpssFindings > 0 ? SEVERITY_COLOR.medium : undefined,
+      key: "fixes",
+      to: "/solutions",
+      value: pendingRemediations,
+      label: NAV_LABELS.fixes,
+      tone: pendingRemediations > 0 ? SEVERITY_COLOR.high : undefined,
     },
     {
       key: "assets",
@@ -54,22 +52,10 @@ export function DashboardPosture() {
       value: assetsAtRisk,
       label: "At-risk assets",
     },
-    {
-      key: "cves",
-      to: "/cves",
-      value: totalVulns,
-      label: "Unique CVEs",
-    },
-    {
-      key: "score",
-      value: exposureScore,
-      label: exposureLabel,
-      title: HELP_TEXT.exposureScore,
-    },
   ];
 
   return (
-    <div className="posture-bar posture-bar--overview" role="list">
+    <div className="posture-bar posture-bar--overview posture-bar--compact-home" role="list">
       {metrics.map((metric) => {
         const content = (
           <>

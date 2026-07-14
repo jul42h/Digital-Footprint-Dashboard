@@ -12,35 +12,45 @@ import { useIps } from "@/features/ips/hooks";
 
 type SeverityFilter = Severity | "all";
 
-export function AtRiskAssets({ limit = 5 }: { limit?: number }) {
+export function AtRiskAssets({
+  limit = 5,
+  compact = false,
+}: {
+  limit?: number;
+  compact?: boolean;
+}) {
   const navigate = useNavigate();
   const ips = useIps();
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
 
   const assets = useMemo(() => {
     let list = ips.filter((ip) => ip.cveCount > 0);
-    if (severityFilter !== "all") {
+    if (!compact && severityFilter !== "all") {
       list = list.filter((ip) => cvssToSeverity(ip.maxCvss) === severityFilter);
     }
     return list.sort((a, b) => b.maxCvss - a.maxCvss).slice(0, limit);
-  }, [ips, limit, severityFilter]);
+  }, [compact, ips, limit, severityFilter]);
 
   return (
     <Card
       title="Highest-risk assets"
       action={<ViewAllLink to="/ips" />}
     >
-      <p className="card-footnote card-footnote--tight">{HELP_TEXT.atRiskAssets}</p>
-      <div className="table-toolbar__filters" style={{ marginBottom: 10 }}>
-        <FilterChip active={severityFilter === "all"} onClick={() => setSeverityFilter("all")}>
-          All
-        </FilterChip>
-        {SEVERITY_ORDER.map((s) => (
-          <FilterChip key={s} active={severityFilter === s} onClick={() => setSeverityFilter(s)}>
-            {SEVERITY_LABEL[s]}
-          </FilterChip>
-        ))}
-      </div>
+      {!compact && (
+        <>
+          <p className="card-footnote card-footnote--tight">{HELP_TEXT.atRiskAssets}</p>
+          <div className="table-toolbar__filters" style={{ marginBottom: 10 }}>
+            <FilterChip active={severityFilter === "all"} onClick={() => setSeverityFilter("all")}>
+              All
+            </FilterChip>
+            {SEVERITY_ORDER.map((s) => (
+              <FilterChip key={s} active={severityFilter === s} onClick={() => setSeverityFilter(s)}>
+                {SEVERITY_LABEL[s]}
+              </FilterChip>
+            ))}
+          </div>
+        </>
+      )}
       <table className="mini-table">
         <thead>
           <tr>

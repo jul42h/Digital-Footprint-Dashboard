@@ -34,6 +34,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from ask_ai import handle_ask, handle_risk_intelligence
+from ask_ai.schemas import AskRequest, AskResponse, RiskIntelligenceResponse
 from dashboard_transform import findings_to_dashboard
 from frontend_sync import (
     dist_is_stale,
@@ -238,6 +240,36 @@ def get_finding(ip: str, cve_id: str) -> Dict[str, Any]:
     if item is None:
         raise HTTPException(status_code=404, detail="finding not found")
     return item
+
+
+@app.post("/api/v1/ask", response_model=AskResponse)
+def ask_ai(body: AskRequest) -> AskResponse:
+    """Ask AI cybersecurity analyst — never calls Bedrock from the browser.
+
+    Flow: FastAPI → (optional Lambda) → context from DynamoDB dashboard cache
+    → Bedrock when enabled → structured JSON response.
+    """
+    try:
+        dashboard = load_dashboard()
+        return handle_ask(dashboard, body)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Ask AI failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/risk-intelligence", response_model=RiskIntelligenceResponse)
+def risk_intelligence() -> RiskIntelligenceResponse:
+    """AI Risk Intelligence brief for the home dashboard."""
+    try:
+        dashboard = load_dashboard()
+        return handle_risk_intelligence(dashboard)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Risk intelligence failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # ----------------------------------------------------------------------

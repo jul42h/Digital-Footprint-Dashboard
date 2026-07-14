@@ -48,9 +48,26 @@ API docs: http://localhost:8000/docs
 | `GET` | `/api/v1/health` | Health check |
 | `GET` | `/api/v1/dashboard` | Full dashboard payload for the React app |
 | `POST` | `/api/v1/dashboard/refresh` | Re-scan DynamoDB and refresh cached dashboard |
+| `POST` | `/api/v1/ask` | Ask AI analyst — selective context + Bedrock/deterministic JSON |
+| `GET` | `/api/v1/risk-intelligence` | AI executive brief for the home page |
 | `GET` | `/findings` | Raw findings (`?ip=` optional) |
 | `GET` | `/findings/{ip}/{cve_id}` | Single finding |
 | `GET` | `/health` | Legacy health check |
+
+## Ask AI
+
+```
+React `/ask`
+   → POST /api/v1/ask
+   → ask_ai.handler (in-process, or Lambda when ASK_AI_MODE=lambda)
+   → context from DynamoDB dashboard cache (+ optional Athena/S3)
+   → Amazon Bedrock when BEDROCK_ENABLED=1
+   → structured JSON { summary, riskScore, priority, remediation, threatIntel, references }
+```
+
+Set `BEDROCK_ENABLED=1` and ensure the runtime role/credentials can call `bedrock:InvokeModel`. Without Bedrock, responses still return evidence-based structured JSON from the deterministic analyst engine.
+
+Lambda packaging entrypoint: `ask_ai.handler.lambda_handler`.
 
 ## Environment variables
 
@@ -58,6 +75,14 @@ API docs: http://localhost:8000/docs
 |----------|---------|-------------|
 | `DYNAMODB_TABLE_NAME` | `enriched-database` | DynamoDB table name |
 | `AWS_REGION` | `us-west-2` | AWS region |
+| `BEDROCK_ENABLED` | `0` | Set `1` to call Amazon Bedrock |
+| `BEDROCK_MODEL_ID` | Claude 3 Haiku | Bedrock model ID |
+| `BEDROCK_REGION` | `AWS_REGION` | Optional Bedrock region override |
+| `ASK_AI_MODE` | `local` | `local` or `lambda` |
+| `ASK_AI_LAMBDA_ARN` | _(unset)_ | Lambda ARN when `ASK_AI_MODE=lambda` |
+| `ATHENA_DATABASE` | _(unset)_ | Optional Athena database for enrichment |
+| `ATHENA_OUTPUT_S3` | _(unset)_ | Athena query results S3 prefix |
+| `S3_BUCKET_NAME` | _(unset)_ | Optional raw scan bucket |
 | `FRONTEND_DIST` | `../frontend/dist` | Path to built React app |
 | `FRONTEND_DEV_URL` | _(unset)_ | Proxy UI to Vite dev server (e.g. `http://127.0.0.1:5173`) |
 | `FRONTEND_ALWAYS_REBUILD` | _(unset)_ | Set to `1` to run `npm run build` on every API start |

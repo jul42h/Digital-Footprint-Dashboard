@@ -10,7 +10,13 @@ import { HELP_TEXT } from "@/lib/copy";
 import { compareSolutionPriority } from "@/lib/exploitability";
 import type { SolutionStatus } from "@/types";
 
-export function CompactRemediationQueue({ limit = 5 }: { limit?: number }) {
+export function CompactRemediationQueue({
+  limit = 5,
+  compact = false,
+}: {
+  limit?: number;
+  compact?: boolean;
+}) {
   const solutions = useSolutions();
   const cves = useCves();
   const navigate = useNavigate();
@@ -24,11 +30,13 @@ export function CompactRemediationQueue({ limit = 5 }: { limit?: number }) {
 
   return (
     <Card
-      title="Priority queue"
+      title="Fix first"
       action={<ViewAllLink to="/solutions" />}
       className="remediation-queue-card"
     >
-      <p className="card-footnote card-footnote--tight">{HELP_TEXT.priorityQueue}</p>
+      {!compact && (
+        <p className="card-footnote card-footnote--tight">{HELP_TEXT.priorityQueue}</p>
+      )}
       <div className="remediation-queue">
         {queue.length === 0 ? (
           <p className="geo-map__empty">No critical or high findings requiring action.</p>
