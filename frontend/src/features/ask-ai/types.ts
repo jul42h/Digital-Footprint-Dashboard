@@ -1,5 +1,12 @@
+/**
+ * Ask AI / CVE analysis contract — keep in sync with
+ * footprint-api/ask_ai/lambda_ai_risk_analyzer.py (and the deployed Lambda).
+ * Do not reuse these caps outside the AI analysis path.
+ */
+
+/** UI select cap for Analyze panel (matches Lambda MAX_DETAIL_FINDINGS). */
 export const MAX_CVE_IDS_PER_REQUEST = 8;
-/** Findings sent for posture aggregation (Lambda accepts up to 500). */
+/** Findings sent for posture aggregation (API relays up to 100; Lambda max 500). */
 export const MAX_FINDINGS_PER_REQUEST = 100;
 /** Bare CVE ID list cap (matches Lambda MAX_CVE_IDS). */
 export const MAX_CVE_IDS_PAYLOAD = 25;
@@ -7,6 +14,11 @@ export const MAX_CVE_IDS_PAYLOAD = 25;
 export const BRIEF_TOP_FINDINGS = 5;
 /** Lambda non-brief detail sample size (MAX_DETAIL_FINDINGS). */
 export const MAX_DETAIL_FINDINGS = 8;
+
+/** Matches Lambda EPSS_NOTABLE — use only when labeling AI/posture signals. */
+export const EPSS_NOTABLE = 0.5;
+/** Matches Lambda EPSS_URGENT. */
+export const EPSS_URGENT = 0.9;
 
 export type AnalysisIntent = "brief" | "analyze" | "remediate" | "next_steps";
 export type AnalysisMode = "brief" | "detail";
@@ -18,6 +30,14 @@ export function modeFromIntent(intent: AnalysisIntent): AnalysisMode {
 export function intentFromMode(mode: AnalysisMode): AnalysisIntent {
   return mode === "brief" ? "brief" : "analyze";
 }
+
+/** Intent headings required by the Lambda prompts (for structured UI rendering). */
+export const REQUIRED_HEADINGS: Record<AnalysisIntent, readonly string[]> = {
+  brief: ["Risk Posture", "What Stands Out", "Priority Action"],
+  analyze: ["Summary", "Top Risks", "Why It Matters", "Confidence and Gaps"],
+  remediate: ["Priority Order", "Recommended Actions", "Validation", "Limitations"],
+  next_steps: ["Immediate", "This Week", "Owners", "Data Needed"],
+};
 
 /** Aggregate posture returned by the analyzer Lambda as `signal_summary`. */
 export interface SignalSummary {
@@ -58,12 +78,14 @@ export interface CveAnalysisResponse {
   intent?: AnalysisIntent | string | null;
 }
 
+/** Structured finding fields the Lambda accepts (subset of FINDING_FIELDS). */
 export interface AnalysisFinding {
   cve_id: string;
   ip?: string;
   primary_ip?: string;
   cvss?: string;
   epss?: string;
+  ranking_epss?: string;
   kev?: boolean | string;
   verified?: boolean | string;
   summary?: string;
@@ -75,6 +97,7 @@ export interface AnalysisFinding {
   version?: string;
   domains?: string;
   hostnames?: string;
+  os?: string;
   [key: string]: string | boolean | undefined;
 }
 
@@ -93,9 +116,9 @@ export const ANALYZE_PRESETS: Array<{
   label: string;
   hint: string;
 }> = [
-  { id: "analyze", label: "Risk", hint: "What matters and why" },
-  { id: "remediate", label: "Fix", hint: "How to remediate" },
-  { id: "next_steps", label: "Next", hint: "Ordered actions" },
+  { id: "analyze", label: "Risk", hint: "Summary · Top Risks · Why It Matters" },
+  { id: "remediate", label: "Fix", hint: "Priority Order · Recommended Actions" },
+  { id: "next_steps", label: "Next", hint: "Immediate · This Week · Owners" },
 ];
 
 export const INTENT_USER_LABEL: Record<AnalysisIntent, string> = {

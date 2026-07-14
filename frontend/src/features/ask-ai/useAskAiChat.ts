@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+import { useDashboard } from "@/context/DashboardContext";
 import { useCves } from "@/features/cves/hooks";
 import { analyzeCves } from "./askAiApi";
 import { normalizeCveId } from "./cveSelection";
-import { findingsForCveIds } from "./findings";
+import { findingsForCveIds, toAnalysisFindingsFromData } from "./findings";
 import { sanitizeAiText } from "./sanitizeAiText";
 import {
   INTENT_USER_LABEL,
   MAX_CVE_IDS_PER_REQUEST,
+  MAX_FINDINGS_PER_REQUEST,
   type AnalysisIntent,
   type ChatMessage,
   type CveAnalysisResponse,
@@ -46,6 +48,7 @@ function uniqueIds(ids: string[]): string[] {
 }
 
 export function useCveAnalysisChat() {
+  const { data: dashboard } = useDashboard();
   const cves = useCves();
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -99,7 +102,13 @@ export function useCveAnalysisChat() {
       ]);
 
       try {
-        const findings = findingsForCveIds(cves, cveIds);
+        // Instance-level findings for the selected CVEs (Lambda ranks + postures them).
+        const fromRecords = toAnalysisFindingsFromData(dashboard, {
+          onlyCveIds: cveIds,
+          preferCveIds: cveIds,
+          limit: MAX_FINDINGS_PER_REQUEST,
+        });
+        const findings = fromRecords.length ? fromRecords : findingsForCveIds(cves, cveIds);
         const data = await analyzeCves(cveIds, {
           intent,
           findings: findings.length ? findings : undefined,
@@ -132,7 +141,7 @@ export function useCveAnalysisChat() {
         setLoading(false);
       }
     },
-    [cves, loading],
+    [cves, dashboard, loading],
   );
 
   return {

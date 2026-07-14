@@ -5,9 +5,10 @@ import { SeverityBadge } from "@/components/SeverityBadge";
 import { CvssScore } from "@/components/CvssScore";
 import { SolutionTable } from "@/features/solutions/SolutionTable";
 import { analyzeCves, peekCachedAnalysis } from "@/features/ask-ai/askAiApi";
-import { toAnalysisFindings } from "@/features/ask-ai/findings";
+import { toAnalysisFindings, toAnalysisFindingsFromData } from "@/features/ask-ai/findings";
 import { sanitizeAiText } from "@/features/ask-ai/sanitizeAiText";
 import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
+import { useDashboard } from "@/context/DashboardContext";
 import { LABELS, NAV_LABELS } from "@/lib/copy";
 import { useCve } from "./hooks";
 
@@ -23,6 +24,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 export function CveDetailPage() {
   const { id = "" } = useParams();
   const cve = useCve(id);
+  const { data: dashboard } = useDashboard();
   const { openWithCves } = useAskAiUi();
   const [summary, setSummary] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,9 +46,13 @@ export function CveDetailPage() {
     setLoading(true);
     setError(null);
     try {
+      const fromRecords = toAnalysisFindingsFromData(dashboard, {
+        onlyCveIds: [cve.id],
+        preferCveIds: [cve.id],
+      });
       const result = await analyzeCves([cve.id], {
         intent: "analyze",
-        findings: toAnalysisFindings([cve]),
+        findings: fromRecords.length ? fromRecords : toAnalysisFindings([cve]),
         bypassCache,
       });
       setSummary(sanitizeAiText(result.ai_summary) || "No summary returned.");

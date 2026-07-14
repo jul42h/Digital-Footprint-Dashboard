@@ -71,11 +71,11 @@ React
 
 | Dashboard surface | `intent` | `mode` | Expected `ai_summary` |
 |-------------------|----------|--------|------------------------|
-| Home AI brief | `brief` | `brief` | Top 5 findings: Risk Posture, What Stands Out, Priority Action |
-| Analyze → Explain risk | `analyze` | `detail` | Summary, Top Risks, Why It Matters, Confidence and Gaps |
-| Analyze → How to fix | `remediate` | `detail` | Priority Order, Recommended Actions, Validation, Limitations |
-| Analyze → What next | `next_steps` | `detail` | Immediate, This Week, Owners, Data Needed |
-| CVE detail Analyst notes | `analyze` | `detail` | Same as Explain risk |
+| Home AI brief | `brief` | `brief` | Top 5 findings (prose): Risk Posture, What Stands Out, Priority Action |
+| Analyze → Risk | `analyze` | `detail` | Summary, Top Risks, Why It Matters, Confidence and Gaps |
+| Analyze → Fix | `remediate` | `detail` | Priority Order, Recommended Actions, Validation, Limitations |
+| Analyze → Next | `next_steps` | `detail` | Immediate, This Week, Owners, Data Needed |
+| CVE detail Analyst notes | `analyze` | `detail` | Same as Analyze → Risk |
 
 If `intent` is omitted, it is derived from `mode` (`brief` → `brief`, `detail` → `analyze`).
 

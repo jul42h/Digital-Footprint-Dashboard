@@ -9,7 +9,7 @@ import type {
 import { intentFromMode, modeFromIntent, MAX_CVE_IDS_PAYLOAD, MAX_FINDINGS_PER_REQUEST } from "./types";
 
 const MEMORY = new Map<string, { savedAt: number; data: CveAnalysisResponse }>();
-const STORAGE_KEY = "df-cve-analysis-cache-v6";
+const STORAGE_KEY = "df-cve-analysis-cache-v7";
 const BRIEF_SIGNAL_KEY = "df-home-brief-signal-v4";
 
 /** Home brief auto-refreshes at most every 2 hours unless priority signals change. */
@@ -213,13 +213,19 @@ export async function analyzeCves(
     if (hit) return hit;
   }
 
+  // Prefer findings; cve_ids remain as fallback / identity for cache and Lambda echo.
   const body: Record<string, unknown> = {
-    mode,
     intent,
+    mode, // legacy alias; Lambda uses intent when present
     cve_ids: ids.slice(0, MAX_CVE_IDS_PAYLOAD),
   };
   if (options.findings?.length) {
-    body.findings = options.findings.slice(0, MAX_FINDINGS_PER_REQUEST);
+    // Drop empty optional fields so the payload matches Lambda FINDING_FIELDS.
+    body.findings = options.findings.slice(0, MAX_FINDINGS_PER_REQUEST).map((finding) =>
+      Object.fromEntries(
+        Object.entries(finding).filter(([, value]) => value !== undefined && value !== ""),
+      ),
+    );
   }
 
   const response = await fetch(apiUrl("/api/cve-analysis"), {

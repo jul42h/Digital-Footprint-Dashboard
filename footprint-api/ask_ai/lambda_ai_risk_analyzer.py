@@ -101,6 +101,11 @@ BRIEF_TOP_FINDINGS = 5
 # Cap on bare CVE IDs echoed back / analyzed when no findings are supplied.
 MAX_CVE_IDS = 25
 
+# EPSS interpretation thresholds. Shared by the posture builder and the prompts
+# so the model never describes a cut-off the code does not actually apply.
+EPSS_NOTABLE = 0.5
+EPSS_URGENT = 0.9
+
 CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$", re.I)
 
 INTENTS = ("brief", "analyze", "remediate", "next_steps")
@@ -487,7 +492,7 @@ def _build_posture(findings: list[dict[str, Any]]) -> dict[str, Any]:
         epss = _finding_epss(finding)
         if epss is not None:
             epss_values.append(epss)
-            if epss >= 0.5:
+            if epss >= EPSS_NOTABLE:
                 epss_high += 1
 
         asset = finding.get("asset_ip") or finding.get("hostnames") or finding.get("domains")
@@ -589,118 +594,117 @@ def _sanitize_output(text: str) -> str:
 # Prompts
 # ---------------------------------------------------------------------------
 
-BASE_SYSTEM_PROMPT = """
-You are a cybersecurity analyst supporting a digital footprint dashboard.
-You analyze already-collected structured findings and return risk intelligence.
+BASE_SYSTEM_PROMPT = f"""
+You are a cybersecurity analyst supporting a digital footprint dashboard. You analyze
+already-collected structured findings and return risk intelligence.
 
-Grounding rules:
-- Use only the data in the request. Do not scan, detect, or enrich from outside knowledge.
-- Never invent assets, exploit activity, business impact, remediation status, or ownership.
-- If a field is absent, say it is unknown rather than guessing or hedging vaguely.
-- Every number you state must come from the provided posture summary or findings.
+Grounding:
+- Use only the request data. Never scan, enrich, or draw on outside knowledge.
+- Never invent assets, exploit activity, business impact, ownership, or remediation status.
+- Every number you state must come from `posture_summary` or `top_findings`.
+- Name a missing field as unknown once. Do not hedge every sentence.
 
-Data model:
-- `posture_summary` is computed over ALL analyzed findings and is the source of truth for counts and trends.
-- `top_findings` is the highest-risk subset, ranked KEV > EPSS > CVSS > verified. It is a sample, not the whole set.
-- If `findings_analyzed` exceeds the number of records in `top_findings`, describe the population from `posture_summary` and use `top_findings` only as examples.
-
-Field notes:
-- `kev` true = CVE is known to be exploited. Treat as the strongest single signal.
-- `epss` / `ranking_epss` = exploit probability (0-1). >=0.5 is notable, >=0.9 is urgent.
+Data:
+- `posture_summary` covers ALL analyzed findings and is the source of truth for counts
+  and trends. `top_findings` is the highest-risk sample, ranked KEV > EPSS > CVSS >
+  verified. When `findings_analyzed` exceeds the records in `top_findings`, describe the
+  population from `posture_summary` and use `top_findings` only as examples.
+- `kev` true = CVE is known to be exploited; the strongest single signal.
+- `epss` / `ranking_epss` = exploit probability (0-1). >={EPSS_NOTABLE} is notable,
+  >={EPSS_URGENT} is urgent.
 - `cvss` / `cvss_v2` = severity, not likelihood. `verified` = the pipeline confirmed the finding.
-- `asset_ip`, `domains`, `hostnames` = asset identity. `port`, `protocol`, `service_name`, `product`, `version` = exposed service.
-- `summary` = context written earlier in the pipeline; it is input, not a source of new facts.
+- `asset_ip`, `domains`, `hostnames` = asset identity. `port`, `protocol`, `service_name`,
+  `product`, `version` = exposed service.
+- `summary` = context written earlier in the pipeline; input only, not a source of new facts.
 
-Output rules:
-- Return only the finished answer. Never show reasoning, planning, drafts, or meta
-  commentary. Never emit channel markers, analysis tags, or XML-style tags of any kind.
-- Begin directly with the first required heading. Use exactly the headings given, in
-  the order given, and no others.
-- Do not wrap the answer in code fences.
-- Plain Markdown only: headings, short paragraphs, and single-line bullets. No tables,
-  no nested bullets, no numbered lists.
-- Bold only for risk signals and labels, e.g. **KEV**, **CVSS 9.8**, **EPSS 0.94**.
+Output:
+- Return only the finished answer. No reasoning, planning, drafts, preamble, or meta
+  commentary. No channel markers, analysis tags, or XML-style tags.
+- Begin with the first required heading. Use exactly the headings given, in the order
+  given, and no others. No code fences.
+- Plain Markdown only: headings, short paragraphs, single-line bullets. No tables, nested
+  bullets, or numbered lists.
+- Bold only risk signals and labels: **KEV**, **CVSS 9.8**, **EPSS 0.94**.
 - State each fact once. Never restate a point in a later section.
-- Use concrete detail (counts, CVE IDs, assets, services, products) instead of adjectives.
-- No filler openers such as "It is important to note" or "In today's threat landscape",
-  and no closing summary.
+- Use concrete detail - counts, CVE IDs, assets, services, products - instead of adjectives.
+- No filler openers such as "It is important to note", and no closing summary.
 """.strip()
 
-PROMPTS: dict[str, tuple[str, int]] = {
+
+# Each entry: (intent-specific instructions, max_tokens).
+#
+# max_tokens is a ceiling, not a target: gpt-oss reasoning tokens are drawn from
+# the same budget, so the cap must cover reasoning + answer. Length is controlled
+# by the prompt, not by the cap. An over-tight cap surfaces as an empty `content`
+# with populated `reasoning_content`, which _generate reports as a ModelError.
+_INTENT_PROMPTS: dict[str, tuple[str, int]] = {
     "brief": (
-        BASE_SYSTEM_PROMPT
-        + """
+        f"""
+Write a risk brief on the highest-risk findings in `top_findings` (up to
+{BRIEF_TOP_FINDINGS}, fewer if fewer were provided). Those findings are the entire
+subject of this brief. Use `posture_summary` only to place them in the wider set: how
+many findings and assets exist in total, and whether these are outliers or typical.
+Do not summarize the wider set for its own sake.
 
-Write a risk brief on the highest-risk findings in `top_findings` (up to five,
-fewer if fewer were provided). Those findings are the entire subject of this
-brief. Use `posture_summary` only to place them within the wider set - how many
-findings and assets exist in total, and whether these are outliers or typical of
-the rest. Do not summarize the wider set for its own sake.
-
-This is prose. Do not list, enumerate, or step through the findings one by one,
-and do not use bullets anywhere in this response.
-Total length: 120-170 words.
+Write prose. Do not enumerate or step through the findings one by one, and use no
+bullets anywhere. Total length: 120-170 words.
 
 ### Risk Posture
 One paragraph, 3-5 sentences. What these findings show as a group: the assets and
-services they sit on, where their severity sits, how many are known-exploited or
-highly exploitable, and how many are confirmed. Say how many findings and assets
-exist in total, so the reader knows what share of the environment this represents.
-Read the shape - whether they cluster on one asset, one product, or one exposed
-service, or are spread across unrelated systems - and say what that shape means.
+services they sit on, where their severity sits, how many are known-exploited or highly
+exploitable, and how many are confirmed. Give the total findings and assets so the
+reader knows what share of the environment this represents. Say whether they cluster on
+one asset, product, or exposed service, or are spread across unrelated systems, and what
+that shape means.
 
 ### What Stands Out
-One paragraph, 2-3 sentences. Which one or two of these findings drive the risk,
-and why. Name the CVE, asset, service, or product that is the reason. If they are
-broadly equivalent, say so rather than inventing a hierarchy.
+One paragraph, 2-3 sentences. Which one or two findings drive the risk, and why. Name
+the CVE, asset, service, or product that is the reason. If they are broadly equivalent,
+say so rather than inventing a hierarchy.
 
 ### Priority Action
 One sentence. The single next thing the analyst should do.
 
-If the data is too thin for a confident read, say so once inside Risk Posture and
-name the missing context, rather than hedging every sentence.
+If the data is too thin for a confident read, say so once in Risk Posture and name the
+missing context.
 """,
-        700,
+        900,
     ),
     "analyze": (
-        BASE_SYSTEM_PROMPT
-        + """
-
+        """
 Write an analyst risk analysis. Total length: under 300 words.
 
 ### Summary
-One paragraph, 2-4 sentences on the risk picture across the analyzed set, grounded
-in the posture counts.
+One paragraph, 2-4 sentences on the risk picture across the analyzed set, grounded in
+the posture counts.
 
 ### Top Risks
-3-5 single-line bullets, highest first. Each: the affected asset or service and the
-CVE, then the signals that rank it. Collapse the same CVE across multiple assets
-into one bullet with a count.
+3-5 single-line bullets, highest first. Each: the affected asset or service and the CVE,
+then the signals that rank it. Collapse the same CVE across multiple assets into one
+bullet with a count.
 
 ### Why It Matters
 2-3 sentences on plausible security impact, tied only to the services and products
-actually present in the data.
+present in the data.
 
 ### Confidence and Gaps
-1-3 single-line bullets on missing fields, unverified findings, or sampling that
-limit confidence.
+1-3 single-line bullets on missing fields, unverified findings, or sampling that limit
+confidence.
 """,
         900,
     ),
     "remediate": (
-        BASE_SYSTEM_PROMPT
-        + """
-
+        """
 Write remediation guidance. Total length: under 300 words.
 
 ### Priority Order
-2-4 single-line bullets, ordered. Each: what to fix, and the signal that puts it at
-that rank.
+2-4 single-line bullets, ordered. Each: what to fix, and the signal that puts it at that
+rank.
 
 ### Recommended Actions
 3-5 single-line bullets. Concrete steps only: patch or upgrade a named product and
-version, close or restrict an exposed port, review a configuration, segment, or
-validate. Tie each action to the finding it addresses.
+version, close or restrict an exposed port, review a configuration, segment, or validate.
+Tie each action to the finding it addresses.
 
 ### Validation
 2-3 single-line bullets on confirming the fix, framed as re-checking the provided
@@ -717,9 +721,7 @@ Rules:
         900,
     ),
     "next_steps": (
-        BASE_SYSTEM_PROMPT
-        + """
-
+        """
 Write an ordered action plan. Total length: under 250 words.
 
 ### Immediate
@@ -737,13 +739,20 @@ dashboard/data owners.
 1-3 single-line bullets on missing fields that would improve triage.
 
 Rules:
-- Do not recommend broad new scanning. Frame validation as confirming a provided
-  finding, exposure, version, or remediation status.
+- Do not recommend broad new scanning. Frame validation as confirming a provided finding,
+  exposure, version, or remediation status.
 - No unrelated program or project work.
 """,
         800,
     ),
 }
+
+# Composed system prompt per intent: shared rules once, then the intent contract.
+PROMPTS: dict[str, tuple[str, int]] = {
+    intent: (f"{BASE_SYSTEM_PROMPT}\n\n{instructions.strip()}", max_tokens)
+    for intent, (instructions, max_tokens) in _INTENT_PROMPTS.items()
+}
+
 
 # Headings each intent must produce. Used to reject output that ignored the
 # format entirely (usually leaked reasoning with no answer attached).
@@ -754,6 +763,19 @@ REQUIRED_HEADINGS: dict[str, tuple[str, ...]] = {
     "next_steps": ("Immediate", "This Week", "Owners", "Data Needed"),
 }
 
+# A well-formed answer carries every heading; require a majority so a single
+# dropped or reworded heading does not fail an otherwise usable response.
+MIN_REQUIRED_HEADINGS = 2
+
+_HEADING_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
+    intent: tuple(
+        re.compile(rf"^#{{1,4}}\s*{re.escape(heading)}\b", re.I | re.M)
+        for heading in headings
+    )
+    for intent, headings in REQUIRED_HEADINGS.items()
+}
+
+
 def _validate_prompts() -> None:
     """Fail fast at import if the prompts and the validator drift apart."""
     for intent in INTENTS:
@@ -763,23 +785,39 @@ def _validate_prompts() -> None:
         if intent not in REQUIRED_HEADINGS:
             raise RuntimeError(f"missing headings for intent {intent}")
 
+        if len(REQUIRED_HEADINGS[intent]) < MIN_REQUIRED_HEADINGS:
+            raise RuntimeError(
+                f"intent {intent} declares fewer headings than the validator requires"
+            )
+
         for heading in REQUIRED_HEADINGS[intent]:
             if f"### {heading}" not in PROMPTS[intent][0]:
                 raise RuntimeError(
                     f"heading '{heading}' is not in the {intent} prompt"
                 )
 
+
 _validate_prompts()
+
 
 def _detail_limit(intent: str) -> int:
     """How many ranked findings this intent sees as full records."""
     return BRIEF_TOP_FINDINGS if intent == "brief" else MAX_DETAIL_FINDINGS
 
+
 def _has_required_heading(text: str, intent: str) -> bool:
-    lowered = text.lower()
-    return any(
-        heading.lower() in lowered for heading in REQUIRED_HEADINGS[intent]
+    """
+    True when the output carries at least MIN_REQUIRED_HEADINGS of the intent's
+    headings as actual Markdown headings. Matching on heading lines rather than
+    bare substrings stops common words ("summary", "immediate") in leaked
+    reasoning from passing as a formatted answer.
+    """
+    matched = sum(
+        1 for pattern in _HEADING_PATTERNS[intent] if pattern.search(text)
     )
+
+    return matched >= MIN_REQUIRED_HEADINGS
+
 
 # ---------------------------------------------------------------------------
 # Request handling
@@ -809,8 +847,8 @@ def _build_context(
             "No structured findings were provided. Only CVE IDs are available:\n"
             + "\n".join(f"- {cve_id}" for cve_id in cve_ids)
             + "\n\nNo asset, severity, KEV, EPSS, exposure, product, version, or "
-            "remediation context was provided. Say clearly that the assessment is "
-            "limited to identifiers and name the context required to go further."
+            "remediation context was provided. State once that the assessment is "
+            "limited to identifiers, then name the context required to go further."
         )
 
     detailed = findings[:detail_limit]

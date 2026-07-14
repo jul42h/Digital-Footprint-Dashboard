@@ -8,13 +8,14 @@ import {
 } from "@/features/ask-ai/askAiApi";
 import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
 import { pickPriorityCves } from "@/features/ask-ai/cveSelection";
-import { toAnalysisFindings } from "@/features/ask-ai/findings";
+import { toAnalysisFindingsFromData } from "@/features/ask-ai/findings";
 import { sanitizeAiText } from "@/features/ask-ai/sanitizeAiText";
 import {
   BRIEF_TOP_FINDINGS,
   MAX_FINDINGS_PER_REQUEST,
   type CveAnalysisResponse,
 } from "@/features/ask-ai/types";
+import { useDashboard } from "@/context/DashboardContext";
 import { useCves } from "@/features/cves/hooks";
 import { AiBriefMarkdown, briefHasMoreSections } from "./AiBriefMarkdown";
 
@@ -33,22 +34,28 @@ function formatAge(ageMs: number): string {
 export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "business" }) {
   const business = variant === "business";
   const { openWithCves } = useAskAiUi();
+  const { data: dashboard } = useDashboard();
   const cves = useCves();
 
-  /** Exact set the brief narrative is about (≤5). */
+  /** Exact set the brief narrative is about (≤5 unique CVEs). */
   const briefFocus = useMemo(
     () => pickPriorityCves(cves, BRIEF_TOP_FINDINGS),
-    [cves],
-  );
-  /** Wider set for posture_summary so the top 5 are placed in context. */
-  const posturePool = useMemo(
-    () => pickPriorityCves(cves, HOME_BRIEF_POSTURE_LIMIT),
     [cves],
   );
 
   const focusIds = useMemo(() => briefFocus.map((c) => c.id.toUpperCase()), [briefFocus]);
   const focusKey = useMemo(() => focusIds.join("|"), [focusIds]);
   const signalKey = useMemo(() => briefSignalKey(briefFocus), [briefFocus]);
+
+  /** Instance findings for Lambda posture (focus CVE rows first, then wider set). */
+  const postureFindings = useMemo(
+    () =>
+      toAnalysisFindingsFromData(dashboard, {
+        preferCveIds: focusIds,
+        limit: HOME_BRIEF_POSTURE_LIMIT,
+      }),
+    [dashboard, focusIds],
+  );
 
   const [data, setData] = useState<CveAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,15 +75,9 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
       setError(null);
       setExpanded(false);
       try {
-        // Put focus findings first; Lambda re-ranks but this keeps identity clear.
-        const focusKeys = new Set(focusIds);
-        const ordered = [
-          ...briefFocus,
-          ...posturePool.filter((c) => !focusKeys.has(c.id.toUpperCase())),
-        ];
         const payload = await analyzeCves(focusIds, {
           intent: "brief",
-          findings: toAnalysisFindings(ordered, HOME_BRIEF_POSTURE_LIMIT),
+          findings: postureFindings.length ? postureFindings : undefined,
           bypassCache,
         });
         rememberBriefSignal(focusIds, signalRef.current);
@@ -90,7 +91,7 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
         inFlight.current = false;
       }
     },
-    [briefFocus, focusIds, posturePool],
+    [focusIds, postureFindings],
   );
 
   useEffect(() => {
@@ -135,7 +136,9 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
     data?.findings_detailed ?? focusCount,
   );
   const setSize =
-    data?.total_findings_analyzed ?? data?.signal_summary?.findings_analyzed ?? posturePool.length;
+    data?.total_findings_analyzed ??
+    data?.signal_summary?.findings_analyzed ??
+    postureFindings.length;
 
   const scopeLine = (() => {
     if (!focusCount) return null;

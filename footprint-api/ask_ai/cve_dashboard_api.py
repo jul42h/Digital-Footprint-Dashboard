@@ -38,9 +38,11 @@ LAMBDA_CONFIGURED_TIMEOUT_SECONDS = int(
 
 # Align with Lambda caps (practical UI payload stays under Lambda maxes).
 # Lambda: MAX_INPUT_FINDINGS=500, MAX_CVE_IDS=25, BRIEF_TOP_FINDINGS=5,
-# MAX_DETAIL_FINDINGS=8 for non-brief intents.
+# MAX_DETAIL_FINDINGS=8 for non-brief intents. EPSS_NOTABLE=0.5 / EPSS_URGENT=0.9
+# live only inside the Lambda posture/prompts — not dashboard stats.
 MAX_CVE_IDS_PER_REQUEST = 25
 MAX_FINDINGS_PER_REQUEST = 100
+CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$", re.I)
 
 _HARMONY_FINAL_RE = re.compile(r"<\|channel\|>\s*final\s*<\|message\|>", re.I)
 _HARMONY_TOKEN_RE = re.compile(r"<\|[^|]*\|>")
@@ -124,7 +126,7 @@ def _normalize_cve_list(value: Optional[List[str]]) -> List[str]:
     seen: set[str] = set()
     for raw in value:
         cve_id = str(raw).strip().upper()
-        if not cve_id or cve_id in seen:
+        if not cve_id or cve_id in seen or not CVE_RE.match(cve_id):
             continue
         seen.add(cve_id)
         normalized.append(cve_id)
@@ -141,7 +143,7 @@ def _cve_ids_from_findings(findings: List[Dict[str, Any]]) -> List[str]:
             continue
         raw = finding.get("cve_id") or finding.get("original_cve_id")
         cve_id = str(raw or "").strip().upper()
-        if not cve_id or cve_id in seen:
+        if not cve_id or cve_id in seen or not CVE_RE.match(cve_id):
             continue
         seen.add(cve_id)
         out.append(cve_id)

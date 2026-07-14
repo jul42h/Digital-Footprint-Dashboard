@@ -50,7 +50,7 @@ export function splitIntoSections(content: string): Section[] {
 
   for (const line of lines) {
     const heading =
-      line.match(/^\s*#{1,3}\s+(.+?)\s*$/) || line.match(/^\s*\*\*(.+?)\*\*\s*$/);
+      line.match(/^\s*#{1,4}\s+(.+?)\s*$/) || line.match(/^\s*\*\*(.+?)\*\*\s*$/);
     if (heading) {
       flush();
       title = heading[1].replace(/\*\*/g, "").trim();
