@@ -1,8 +1,11 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card } from "@/components/Card";
 import { SeverityBadge } from "@/components/SeverityBadge";
 import { CvssScore } from "@/components/CvssScore";
 import { SolutionTable } from "@/features/solutions/SolutionTable";
+import { analyzeCves, peekCachedAnalysis } from "@/features/ask-ai/askAiApi";
+import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
 import { LABELS, NAV_LABELS } from "@/lib/copy";
 import { useCve } from "./hooks";
 
@@ -18,6 +21,36 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 export function CveDetailPage() {
   const { id = "" } = useParams();
   const cve = useCve(id);
+  const { openWithCves } = useAskAiUi();
+  const [summary, setSummary] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Show session-cached detail immediately when navigating to a CVE.
+  useEffect(() => {
+    if (!cve) {
+      setSummary(null);
+      return;
+    }
+    const cached = peekCachedAnalysis([cve.id], "detail");
+    setSummary(cached?.ai_summary?.trim() ?? null);
+    setError(null);
+  }, [cve?.id]);
+
+  const runAnalysis = async (bypassCache = false) => {
+    if (!cve || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await analyzeCves([cve.id], { mode: "detail", bypassCache });
+      setSummary(result.ai_summary?.trim() || "No summary returned.");
+    } catch (err) {
+      setSummary(null);
+      setError(err instanceof Error ? err.message : "Analysis failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="page" style={{ maxWidth: 760 }}>
@@ -71,6 +104,48 @@ export function CveDetailPage() {
               day: "numeric",
             })}
           </Row>
+        </Card>
+      )}
+
+      {cve && (
+        <Card
+          title="Analyst notes"
+          action={
+            <div className="cve-ai-actions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => openWithCves([cve.id])}
+                disabled={loading}
+              >
+                Open panel
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                onClick={() => void runAnalysis(Boolean(summary))}
+                disabled={loading}
+              >
+                {loading ? "Analyzing…" : summary ? "Re-analyze" : "Analyze"}
+              </button>
+            </div>
+          }
+        >
+          {loading && <p className="cve-ai-status">Generating a detailed write-up for this CVE…</p>}
+          {!loading && error && <p className="ask-ai-error">{error}</p>}
+          {!loading && summary && (
+            <div className="cve-ai-summary">
+              {summary.split("\n").map((line, idx) => (
+                <p key={idx}>{line.trim() || "\u00A0"}</p>
+              ))}
+            </div>
+          )}
+          {!loading && !summary && !error && (
+            <p className="cve-ai-status">
+              Run analysis for an analyst-level view of {cve.id}: why it matters here,
+              exploitability, and what to do next.
+            </p>
+          )}
         </Card>
       )}
 

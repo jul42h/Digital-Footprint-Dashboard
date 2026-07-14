@@ -1,33 +1,39 @@
-import { QUICK_ACTIONS } from "./askAiPrompts";
+import { pickPriorityCveIds } from "./cveSelection";
+import { MAX_CVE_IDS_PER_REQUEST } from "./types";
+import { useCves } from "@/features/cves/hooks";
 
-export function QuickActions({
+export function CveQuickPicks({
   disabled,
-  onSelect,
-  compact = false,
+  selectedIds,
+  onToggle,
 }: {
   disabled?: boolean;
-  onSelect: (prompt: string) => void;
-  compact?: boolean;
+  selectedIds: string[];
+  onToggle: (cveId: string) => void;
 }) {
-  const actions = compact ? QUICK_ACTIONS.slice(0, 5) : QUICK_ACTIONS;
+  const cves = useCves();
+  const picks = pickPriorityCveIds(cves, 5);
+
+  if (picks.length === 0) return null;
 
   return (
-    <div
-      className={`ask-ai-quick${compact ? " ask-ai-quick--compact" : ""}`}
-      role="group"
-      aria-label="Quick analyst actions"
-    >
-      {actions.map((action) => (
-        <button
-          key={action.id}
-          type="button"
-          className="ask-ai-quick__btn"
-          disabled={disabled}
-          onClick={() => onSelect(action.prompt)}
-        >
-          {action.label}
-        </button>
-      ))}
+    <div className="ask-ai-quick ask-ai-quick--compact" role="group" aria-label="Priority CVEs">
+      {picks.map((id) => {
+        const active = selectedIds.includes(id);
+        const atCap = !active && selectedIds.length >= MAX_CVE_IDS_PER_REQUEST;
+        return (
+          <button
+            key={id}
+            type="button"
+            className={`ask-ai-quick__btn${active ? " ask-ai-quick__btn--active" : ""}`}
+            disabled={disabled || atCap}
+            onClick={() => onToggle(id)}
+            title={active ? "Remove" : "Add"}
+          >
+            {id}
+          </button>
+        );
+      })}
     </div>
   );
 }

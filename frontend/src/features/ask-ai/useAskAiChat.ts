@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { postAskAi } from "./askAiApi";
-import type { AskAiResponse, ChatMessage } from "./types";
+import { useCallback, useEffect, useState } from "react";
+import { analyzeCves } from "./askAiApi";
+import { extractCveIds, normalizeCveId } from "./cveSelection";
+import {
+  MAX_CVE_IDS_PER_REQUEST,
+  type AnalysisMode,
+  type ChatMessage,
+  type CveAnalysisResponse,
+} from "./types";
 
-const STORAGE_KEY = "df-ask-ai-chat-v1";
+const STORAGE_KEY = "df-cve-analysis-chat-v1";
 
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -19,66 +25,94 @@ function loadHistory(): ChatMessage[] {
   }
 }
 
-function formatAssistantContent(data: AskAiResponse): string {
-  if (data.summary?.trim()) return data.summary;
-  if (data.markdown?.trim()) return data.markdown;
-  return "Analysis complete.";
+function formatSummary(data: CveAnalysisResponse): string {
+  if (data.ai_summary?.trim()) return data.ai_summary.trim();
+  if (data.reason?.trim()) return data.reason.trim();
+  return "Analysis completed with no summary returned.";
 }
 
-export function useAskAiChat() {
+export function useCveAnalysisChat() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadHistory());
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)));
   }, [messages]);
 
   const clearChat = useCallback(() => {
-    abortRef.current?.abort();
     setMessages([]);
     setError(null);
     setInput("");
+    setSelectedIds([]);
+    // Keep analysis session cache so home brief / detail reuse still works.
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  const send = useCallback(
-    async (rawQuestion: string) => {
-      const question = rawQuestion.trim();
-      if (!question || loading) return;
+  const addCveId = useCallback((raw: string) => {
+    const id = normalizeCveId(raw);
+    if (!id) return false;
+    setSelectedIds((prev) => {
+      if (prev.includes(id) || prev.length >= MAX_CVE_IDS_PER_REQUEST) return prev;
+      return [...prev, id];
+    });
+    return true;
+  }, []);
+
+  const removeCveId = useCallback((id: string) => {
+    setSelectedIds((prev) => prev.filter((x) => x !== id));
+  }, []);
+
+  const setPendingIds = useCallback((ids: string[]) => {
+    setSelectedIds(ids.slice(0, MAX_CVE_IDS_PER_REQUEST));
+  }, []);
+
+  const analyze = useCallback(
+    async (ids?: string[], mode: AnalysisMode = "detail") => {
+      const fromInput = extractCveIds(input);
+      const merged = [...(ids ?? selectedIds), ...fromInput];
+      const unique: string[] = [];
+      for (const id of merged) {
+        const normalized = id.toUpperCase();
+        if (!unique.includes(normalized)) unique.push(normalized);
+      }
+      const cveIds = unique.slice(0, MAX_CVE_IDS_PER_REQUEST);
+      if (!cveIds.length || loading) return;
 
       setError(null);
       setLoading(true);
       setInput("");
+      setSelectedIds(cveIds);
 
       const userMsg: ChatMessage = {
         id: uid(),
         role: "user",
-        content: question,
+        content:
+          mode === "detail"
+            ? `Deep dive: ${cveIds.join(", ")}`
+            : `Brief: ${cveIds.join(", ")}`,
+        cveIds,
+        mode,
         createdAt: Date.now(),
       };
-
       setMessages((prev) => [...prev, userMsg]);
 
       try {
-        const history = [...messages, userMsg]
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .slice(-8)
-          .map((m) => ({ role: m.role, content: m.content }));
-
-        const data = await postAskAi({ question, history });
+        // Cache hit returns immediately (sessionStorage / memory) — still one code path.
+        const data = await analyzeCves(cveIds, { mode });
         const assistantMsg: ChatMessage = {
           id: uid(),
           role: "assistant",
-          content: formatAssistantContent(data),
-          structured: data,
+          content: formatSummary(data),
+          cveIds: data.cve_ids_analyzed?.length ? data.cve_ids_analyzed : cveIds,
+          mode,
           createdAt: Date.now(),
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Ask AI request failed";
+        const message = err instanceof Error ? err.message : "CVE analysis failed";
         setError(message);
         setMessages((prev) => [
           ...prev,
@@ -93,16 +127,20 @@ export function useAskAiChat() {
         setLoading(false);
       }
     },
-    [loading, messages],
+    [input, loading, selectedIds],
   );
 
   return {
     messages,
+    selectedIds,
     input,
     setInput,
     loading,
     error,
-    send,
+    analyze,
     clearChat,
+    addCveId,
+    removeCveId,
+    setPendingIds,
   };
 }

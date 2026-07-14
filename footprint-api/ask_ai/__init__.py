@@ -1,9 +1,8 @@
-"""Ask AI — cybersecurity analyst orchestration for the Digital Footprint Dashboard.
+"""CVE AI analysis for the Digital Footprint Dashboard.
 
-Flow (in-process or via Lambda):
-  question → intent/context retrieval → Bedrock (or deterministic analyst) → structured JSON
+Flow: POST /api/cve-analysis with cve_ids + mode → Lambda → ai_summary.
 """
 
-from ask_ai.handler import handle_ask, handle_risk_intelligence
+from ask_ai.cve_dashboard_api import router as cve_analysis_router
 
-__all__ = ["handle_ask", "handle_risk_intelligence"]
+__all__ = ["cve_analysis_router"]

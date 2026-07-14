@@ -1,56 +1,23 @@
-export interface AskPriorityItem {
-  asset: string;
-  reason: string;
-}
+export const MAX_CVE_IDS_PER_REQUEST = 5;
 
-export interface AskAiResponse {
-  summary: string;
-  riskScore?: number | null;
-  priority: AskPriorityItem[];
-  remediation: string[];
-  threatIntel: string[];
-  references: string[];
-  intent: string;
-  mode: "bedrock" | "deterministic" | "lambda";
-  markdown?: string | null;
-}
+/** Home strip = brief; Analyze panel + CVE detail = detail. */
+export type AnalysisMode = "brief" | "detail";
 
-export interface RiskIntelligence {
-  summary: string;
-  riskScore: number;
-  highestRiskAssets: Array<{
-    asset: string;
-    ip?: string;
-    reason: string;
-    maxCvss?: number;
-    cveCount?: number;
-    kevCount?: number;
-  }>;
-  topCriticalFindings: Array<{
-    cveId?: string;
-    asset?: string;
-    cvss?: number;
-    severity?: string;
-    kev?: boolean;
-    epss?: number;
-    summary?: string;
-  }>;
-  threatIntel: string[];
-  prioritizedRemediation: string[];
-  references: string[];
-  mode: "bedrock" | "deterministic" | "lambda";
+export interface CveAnalysisResponse {
+  status: string;
+  invocation_source?: string | null;
+  reason?: string | null;
+  cve_ids_analyzed: string[];
+  total_valid_cve_ids?: number | null;
+  ai_summary?: string | null;
+  mode?: AnalysisMode | string | null;
 }
 
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  structured?: AskAiResponse;
+  cveIds?: string[];
+  mode?: AnalysisMode;
   createdAt: number;
-}
-
-export interface QuickAction {
-  id: string;
-  label: string;
-  prompt: string;
 }

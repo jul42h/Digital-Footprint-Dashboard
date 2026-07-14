@@ -11,30 +11,28 @@ import {
 interface AskAiUiContextValue {
   open: boolean;
   setOpen: (open: boolean) => void;
-  toggle: () => void;
-  openWithPrompt: (prompt: string) => void;
-  pendingPrompt: string | null;
-  consumePendingPrompt: () => string | null;
+  openWithCves: (cveIds: string[]) => void;
+  pendingCveIds: string[] | null;
+  consumePendingCveIds: () => string[] | null;
 }
 
 const AskAiUiContext = createContext<AskAiUiContextValue | null>(null);
 
 export function AskAiProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [pendingCveIds, setPendingCveIds] = useState<string[] | null>(null);
 
-  const toggle = useCallback(() => setOpen((v) => !v), []);
-
-  const openWithPrompt = useCallback((prompt: string) => {
-    setPendingPrompt(prompt);
+  const openWithCves = useCallback((cveIds: string[]) => {
+    const unique = [...new Set(cveIds.map((id) => id.toUpperCase()).filter(Boolean))];
+    setPendingCveIds(unique.length ? unique : null);
     setOpen(true);
   }, []);
 
-  const consumePendingPrompt = useCallback(() => {
-    const next = pendingPrompt;
-    setPendingPrompt(null);
+  const consumePendingCveIds = useCallback(() => {
+    const next = pendingCveIds;
+    setPendingCveIds(null);
     return next;
-  }, [pendingPrompt]);
+  }, [pendingCveIds]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,12 +49,11 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
     () => ({
       open,
       setOpen,
-      toggle,
-      openWithPrompt,
-      pendingPrompt,
-      consumePendingPrompt,
+      openWithCves,
+      pendingCveIds,
+      consumePendingCveIds,
     }),
-    [open, toggle, openWithPrompt, pendingPrompt, consumePendingPrompt],
+    [open, openWithCves, pendingCveIds, consumePendingCveIds],
   );
 
   return <AskAiUiContext.Provider value={value}>{children}</AskAiUiContext.Provider>;

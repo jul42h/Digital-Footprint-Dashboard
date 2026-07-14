@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAskAiUi } from "./AskAiContext";
 
-/** Legacy `/ask` route opens the floating chatbot on the home page. */
+/** Legacy `/ask` route opens the CVE analysis panel on the home page. */
 export function AskAiPage() {
   const { setOpen } = useAskAiUi();
   const navigate = useNavigate();

@@ -1,22 +1,41 @@
 import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
+import { AnalyzeFabHint } from "@/features/onboarding/AnalyzeFabHint";
+import { useCves } from "@/features/cves/hooks";
 import { ChatMessageBubble, TypingIndicator } from "./ChatMessage";
-import { QuickActions } from "./QuickActions";
+import { CveQuickPicks } from "./QuickActions";
 import { useAskAiUi } from "./AskAiContext";
-import { useAskAiChat } from "./useAskAiChat";
+import { useCveAnalysisChat } from "./useAskAiChat";
+import { MAX_CVE_IDS_PER_REQUEST } from "./types";
+import { normalizeCveId, pickKevCveIds, pickPriorityCveIds } from "./cveSelection";
 
 export function AskAiWidget() {
-  const { open, setOpen, pendingPrompt, consumePendingPrompt } = useAskAiUi();
-  const { messages, input, setInput, loading, error, send, clearChat } = useAskAiChat();
+  const { open, setOpen, pendingCveIds, consumePendingCveIds } = useAskAiUi();
+  const cves = useCves();
+  const {
+    messages,
+    selectedIds,
+    input,
+    setInput,
+    loading,
+    error,
+    analyze,
+    clearChat,
+    addCveId,
+    removeCveId,
+    setPendingIds,
+  } = useCveAnalysisChat();
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const sendRef = useRef(send);
-  sendRef.current = send;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const analyzeRef = useRef(analyze);
+  analyzeRef.current = analyze;
 
   useEffect(() => {
-    if (!open || !pendingPrompt) return;
-    const prompt = consumePendingPrompt();
-    if (prompt) void sendRef.current(prompt);
-  }, [open, pendingPrompt, consumePendingPrompt]);
+    if (!open || !pendingCveIds) return;
+    const ids = consumePendingCveIds();
+    if (!ids?.length) return;
+    setPendingIds(ids);
+    void analyzeRef.current(ids, "detail");
+  }, [open, pendingCveIds, consumePendingCveIds, setPendingIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -29,38 +48,67 @@ export function AskAiWidget() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, loading, open]);
 
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    void send(input);
+  const commitInput = () => {
+    const parts = input.split(/[\s,]+/).filter(Boolean);
+    let added = false;
+    for (const part of parts) {
+      if (addCveId(part)) added = true;
+    }
+    if (added) setInput("");
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+  const fillIds = (ids: string[]) => {
+    setPendingIds(ids.slice(0, MAX_CVE_IDS_PER_REQUEST));
+  };
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    commitInput();
+    void analyze(undefined, "detail");
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
       event.preventDefault();
-      void send(input);
+      const id = normalizeCveId(input);
+      if (id) {
+        addCveId(id);
+        setInput("");
+        return;
+      }
+      void analyze(undefined, "detail");
     }
+  };
+
+  const togglePick = (cveId: string) => {
+    if (selectedIds.includes(cveId)) removeCveId(cveId);
+    else addCveId(cveId);
   };
 
   return (
     <div className={`ask-ai-widget${open ? " ask-ai-widget--open" : ""}`}>
+      <AnalyzeFabHint panelOpen={open} />
+
       {open && (
         <section
           className="ask-ai-panel"
           role="dialog"
           aria-modal="false"
-          aria-label="Ask AI cybersecurity assistant"
+          aria-label="CVE risk analysis"
         >
           <header className="ask-ai-panel__header">
             <div>
-              <p className="ask-ai-panel__title">Ask AI</p>
-              <p className="ask-ai-panel__subtitle">Cybersecurity analyst</p>
+              <p className="ask-ai-panel__title">Risk analysis</p>
+              <p className="ask-ai-panel__subtitle">
+                Up to {MAX_CVE_IDS_PER_REQUEST} CVEs · deeper write-up than the home brief
+              </p>
             </div>
             <div className="ask-ai-panel__header-actions">
               <button
                 type="button"
                 className="ask-ai-panel__ghost"
                 onClick={clearChat}
-                disabled={loading || messages.length === 0}
+                disabled={loading || (messages.length === 0 && selectedIds.length === 0)}
               >
                 Clear
               </button>
@@ -68,7 +116,7 @@ export function AskAiWidget() {
                 type="button"
                 className="ask-ai-panel__ghost"
                 onClick={() => setOpen(false)}
-                aria-label="Close Ask AI"
+                aria-label="Close risk analysis"
               >
                 ✕
               </button>
@@ -78,38 +126,74 @@ export function AskAiWidget() {
           <div className="ask-ai-panel__messages" ref={scrollerRef}>
             {messages.length === 0 && !loading ? (
               <div className="ask-ai-empty ask-ai-empty--compact">
-                <p>Ask what to patch first, which hosts are riskiest, or why the score is high.</p>
+                <p>
+                  Select findings, then Analyze for exploitability, impact, and remediation order.
+                  For a short scan-ready summary, use <strong>Generate brief</strong> on Home.
+                </p>
+                <div className="ask-ai-presets" role="group" aria-label="Quick fill">
+                  <button
+                    type="button"
+                    className="ask-ai-presets__btn"
+                    disabled={loading || cves.length === 0}
+                    onClick={() => fillIds(pickPriorityCveIds(cves, MAX_CVE_IDS_PER_REQUEST))}
+                  >
+                    Fill priority
+                  </button>
+                  <button
+                    type="button"
+                    className="ask-ai-presets__btn"
+                    disabled={loading || pickKevCveIds(cves, 1).length === 0}
+                    onClick={() => fillIds(pickKevCveIds(cves, MAX_CVE_IDS_PER_REQUEST))}
+                  >
+                    Fill KEV
+                  </button>
+                </div>
               </div>
             ) : (
-              messages.map((msg) => (
-                <ChatMessageBubble key={msg.id} message={msg} compact />
-              ))
+              messages.map((msg) => <ChatMessageBubble key={msg.id} message={msg} compact />)
             )}
             {loading && <TypingIndicator />}
           </div>
 
           {error && <p className="ask-ai-error">{error}</p>}
 
-          <QuickActions compact disabled={loading} onSelect={(prompt) => void send(prompt)} />
+          {selectedIds.length > 0 && (
+            <div className="ask-ai-selected" aria-label="Selected CVE IDs">
+              {selectedIds.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="ask-ai-selected__chip"
+                  onClick={() => removeCveId(id)}
+                  disabled={loading}
+                  title="Remove"
+                >
+                  {id} <span aria-hidden>×</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <CveQuickPicks disabled={loading} selectedIds={selectedIds} onToggle={togglePick} />
 
           <form className="ask-ai-composer ask-ai-composer--compact" onSubmit={onSubmit}>
-            <textarea
+            <input
               ref={inputRef}
               className="ask-ai-composer__input"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Ask about risks, hosts, or patches…"
-              rows={1}
-              disabled={loading}
-              aria-label="Ask AI question"
+              onBlur={commitInput}
+              placeholder="Add CVE-YYYY-NNNN"
+              disabled={loading || selectedIds.length >= MAX_CVE_IDS_PER_REQUEST}
+              aria-label="CVE ID to analyze"
             />
             <button
               type="submit"
               className="btn btn--primary ask-ai-composer__send"
-              disabled={loading || !input.trim()}
+              disabled={loading || (selectedIds.length === 0 && !normalizeCveId(input))}
             >
-              {loading ? "…" : "Send"}
+              {loading ? "…" : "Analyze"}
             </button>
           </form>
         </section>
@@ -120,8 +204,8 @@ export function AskAiWidget() {
         className={`ask-ai-fab${open ? " ask-ai-fab--active" : ""}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label={open ? "Close Ask AI" : "Open Ask AI"}
-        title="Ask AI"
+        aria-label={open ? "Close risk analysis" : "Open risk analysis"}
+        title="Risk analysis"
       >
         {open ? (
           <span aria-hidden>✕</span>
@@ -136,7 +220,7 @@ export function AskAiWidget() {
                 />
               </svg>
             </span>
-            <span className="ask-ai-fab__label">Ask AI</span>
+            <span className="ask-ai-fab__label">Analyze</span>
           </>
         )}
       </button>

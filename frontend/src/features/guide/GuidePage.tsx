@@ -27,6 +27,30 @@ export function GuidePage() {
         }
       />
 
+      <section id="getting-started">
+        <Card title="Getting started">
+          <p className="guide-page__intro">
+            Suggested path for a first visit — also available as a dismissible tip strip on Home
+            (re-open anytime from <strong>Tips</strong> in the top bar).
+          </p>
+          <ol className="guide-start-list">
+            <li>
+              <Link to="/">Overview</Link> — posture bar for urgency, then optional AI brief on the same page.
+            </li>
+            <li>
+              <Link to="/cves">{NAV_LABELS.issues}</Link> — open a CVE for scores, assets, and remediations.
+            </li>
+            <li>
+              <Link to="/solutions">{NAV_LABELS.fixes}</Link> — track what you are fixing.
+            </li>
+            <li>
+              Use the floating <strong>Analyze</strong> button only when you want a deeper write-up on selected
+              CVEs (not required for daily triage).
+            </li>
+          </ol>
+        </Card>
+      </section>
+
       <Card title="Quick lookup">
         <p className="guide-page__intro">
           Jump to a topic below. Metrics on the home page link to their related screens; use this
@@ -71,6 +95,9 @@ export function GuidePage() {
 
       <Card title="Related pages">
         <ul className="guide-related">
+          <li>
+            <Link to="/">Overview</Link> — posture, optional AI brief, severity, and priority queue
+          </li>
           <li>
             <Link to="/cves">{NAV_LABELS.issues}</Link> — filter by KEV, EPSS, and severity
           </li>

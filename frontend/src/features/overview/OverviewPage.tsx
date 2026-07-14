@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
+import { QuickStartBanner } from "@/features/onboarding/QuickStartBanner";
 import { AtRiskAssets } from "./AtRiskAssets";
 import { AiBriefStrip } from "./AiBriefStrip";
 import { DashboardPosture } from "./DashboardPosture";
@@ -15,11 +16,12 @@ export function OverviewPage() {
         subtitle="What needs attention across Fresno State's external assets."
         action={
           <Link to="/guide" className="view-all-link">
-            Glossary
+            Guide
           </Link>
         }
       />
 
+      <QuickStartBanner />
       <DashboardPosture />
       <AiBriefStrip />
 

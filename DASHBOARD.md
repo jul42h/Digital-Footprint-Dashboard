@@ -342,19 +342,19 @@ The overview summarizes posture and where to act first.
 | Section | What it shows | Source |
 |---------|---------------|--------|
 | **Posture bar** | Pending remediations, critical count, KEV, high EPSS, at-risk assets, unique CVEs, risk score | `DashboardPosture` + `useDashboardSummary` |
+| **AI priority brief** | Short executive takeaway for top CVEs (`mode=brief`) | `AiBriefStrip` → `POST /api/cve-analysis` |
 | **Severity breakdown** | Donut of unique CVEs by CVSS band (critical → low) | `SeverityDonut` |
 | **Observation panel** | Findings over time when multiple days/hours exist; otherwise scan sources, ports, or exploitability signals from live data | `RiskTrendChart` + `toRiskTrendView` |
 | **Priority queue** | Top critical/high items ranked by KEV → EPSS → CVSS (read-only status) | `CompactRemediationQueue` |
 | **Remediation progress** | Donut of solution statuses (not started, under review, in progress, done) | `RemediationProgress` |
 | **Highest-risk assets** | IPs with CVEs, sortable by severity filter | `AtRiskAssets` |
-| **AI Risk Intelligence** | Executive summary, AI risk score, top findings, threat intel, prioritized remediation | `AiRiskIntelligencePanel` → `GET /api/v1/risk-intelligence` |
 
-Link: **What do these metrics mean?** → `/guide` · **Ask AI** → `/ask`
+Link: **What do these metrics mean?** → `/guide` · floating **Analyze** panel for deep dives
 
 ### Security issues (`/cves`, `/cves/:id`)
 
 - **List** — All distinct CVEs with CVSS, severity, KEV/EPSS flags, affected assets, filters, and sort.
-- **Detail** — Summary, scores, ports, related assets, and remediation link.
+- **Detail** — Summary, scores, ports, related assets, **Analyst notes** (`mode=detail` via `/api/cve-analysis`), and remediations.
 
 Data: `derived.cves` from `toCves()` (merged by CVE ID across hosts).
 
@@ -389,15 +389,16 @@ Deeper charts not shown on the home page:
 - Top IPs, vulnerable ports, OS distribution
 - Domain footprint, services, products, countries, avg CVSS by org
 
-### Ask AI (`/ask`)
+### Risk analysis (floating Analyze panel)
 
-Cybersecurity analyst chatbot grounded in the latest DynamoDB scan payload.
+CVE-centric AI analysis — not free-text chat.
 
-- Quick actions (patch priority, riskiest assets, CVE/host explainers, internet exposure, mitigations, risk score)
-- Chat history (browser `localStorage`), typing indicator, copy response, clear chat
-- Frontend calls `POST /api/v1/ask` only — never Amazon Bedrock directly
+- Select up to 5 CVE IDs (priority chips or paste); history in `localStorage`
+- Calls `POST /api/cve-analysis` with `{ cve_ids, mode: "detail" }`
+- Home brief uses the same endpoint with `mode: "brief"` and a short preview
+- FastAPI relays to the **AI Risk Analyzer** Lambda (no Bedrock call from the API process)
 
-Backend flow: FastAPI → (optional Lambda via `ASK_AI_LAMBDA_ARN`) → selective context retrieval → Bedrock when `BEDROCK_ENABLED=1`, otherwise a deterministic analyst engine that still returns structured JSON.
+Legacy route `/ask` still opens the panel and redirects home.
 
 ### Guide (`/guide`)
 
@@ -435,12 +436,11 @@ Glossary for CVE, CVSS, KEV, EPSS, dashboard metrics, remediation workflow, scan
 | `/api/v1/health` | GET | Health check |
 | `/api/v1/dashboard` | GET | Full `DashboardData` JSON for the UI |
 | `/api/v1/dashboard/refresh` | POST | Re-scan DynamoDB and refresh cache |
-| `/api/v1/ask` | POST | Ask AI cybersecurity analyst (structured JSON) |
-| `/api/v1/risk-intelligence` | GET | Home-page AI risk brief |
+| `/api/cve-analysis` | POST | AI summary for 1–5 CVE IDs (`mode`: `brief` \| `detail`) via Lambda |
 | `/findings` | GET | Raw findings (`?ip=` optional) |
 | `/findings/{ip}/{cve_id}` | GET | Single finding row |
 
-Environment variables: see `footprint-api/README.md` (`DYNAMODB_TABLE_NAME`, `AWS_REGION`, `BEDROCK_*`, `ASK_AI_*`, `FRONTEND_DIST`, etc.).
+Environment variables: see `footprint-api/README.md` (`DYNAMODB_TABLE_NAME`, `AWS_REGION`, `CVE_ANALYZER_*`, `FRONTEND_DIST`, etc.).
 
 ---
 
@@ -474,7 +474,7 @@ npm run api:serve    # terminal 2 — or set FRONTEND_DEV_URL=http://127.0.0.1:5
 - **UI:** React 19, React Router, Recharts, CSS custom properties (themes)
 - **Build:** Vite, TypeScript
 - **API:** FastAPI, boto3, uvicorn
-- **Data:** AWS DynamoDB (primary), optional Athena / S3 enrichment + Amazon Bedrock for Ask AI
+- **Data:** AWS DynamoDB (primary); AI summaries via Lambda (`ai-risk-analyzer`)
 
 ---
 
