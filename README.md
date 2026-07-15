@@ -44,7 +44,8 @@ See `footprint-api/README.md` for endpoint details and environment variables.
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Overview — posture, severity, observation panel, remediation queue |
+| `/` | Overview — posture, severity, AI brief, top critical findings, remediation queue |
+| `/insights` | AI Risk Intelligence — whole-system AI summary, AI insights, explainable risk score, threat intelligence |
 | `/cves` | All security issues |
 | `/threats` | Threat category guide |
 | `/ips` | Scanned IP assets |

@@ -1,5 +1,6 @@
 type IconName =
   | "home"
+  | "insights"
   | "issues"
   | "threats"
   | "systems"
@@ -13,6 +14,8 @@ type IconName =
 
 const PATHS: Record<IconName, string> = {
   home: "M4 10.5L12 4l8 6.5V19a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-8.5z",
+  insights:
+    "M11 3l1.4 4.2L16.6 8.6 12.4 10l-1.4 4.2L9.6 10 5.4 8.6 9.6 7.2 11 3zm7.5 9l.9 2.6L22 15.5l-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6z",
   issues:
     "M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z",
   threats:

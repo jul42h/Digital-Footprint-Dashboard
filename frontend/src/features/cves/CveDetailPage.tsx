@@ -36,7 +36,7 @@ export function CveDetailPage() {
       setSummary(null);
       return;
     }
-    const cached = peekCachedAnalysis([cve.id], "analyze");
+    const cached = peekCachedAnalysis([cve.id], "insights");
     setSummary(sanitizeAiText(cached?.ai_summary) || null);
     setError(null);
   }, [cve?.id]);
@@ -51,7 +51,7 @@ export function CveDetailPage() {
         preferCveIds: [cve.id],
       });
       const result = await analyzeCves([cve.id], {
-        intent: "analyze",
+        intent: "insights",
         findings: fromRecords.length ? fromRecords : toAnalysisFindings([cve]),
         bypassCache,
       });

@@ -1,7 +1,14 @@
 import type { Cve } from "@/types";
 
+/**
+ * How many top-ranked CVEs Home's compact views (AI brief signal, Top critical
+ * findings table) key off. Purely a frontend display choice — the Lambda's
+ * "brief" intent is whole-system now and has no equivalent constant of its own.
+ */
+export const DEFAULT_PRIORITY_COUNT = 5;
+
 /** Prioritize KEV > EPSS > CVSS > verified (matches analyzer ranking). */
-export function pickPriorityCves(cves: Cve[], limit = 5): Cve[] {
+export function pickPriorityCves(cves: Cve[], limit = DEFAULT_PRIORITY_COUNT): Cve[] {
   return [...cves]
     .sort((a, b) => {
       const kev = Number(Boolean(b.exploitKnown)) - Number(Boolean(a.exploitKnown));
@@ -15,11 +22,11 @@ export function pickPriorityCves(cves: Cve[], limit = 5): Cve[] {
     .slice(0, limit);
 }
 
-export function pickPriorityCveIds(cves: Cve[], limit = 5): string[] {
+export function pickPriorityCveIds(cves: Cve[], limit = DEFAULT_PRIORITY_COUNT): string[] {
   return pickPriorityCves(cves, limit).map((c) => c.id);
 }
 
-export function pickKevCveIds(cves: Cve[], limit = 5): string[] {
+export function pickKevCveIds(cves: Cve[], limit = DEFAULT_PRIORITY_COUNT): string[] {
   return [...cves]
     .filter((c) => c.exploitKnown)
     .sort((a, b) => {

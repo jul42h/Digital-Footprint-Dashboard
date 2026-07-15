@@ -17,9 +17,11 @@
   --sev-medium: #d9a441;
   --sev-low: #4a76b8;
 
-  --font-ui: "Roboto", "Helvetica Neue", Arial, system-ui, sans-serif;
+  /* Fresno State brand typefaces (marcomm.fresnostate.edu/typography) */
+  --font-ui: "Roboto", "Helvetica Neue", Arial, sans-serif;
   --font-display: "Merriweather", Georgia, "Times New Roman", serif;
-  --font-mono: "Roboto Mono", ui-monospace, Menlo, monospace;
+  /* IDs / numeric columns: Roboto with tabular figures (no third-party mono) */
+  --font-mono: "Roboto", "Helvetica Neue", Arial, sans-serif;
 
   /* Fresno State favors sharp, institutional geometry */
   --radius: 3px;
@@ -172,6 +174,28 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Force Fresno State typefaces on controls and embeddables that reset UA fonts */
+button,
+input,
+select,
+textarea,
+optgroup,
+option,
+code,
+pre,
+kbd,
+samp {
+  font-family: inherit;
+}
+
+/* Charts inherit Roboto from the page instead of browser default */
+.recharts-wrapper,
+.recharts-wrapper text,
+.recharts-legend-item-text,
+.recharts-tooltip-wrapper {
+  font-family: var(--font-ui) !important;
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -179,7 +203,9 @@ a {
 
 h1,
 h2,
-h3 {
+h3,
+h4 {
+  font-family: var(--font-display);
   font-weight: 700;
   margin: 0;
   letter-spacing: -0.01em;
@@ -195,8 +221,10 @@ h3 {
 }
 
 .mono {
-  font-family: var(--font-mono);
-  font-size: 0.85em;
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92em;
+  letter-spacing: 0.01em;
 }
 
 /* ---- Card / panel ---- */
@@ -1379,7 +1407,8 @@ h3 {
 }
 
 .ai-brief-code {
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: 0.92em;
   padding: 0.05em 0.3em;
   border-radius: 3px;
@@ -2105,6 +2134,79 @@ h3 {
   text-align: right;
 }
 
+.insights-card__layout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-5);
+  margin-top: 12px;
+}
+
+.insights-card__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .insights-card__layout {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+}
+
+.risk-score-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 96px;
+  padding: 14px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.risk-score-badge__value {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.risk-score-badge__rating {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.02em;
+}
+
+.risk-score-badge__confidence {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.risk-score-drivers {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.risk-score-drivers li {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.risk-score-drivers strong {
+  color: var(--text);
+}
+
 .geo-map-card .chart-card__body {
   min-height: 0;
   padding: 0;
@@ -2478,7 +2580,8 @@ h3 {
 }
 
 .shortcuts-list__key {
-  font-family: var(--font-mono);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   font-weight: 500;
   padding: 3px 8px;
@@ -3430,6 +3533,36 @@ h3 {
   cursor: not-allowed;
 }
 
+.ask-ai-panel__modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 10px 16px 0;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.ask-ai-mode {
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ask-ai-mode--on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
 .ask-ai-panel__thread {
   flex: 1 1 auto;
   min-height: 0;
@@ -3568,7 +3701,8 @@ h3 {
   color: var(--text-secondary);
   font: inherit;
   font-size: 11px;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   line-height: 1.2;
   cursor: pointer;
   overflow: hidden;
@@ -3594,7 +3728,7 @@ h3 {
 
 .ask-ai-segments {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   padding: 3px;
   border-radius: 10px;
@@ -3645,6 +3779,37 @@ h3 {
 .ask-ai-run:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.ask-ai-ask-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.ask-ai-ask-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  resize: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  padding: 9px 10px;
+}
+
+.ask-ai-ask-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ask-ai-ask-form .ask-ai-run {
+  width: auto;
+  min-width: 68px;
+  padding: 0 16px;
 }
 
 .ask-ai-msg {
@@ -3758,7 +3923,8 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 10px;
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
   text-decoration: none;
   background: var(--surface-2);
@@ -3785,7 +3951,8 @@ a.ask-ai-chip:hover {
 }
 
 .ask-ai-code {
-  font-family: var(--font-mono, ui-monospace, monospace);
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
   font-size: 0.92em;
   padding: 0 3px;
   border-radius: 3px;

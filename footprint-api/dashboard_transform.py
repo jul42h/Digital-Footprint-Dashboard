@@ -139,6 +139,22 @@ def _parse_observed_at(value: Any) -> str:
         return text
 
 
+# TODO(pipeline-4): the AI Risk Analyzer Lambda (lambda_ai_risk_analyzer.py,
+# PIPELINE4_FIELDS) already assumes DynamoDB rows may carry optional business/
+# threat fields once Pipeline 4 lands: asset_criticality, business_unit,
+# owner_team, environment, internet_exposed, exploit_maturity, threat_actors,
+# malware, campaigns, remediation_status, first_seen, last_seen. Confirm those
+# names against Pipeline 4's actual output before wiring them in here — if they
+# match, add each to the relevant _pick(item, ...) call below (_build_cve for
+# CVE-level fields, _merge_ip_record for host-level fields), then extend
+# SourceCVE / SourceIPRecord in frontend/src/types/data.ts and thread them
+# through adapters.ts's toAnalysisFindingsFromData (frontend/src/features/ask-ai/
+# findings.ts) so the Lambda actually receives them — the AnalysisFinding type
+# there already has the matching optional fields, they're just unpopulated until
+# this transform passes them through. Do not guess field names ahead of the real
+# schema; only these two files (this one and the Lambda) should need to change.
+
+
 def _build_cve(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     cve_id = _as_str(_pick(item, "cve_id", "cve", "original_cve_id"))
     if not cve_id or not _is_real_cve_id(cve_id):

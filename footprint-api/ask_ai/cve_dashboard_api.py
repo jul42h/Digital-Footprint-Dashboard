@@ -9,8 +9,14 @@ Payload (vital fields only):
     "cve_ids": ["CVE-…"],          # optional if findings present
     "findings": [ {…}, … ],        # structured records for the Lambda (preferred)
     "mode": "brief" | "detail",
-    "intent": "brief" | "analyze" | "remediate" | "next_steps"
+    "intent": "brief" | "insights" | "risk_score" | "threat_intel"
+              | "critical_findings" | "risk_assets" | "remediate" | "ask_ai",
+    "question": "What should we fix first?"  # required only when intent="ask_ai"
   }
+
+The Lambda computes `risk_score` (score/rating/drivers/confidence) itself from
+the posture of whatever findings are sent — this API does not compute or pass a
+score in either direction, only relays it in the response.
 """
 
 from __future__ import annotations
@@ -37,11 +43,12 @@ LAMBDA_CONFIGURED_TIMEOUT_SECONDS = int(
 )
 
 # Align with Lambda caps (practical UI payload stays under Lambda maxes).
-# Lambda: MAX_INPUT_FINDINGS=500, MAX_CVE_IDS=25, BRIEF_TOP_FINDINGS=5,
-# MAX_DETAIL_FINDINGS=8 for non-brief intents. EPSS_NOTABLE=0.5 / EPSS_URGENT=0.9
-# live only inside the Lambda posture/prompts — not dashboard stats.
+# Lambda: MAX_INPUT_FINDINGS=1500, MAX_CVE_IDS=25, MAX_DETAIL_FINDINGS=10 for
+# every intent. EPSS_NOTABLE=0.5 / EPSS_URGENT=0.9 live only inside the Lambda
+# posture/prompts — not dashboard stats.
 MAX_CVE_IDS_PER_REQUEST = 25
 MAX_FINDINGS_PER_REQUEST = 100
+MAX_QUESTION_LENGTH = 500
 CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$", re.I)
 
 _HARMONY_FINAL_RE = re.compile(r"<\|channel\|>\s*final\s*<\|message\|>", re.I)
@@ -67,7 +74,16 @@ _BOILERPLATE_RE = re.compile(
 )
 
 AnalysisMode = Literal["brief", "detail"]
-AnalysisIntent = Literal["brief", "analyze", "remediate", "next_steps"]
+AnalysisIntent = Literal[
+    "brief",
+    "insights",
+    "risk_score",
+    "threat_intel",
+    "critical_findings",
+    "risk_assets",
+    "remediate",
+    "ask_ai",
+]
 
 _boto_config = Config(
     read_timeout=LAMBDA_CONFIGURED_TIMEOUT_SECONDS + 15,
@@ -83,7 +99,8 @@ router = APIRouter(tags=["cve-analysis"])
 
 
 def _sanitize_ai_summary(text: Any) -> Optional[str]:
-    """Mirror Lambda `_sanitize_output` so leaked scaffolding never hits the UI."""
+    """Defense-in-depth mirror of the Lambda's own sanitizing, in case leaked
+    scaffolding ever slips past it before reaching the UI."""
     if text is None:
         return None
     cleaned = str(text).replace("\r\n", "\n")
@@ -116,7 +133,9 @@ def _intent_to_mode(intent: AnalysisIntent) -> AnalysisMode:
 
 
 def _mode_to_intent(mode: AnalysisMode) -> AnalysisIntent:
-    return "brief" if mode == "brief" else "analyze"
+    """Legacy `mode` only distinguishes brief vs. detail; "insights" is the
+    Lambda's own default for any unrecognized/absent non-brief intent."""
+    return "brief" if mode == "brief" else "insights"
 
 
 def _normalize_cve_list(value: Optional[List[str]]) -> List[str]:
@@ -165,6 +184,11 @@ class AnalyzeCVEsRequest(BaseModel):
     )
     mode: Optional[AnalysisMode] = None
     intent: Optional[AnalysisIntent] = None
+    question: Optional[str] = Field(
+        default=None,
+        max_length=MAX_QUESTION_LENGTH,
+        description='Free-text question. Required when intent="ask_ai".',
+    )
 
     @field_validator("cve_ids")
     @classmethod
@@ -172,6 +196,14 @@ class AnalyzeCVEsRequest(BaseModel):
         if value is None:
             return None
         return _normalize_cve_list(value)
+
+    @field_validator("question")
+    @classmethod
+    def normalize_question(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed[:MAX_QUESTION_LENGTH] or None
 
     @field_validator("findings")
     @classmethod
@@ -206,7 +238,7 @@ class AnalyzeCVEsRequest(BaseModel):
         intent = self.intent
         mode = self.mode
         if intent is None and mode is None:
-            intent = "analyze"
+            intent = "insights"
             mode = "detail"
         elif intent is None and mode is not None:
             intent = _mode_to_intent(mode)
@@ -214,11 +246,31 @@ class AnalyzeCVEsRequest(BaseModel):
             mode = _intent_to_mode(intent)
 
         assert intent is not None and mode is not None
+
+        if intent == "ask_ai" and not (self.question or "").strip():
+            raise ValueError('A "question" is required when intent="ask_ai".')
+
         self.intent = intent
         self.mode = _intent_to_mode(intent)
         self.cve_ids = cve_ids
         self.findings = findings or None
         return self
+
+
+class RiskScoreDriver(BaseModel):
+    driver: str
+    score: int
+    weight: float
+    evidence: str
+
+
+class RiskScoreResult(BaseModel):
+    score: int
+    rating: str
+    confidence: str
+    confidence_notes: List[str] = []
+    drivers: List[RiskScoreDriver] = []
+    method: Optional[str] = None
 
 
 class AnalyzeCVEsResponse(BaseModel):
@@ -227,6 +279,7 @@ class AnalyzeCVEsResponse(BaseModel):
     invocation_source: Optional[str] = None
     reason: Optional[str] = None
     error: Optional[str] = None
+    question: Optional[str] = None
     cve_ids_analyzed: List[str] = []
     total_valid_cve_ids: Optional[int] = None
     total_findings_provided: Optional[int] = None
@@ -236,6 +289,13 @@ class AnalyzeCVEsResponse(BaseModel):
     max_findings: Optional[int] = None
     signal_summary: Optional[Dict[str, Any]] = None
     ai_summary: Optional[str] = None
+    # "prose" (one paragraph, no Markdown) or "sections" (### headings).
+    ai_summary_format: Optional[str] = None
+    # Computed by the Lambda from posture, not by the model — present on any
+    # response that analyzed findings, regardless of intent.
+    risk_score: Optional[RiskScoreResult] = None
+    model_used: Optional[str] = None
+    model_routing: Optional[Dict[str, Any]] = None
     mode: Optional[str] = None
     intent: Optional[str] = None
 
@@ -307,7 +367,7 @@ def _invoke_analyzer_lambda(payload: dict) -> dict:
 
 @router.post("/api/cve-analysis", response_model=AnalyzeCVEsResponse)
 async def analyze_cves(request: AnalyzeCVEsRequest) -> dict:
-    """Relay findings (preferred) + cve_ids + intent/mode to the analyzer Lambda."""
+    """Relay findings (preferred) + cve_ids + intent/question to the analyzer Lambda."""
     payload: Dict[str, Any] = {
         "mode": request.mode,
         "intent": request.intent,
@@ -316,6 +376,8 @@ async def analyze_cves(request: AnalyzeCVEsRequest) -> dict:
         payload["cve_ids"] = request.cve_ids
     if request.findings:
         payload["findings"] = request.findings
+    if request.question:
+        payload["question"] = request.question
 
     result = await to_thread(_invoke_analyzer_lambda, payload)
 

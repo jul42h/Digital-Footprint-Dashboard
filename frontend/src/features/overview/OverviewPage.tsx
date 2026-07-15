@@ -8,6 +8,7 @@ import { CompactRemediationQueue } from "./CompactRemediationQueue";
 import { DashboardPosture } from "./DashboardPosture";
 import { PrioritySignals } from "./PrioritySignals";
 import { RiskScoreRing } from "./RiskScoreRing";
+import { TopCriticalFindings } from "./TopCriticalFindings";
 
 const SeverityDonut = lazy(() =>
   import("./SeverityDonut").then((m) => ({ default: m.SeverityDonut })),
@@ -47,8 +48,24 @@ export function OverviewPage() {
             </h2>
             <p className="home-block__lede">{HELP_TEXT.aiBrief}</p>
           </div>
+          <ViewAllLink to="/insights" className="home-block__link">
+            Full AI Risk Intelligence
+          </ViewAllLink>
         </header>
         <AiBriefStrip variant="business" />
+      </section>
+
+      <section className="home-block" aria-labelledby="home-critical-label">
+        <header className="home-block__head">
+          <div>
+            <h2 id="home-critical-label" className="home-block__title">
+              Top critical findings
+            </h2>
+            <p className="home-block__lede">{HELP_TEXT.topCriticalFindings}</p>
+          </div>
+          <ViewAllLink to="/cves" className="home-block__link" />
+        </header>
+        <TopCriticalFindings />
       </section>
 
       <div className="home-focus">

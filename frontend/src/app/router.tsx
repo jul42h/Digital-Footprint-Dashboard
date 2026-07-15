@@ -3,6 +3,9 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/layout/AppLayout";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 
+const InsightsPage = lazy(() =>
+  import("@/features/insights/InsightsPage").then((m) => ({ default: m.InsightsPage })),
+);
 const ThreatTypesPage = lazy(() =>
   import("@/features/threats/ThreatTypesPage").then((m) => ({ default: m.ThreatTypesPage })),
 );
@@ -52,6 +55,14 @@ export const router = createBrowserRouter([
     element: <AppLayout />,
     children: [
       { path: "/", element: <OverviewPage /> },
+      {
+        path: "/insights",
+        element: (
+          <LazyPage>
+            <InsightsPage />
+          </LazyPage>
+        ),
+      },
       {
         path: "/threats",
         element: (

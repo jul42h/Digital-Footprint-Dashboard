@@ -1,8 +1,9 @@
 export const APP_NAME = "Digital Footprint";
-export const APP_TAGLINE = "Fresno State · Cybersecurity";
+export const APP_TAGLINE = "Fresno State";
 
 export const NAV_LABELS = {
   home: "Home",
+  insights: "AI Risk Intelligence",
   issues: "Security issues",
   threats: "Threat categories",
   systems: "IP assets",
@@ -46,15 +47,30 @@ export const LABELS = {
 /** Short explanations under page headers and key sections. */
 export const HELP_TEXT = {
   homePage:
-    "Snapshot of exposure, priority signals, and where to act first across your external footprint.",
+    "Snapshot of exposure, priority signals, and where to act.",
   postureBar:
     "Key counts from the latest scan. Select a metric to open the related list.",
   exposureScore: "Overall footprint risk from 0–100. Higher means greater exposure.",
   severityDonut: "Unique CVEs grouped by CVSS severity.",
   prioritySignals: "Exploitability and urgency cues you can act on immediately.",
-  aiBrief: "AI summary of the top five highest-risk findings in context of the full set.",
+  aiBrief: "Whole-system AI summary of overall posture, main risks, and the most important next step.",
+  topCriticalFindings: "The highest-risk findings behind the AI summary above.",
   fixFirst: "Highest-priority remediations, ranked by known exploitation and severity.",
   atRiskAssets: "Internet-facing hosts with open vulnerabilities, ordered by highest CVSS.",
+  insightsPage:
+    "Whole-system AI summary, prioritized insights, an explainable risk score, and threat intelligence — grounded only in your scanned data.",
+  aiSummarySection:
+    "One paragraph on overall posture, main risks, affected areas, and the most important next step — not a CVE list.",
+  aiInsightsSection:
+    "The most impactful, actionable findings, each with why it matters, risk level, and a recommended action.",
+  riskScoreSection:
+    "A pipeline-computed 0–100 score with the evidence behind it — exploitation, severity, and exposure.",
+  threatIntelSection:
+    "Exploitation and exposure signals from your own data only — this dashboard has no external threat-feed access.",
+  criticalFindingsSection:
+    "The individual findings needing attention first, with business impact and next action.",
+  riskAssetsSection:
+    "Which assets carry the most risk and why, ranked by evidence rather than finding count alone.",
   geoMap:
     "Asset locations from Shodan geodata. City coordinates when available; otherwise country center.",
   geoMapEmpty: "No location data available for vulnerable assets in this dataset.",

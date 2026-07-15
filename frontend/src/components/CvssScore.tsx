@@ -4,8 +4,8 @@ export function CvssScore({ score }: { score: number }) {
   const severity = cvssToSeverity(score);
   return (
     <span
+      className="mono"
       style={{
-        fontFamily: "var(--font-mono)",
         fontWeight: 500,
         fontSize: 13,
         color: SEVERITY_COLOR[severity],

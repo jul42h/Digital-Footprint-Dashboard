@@ -8,7 +8,7 @@ function riskTone(score: number): string {
   return SEVERITY_COLOR.low;
 }
 
-function riskLabel(score: number): string {
+export function riskLabel(score: number): string {
   if (score >= 70) return "Critical";
   if (score >= 40) return "Elevated";
   if (score >= 20) return "Moderate";

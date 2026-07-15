@@ -30,15 +30,15 @@ export function AskAiWidget() {
         className={`ask-ai-fab${open ? " ask-ai-fab--active" : ""}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label={open ? "Close Analyze" : "Open Analyze"}
-        title="Analyze"
+        aria-label={open ? "Close Ask AI" : "Open Ask AI"}
+        title="Ask AI"
       >
         {open ? (
           <span aria-hidden>✕</span>
         ) : (
           <>
             <AnalyzeIcon />
-            <span className="ask-ai-fab__label">Analyze</span>
+            <span className="ask-ai-fab__label">Ask AI</span>
           </>
         )}
       </button>
@@ -76,19 +76,27 @@ function AskAiPanel({
     loading,
     error,
     analyze,
+    ask,
     clearChat,
     toggleCveId,
     setSelectedIdsCap,
   } = useCveAnalysisChat();
 
-  const [intent, setIntent] = useState<PanelIntent>("analyze");
+  const [intent, setIntent] = useState<PanelIntent>("insights");
+  // A deep-link with preselected CVEs (from Home / Priority signals) means the user
+  // wants CVE-scoped analysis; otherwise default to the free-text Ask tab.
+  const [panelMode, setPanelMode] = useState<"ask" | "select">(
+    pendingCveIds?.length ? "select" : "ask",
+  );
+  const [question, setQuestion] = useState("");
   const scrollerRef = useRef<HTMLDivElement>(null);
-  // Deep-link from Home / Priority signals: preselect findings (user runs analysis).
+
   useEffect(() => {
     if (!pendingCveIds?.length) return;
     const ids = consumePendingCveIds();
     if (!ids?.length) return;
     setSelectedIdsCap(ids);
+    setPanelMode("select");
   }, [pendingCveIds, consumePendingCveIds, setSelectedIdsCap]);
 
   useEffect(() => {
@@ -99,18 +107,29 @@ function AskAiPanel({
   const picks = pickPriorityCveIds(cves, MAX_CVE_IDS_PER_REQUEST);
   const kevAvailable = pickKevCveIds(cves, 1).length > 0;
   const canRun = selectedIds.length > 0 && !loading;
+  const canAsk = question.trim().length > 0 && !loading;
 
   const run = () => {
     if (!canRun) return;
     void analyze(selectedIds, intent as AnalysisIntent);
   };
 
+  const submitQuestion = () => {
+    if (!canAsk) return;
+    void ask(question);
+    setQuestion("");
+  };
+
   return (
-    <section className="ask-ai-panel" role="dialog" aria-label="Analyze findings">
+    <section className="ask-ai-panel" role="dialog" aria-label="Ask AI">
       <header className="ask-ai-panel__header">
         <div>
-          <h2 className="ask-ai-panel__title">Analyze</h2>
-          <p className="ask-ai-panel__sub">Risk insights for selected findings</p>
+          <h2 className="ask-ai-panel__title">Ask AI</h2>
+          <p className="ask-ai-panel__sub">
+            {panelMode === "ask"
+              ? "Ask a question about your footprint"
+              : "Risk insights for selected findings"}
+          </p>
         </div>
         <div className="ask-ai-panel__header-actions">
           <button
@@ -127,15 +146,49 @@ function AskAiPanel({
         </div>
       </header>
 
+      <div className="ask-ai-panel__modes" role="tablist" aria-label="Assistant mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={panelMode === "ask"}
+          className={`ask-ai-mode${panelMode === "ask" ? " ask-ai-mode--on" : ""}`}
+          onClick={() => setPanelMode("ask")}
+        >
+          Ask
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={panelMode === "select"}
+          className={`ask-ai-mode${panelMode === "select" ? " ask-ai-mode--on" : ""}`}
+          onClick={() => setPanelMode("select")}
+        >
+          Analyze findings
+        </button>
+      </div>
+
       <div className="ask-ai-panel__thread" ref={scrollerRef}>
         {messages.length === 0 && !loading ? (
           <div className="ask-ai-empty">
-            <p className="ask-ai-empty__title">Get started</p>
-            <ol className="ask-ai-empty__steps">
-              <li>Select findings below</li>
-              <li>Choose Risk, Fix, or Next</li>
-              <li>Run analysis</li>
-            </ol>
+            {panelMode === "ask" ? (
+              <>
+                <p className="ask-ai-empty__title">Ask about your footprint</p>
+                <ol className="ask-ai-empty__steps">
+                  <li>What should we fix first?</li>
+                  <li>Which assets are highest risk?</li>
+                  <li>Are there signs of active exploitation?</li>
+                </ol>
+              </>
+            ) : (
+              <>
+                <p className="ask-ai-empty__title">Get started</p>
+                <ol className="ask-ai-empty__steps">
+                  <li>Select findings below</li>
+                  <li>Choose Insights or Remediate</li>
+                  <li>Run analysis</li>
+                </ol>
+              </>
+            )}
           </div>
         ) : (
           messages.map((msg) => <ChatMessageBubble key={msg.id} message={msg} />)
@@ -146,95 +199,122 @@ function AskAiPanel({
       {error && !loading && <p className="ask-ai-error">{error}</p>}
 
       <footer className="ask-ai-panel__footer">
-        <div className="ask-ai-footer__block">
-          <div className="ask-ai-footer__label-row">
-            <span className="ask-ai-footer__label">Findings</span>
-            <span className="ask-ai-footer__meta">
-              {selectedIds.length}/{MAX_CVE_IDS_PER_REQUEST}
-            </span>
-          </div>
-          <div className="ask-ai-footer__shortcuts">
-            <button
-              type="button"
-              className="ask-ai-link-btn"
-              disabled={loading || picks.length === 0}
-              onClick={() => setSelectedIdsCap(pickPriorityCveIds(cves, MAX_CVE_IDS_PER_REQUEST))}
-            >
-              Top priority
+        {panelMode === "ask" ? (
+          <form
+            className="ask-ai-ask-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitQuestion();
+            }}
+          >
+            <textarea
+              className="ask-ai-ask-input"
+              placeholder="e.g. What should we fix first?"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submitQuestion();
+                }
+              }}
+              rows={2}
+              maxLength={500}
+              disabled={loading}
+              aria-label="Ask a question about your footprint"
+            />
+            <button type="submit" className="ask-ai-run" disabled={!canAsk}>
+              {loading ? "Asking…" : "Ask"}
             </button>
-            <button
-              type="button"
-              className="ask-ai-link-btn"
-              disabled={loading || !kevAvailable}
-              onClick={() => setSelectedIdsCap(pickKevCveIds(cves, MAX_CVE_IDS_PER_REQUEST))}
-            >
-              Known exploited
-            </button>
-            {selectedIds.length > 0 && (
-              <button
-                type="button"
-                className="ask-ai-link-btn"
-                disabled={loading}
-                onClick={() => setSelectedIdsCap([])}
-              >
-                Clear selection
-              </button>
-            )}
-          </div>
-          <div className="ask-ai-picks" role="group" aria-label="Toggle findings">
-            {picks.length === 0 ? (
-              <p className="ask-ai-picks__empty">No findings loaded</p>
-            ) : (
-              picks.map((id) => {
-                const on = selectedIds.includes(id);
-                return (
+          </form>
+        ) : (
+          <>
+            <div className="ask-ai-footer__block">
+              <div className="ask-ai-footer__label-row">
+                <span className="ask-ai-footer__label">Findings</span>
+                <span className="ask-ai-footer__meta">
+                  {selectedIds.length}/{MAX_CVE_IDS_PER_REQUEST}
+                </span>
+              </div>
+              <div className="ask-ai-footer__shortcuts">
+                <button
+                  type="button"
+                  className="ask-ai-link-btn"
+                  disabled={loading || picks.length === 0}
+                  onClick={() => setSelectedIdsCap(pickPriorityCveIds(cves, MAX_CVE_IDS_PER_REQUEST))}
+                >
+                  Top priority
+                </button>
+                <button
+                  type="button"
+                  className="ask-ai-link-btn"
+                  disabled={loading || !kevAvailable}
+                  onClick={() => setSelectedIdsCap(pickKevCveIds(cves, MAX_CVE_IDS_PER_REQUEST))}
+                >
+                  Known exploited
+                </button>
+                {selectedIds.length > 0 && (
                   <button
-                    key={id}
                     type="button"
-                    className={`ask-ai-pick${on ? " ask-ai-pick--on" : ""}`}
-                    disabled={loading || (!on && selectedIds.length >= MAX_CVE_IDS_PER_REQUEST)}
-                    onClick={() => toggleCveId(id)}
-                    aria-pressed={on}
+                    className="ask-ai-link-btn"
+                    disabled={loading}
+                    onClick={() => setSelectedIdsCap([])}
                   >
-                    {id}
+                    Clear selection
                   </button>
-                );
-              })
-            )}
-          </div>
-        </div>
+                )}
+              </div>
+              <div className="ask-ai-picks" role="group" aria-label="Toggle findings">
+                {picks.length === 0 ? (
+                  <p className="ask-ai-picks__empty">No findings loaded</p>
+                ) : (
+                  picks.map((id) => {
+                    const on = selectedIds.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`ask-ai-pick${on ? " ask-ai-pick--on" : ""}`}
+                        disabled={loading || (!on && selectedIds.length >= MAX_CVE_IDS_PER_REQUEST)}
+                        onClick={() => toggleCveId(id)}
+                        aria-pressed={on}
+                      >
+                        {id}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
 
-        <div className="ask-ai-footer__block">
-          <span className="ask-ai-footer__label">Analysis</span>
-          <div className="ask-ai-segments" role="radiogroup" aria-label="Analysis type">
-            {ANALYZE_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                role="radio"
-                aria-checked={intent === preset.id}
-                className={`ask-ai-segment${intent === preset.id ? " ask-ai-segment--on" : ""}`}
-                disabled={loading}
-                title={preset.hint}
-                onClick={() => setIntent(preset.id)}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <p className="ask-ai-footer__hint">
-            {ANALYZE_PRESETS.find((p) => p.id === intent)?.hint}
-          </p>
-        </div>
+            <div className="ask-ai-footer__block">
+              <span className="ask-ai-footer__label">Analysis</span>
+              <div className="ask-ai-segments" role="radiogroup" aria-label="Analysis type">
+                {ANALYZE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={intent === preset.id}
+                    className={`ask-ai-segment${intent === preset.id ? " ask-ai-segment--on" : ""}`}
+                    disabled={loading}
+                    title={preset.hint}
+                    onClick={() => setIntent(preset.id)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <p className="ask-ai-footer__hint">
+                {ANALYZE_PRESETS.find((p) => p.id === intent)?.hint}
+              </p>
+            </div>
 
-        <button
-          type="button"
-          className="ask-ai-run"
-          disabled={!canRun}
-          onClick={run}
-        >
-          {loading ? "Running…" : "Run analysis"}
-        </button>
+            <button type="button" className="ask-ai-run" disabled={!canRun} onClick={run}>
+              {loading ? "Running…" : "Run analysis"}
+            </button>
+          </>
+        )}
       </footer>
     </section>
   );

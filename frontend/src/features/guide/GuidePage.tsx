@@ -40,7 +40,8 @@ export function GuidePage() {
             </li>
             <li>
               <strong>Understand</strong> — AI brief on Home (refreshes every 2 hours or when top
-              findings change).
+              findings change), or the full <Link to="/insights">{NAV_LABELS.insights}</Link> page
+              for AI insights, an explainable risk score, and threat intelligence.
             </li>
             <li>
               <strong>Focus</strong> — <Link to="/cves">{NAV_LABELS.issues}</Link> with severity /
@@ -51,7 +52,8 @@ export function GuidePage() {
               remediation status.
             </li>
             <li>
-              Optional: floating <strong>Analyze</strong> for a deeper write-up on selected findings.
+              Optional: floating <strong>Ask AI</strong> to ask a question or get a deeper write-up
+              on selected findings.
             </li>
           </ol>
         </Card>

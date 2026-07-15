@@ -7,6 +7,7 @@ import type { DerivedData } from "@/lib/adapters";
 
 type NavIconName =
   | "home"
+  | "insights"
   | "issues"
   | "threats"
   | "systems"
@@ -37,6 +38,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Monitor",
     items: [
       { to: "/", label: NAV_LABELS.home, end: true, icon: "home" },
+      { to: "/insights", label: NAV_LABELS.insights, end: false, icon: "insights" },
       {
         to: "/cves",
         label: NAV_LABELS.issues,

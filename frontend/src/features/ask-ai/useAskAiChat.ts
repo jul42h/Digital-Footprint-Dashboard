@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { useCves } from "@/features/cves/hooks";
-import { analyzeCves } from "./askAiApi";
+import { analyzeCves, askAi } from "./askAiApi";
 import { normalizeCveId } from "./cveSelection";
 import { findingsForCveIds, toAnalysisFindingsFromData } from "./findings";
 import { sanitizeAiText } from "./sanitizeAiText";
@@ -144,12 +144,70 @@ export function useCveAnalysisChat() {
     [cves, dashboard, loading],
   );
 
+  const ask = useCallback(
+    async (question: string) => {
+      const trimmed = question.trim();
+      if (!trimmed || loading) return;
+
+      setError(null);
+      setLoading(true);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: uid(),
+          role: "user",
+          content: trimmed,
+          intent: "ask_ai",
+          createdAt: Date.now(),
+        },
+      ]);
+
+      try {
+        // Whole-dashboard top-ranked sample — no CVE selection required for a question.
+        const findings = toAnalysisFindingsFromData(dashboard, {
+          limit: MAX_FINDINGS_PER_REQUEST,
+        });
+        const data = await askAi(trimmed, {
+          findings: findings.length ? findings : undefined,
+        });
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            role: "assistant",
+            content: formatSummary(data),
+            intent: "ask_ai",
+            createdAt: Date.now(),
+          },
+        ]);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Ask AI failed";
+        setError(message);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            role: "assistant",
+            content: message,
+            intent: "ask_ai",
+            createdAt: Date.now(),
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dashboard, loading],
+  );
+
   return {
     messages,
     selectedIds,
     loading,
     error,
     analyze,
+    ask,
     clearChat,
     toggleCveId,
     setSelectedIdsCap,

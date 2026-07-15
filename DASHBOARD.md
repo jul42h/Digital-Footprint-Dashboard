@@ -342,18 +342,37 @@ The overview summarizes posture and where to act first.
 | Section | What it shows | Source |
 |---------|---------------|--------|
 | **Posture bar** | Pending remediations, critical count, KEV, high EPSS, at-risk assets, unique CVEs, risk score | `DashboardPosture` + `useDashboardSummary` |
-| **AI brief** | Top 5 highest-risk findings (`intent=brief`); posture over a wider set | `AiBriefStrip` → `POST /api/cve-analysis` |
+| **AI brief** | Whole-system AI summary (`intent=brief`), one paragraph | `AiBriefStrip` → `POST /api/cve-analysis` |
 | **Severity breakdown** | Compact donut of unique CVEs by CVSS band | `SeverityDonut` |
 | **Priority signals** | KEV / high EPSS / critical / open fixes with Analyze or View | `PrioritySignals` |
+| **Top critical findings** | The findings behind the AI brief, as rows | `TopCriticalFindings` |
 | **Priority queue** | Top critical/high items ranked by KEV → EPSS → CVSS | `CompactRemediationQueue` |
 | **Highest-risk assets** | IPs with CVEs | `AtRiskAssets` |
 
-Link: **What do these metrics mean?** → `/guide` · floating **Analyze** panel for deep dives
+Link: **What do these metrics mean?** → `/guide` · **Full AI Risk Intelligence** → `/insights` · floating **Ask AI** panel for deep dives
+
+### AI Risk Intelligence (`/insights`)
+
+Six whole-system AI cards, each backed by its own Lambda intent and re-fetched on
+a 2-hour cadence (or on demand via each card's Refresh):
+
+| Card | Intent | What it shows |
+|------|--------|----------------|
+| AI summary | `brief` | Same whole-system paragraph as Home's AI brief |
+| AI insights | `insights` | 3-5 prioritized, evidence-backed insights |
+| Risk score | `risk_score` | Pipeline-computed 0-100 score/rating/drivers/confidence, with model rationale |
+| Threat intelligence | `threat_intel` | Exploitation, attacker interest, exposed technology — data-grounded only |
+| Top critical findings | `critical_findings` | The individual findings needing attention first |
+| Highest-risk assets | `risk_assets` | Which assets carry the most risk and why |
+
+The risk score itself is computed in `lambda_ai_risk_analyzer.py`, not by the
+model — the same findings always produce the same score, and it is returned on
+every intent's response (`risk_score` field), not just `risk_score`'s.
 
 ### Security issues (`/cves`, `/cves/:id`)
 
 - **List** — All distinct CVEs with CVSS, severity, KEV/EPSS flags, affected assets, filters, and sort.
-- **Detail** — Summary, scores, ports, related assets, **Analyst notes** (`intent=analyze` via `/api/cve-analysis`), and remediations.
+- **Detail** — Summary, scores, ports, related assets, **Analyst notes** (`intent=insights` via `/api/cve-analysis`), and remediations.
 
 Data: `derived.cves` from `toCves()` (merged by CVE ID across hosts).
 
@@ -388,16 +407,19 @@ Deeper charts not shown on the home page:
 - Top IPs, vulnerable ports, OS distribution
 - Domain footprint, services, products, countries, avg CVSS by org
 
-### Risk analysis (floating Analyze panel)
+### Ask AI (floating panel)
 
-CVE-centric AI analysis — preset prompts only (no free-text).
+Two tabs on one panel:
 
-- Select up to 8 CVE IDs (priority chips / Top priority / Known exploited); history in `localStorage`
-- Calls `POST /api/cve-analysis` with `{ cve_ids, findings, intent }` (`analyze` \| `remediate` \| `next_steps`)
-- Home brief uses the same endpoint with `intent: "brief"` on the **top 5** ranked findings (plus wider posture findings)
-- FastAPI relays to the **AI Risk Analyzer** Lambda (no Bedrock call from the API process)
+- **Ask** — free-text question over the whole dashboard (`intent=ask_ai`), no CVE
+  selection required. History in `localStorage`.
+- **Analyze findings** — select up to 10 CVE IDs (priority chips / Top priority /
+  Known exploited) and run **Insights** (`intent=insights`) or **Remediate**
+  (`intent=remediate`).
 
-Legacy route `/ask` still opens the panel and redirects home.
+Both tabs call `POST /api/cve-analysis` with `{ cve_ids, findings, intent, question? }`.
+FastAPI relays to the **AI Risk Analyzer** Lambda (no Bedrock call from the API
+process). `/ask` opens the panel on the Ask tab and redirects home.
 
 ### Guide (`/guide`)
 
@@ -435,7 +457,7 @@ Glossary for CVE, CVSS, KEV, EPSS, dashboard metrics, remediation workflow, scan
 | `/api/v1/health` | GET | Health check |
 | `/api/v1/dashboard` | GET | Full `DashboardData` JSON for the UI |
 | `/api/v1/dashboard/refresh` | POST | Re-scan DynamoDB and refresh cache |
-| `/api/cve-analysis` | POST | AI risk intelligence via Lambda (`findings` preferred; `intent`: brief \| analyze \| remediate \| next_steps) |
+| `/api/cve-analysis` | POST | AI risk intelligence via Lambda (`findings` preferred; `intent`: brief \| insights \| risk_score \| threat_intel \| critical_findings \| risk_assets \| remediate \| ask_ai) |
 | `/findings` | GET | Raw findings (`?ip=` optional) |
 | `/findings/{ip}/{cve_id}` | GET | Single finding row |
 

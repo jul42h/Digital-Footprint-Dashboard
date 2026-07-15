@@ -16,11 +16,22 @@ const BRIEF_SIGNAL_KEY = "df-home-brief-signal-v4";
 export const BRIEF_REFRESH_MS = 2 * 60 * 60 * 1000;
 const DETAIL_TTL_MS = 30 * 60 * 1000;
 
+/** Whole-system views (like `brief`) reflect the full dataset, not one CVE selection —
+ * refresh on the same cadence rather than the shorter per-selection detail TTL. */
+const BRIEF_LIKE_INTENTS = new Set<AnalysisIntent>([
+  "brief",
+  "insights",
+  "risk_score",
+  "threat_intel",
+  "critical_findings",
+  "risk_assets",
+]);
+
 type StoredEntry = { savedAt: number; data: CveAnalysisResponse };
 type StoredCache = Record<string, StoredEntry>;
 
 function ttlForIntent(intent: AnalysisIntent): number {
-  return intent === "brief" ? BRIEF_REFRESH_MS : DETAIL_TTL_MS;
+  return BRIEF_LIKE_INTENTS.has(intent) ? BRIEF_REFRESH_MS : DETAIL_TTL_MS;
 }
 
 function parseErrorDetail(text: string, status: number): string {
@@ -124,7 +135,7 @@ function setCached(key: string, data: CveAnalysisResponse): void {
   stored[key] = entry;
   const now = Date.now();
   for (const [k, e] of Object.entries(stored)) {
-    const intent = (k.split(":")[0] || "analyze") as AnalysisIntent;
+    const intent = (k.split(":")[0] || "insights") as AnalysisIntent;
     if (now - e.savedAt > ttlForIntent(intent)) delete stored[k];
   }
   writeStored(stored);
@@ -204,7 +215,7 @@ export async function analyzeCves(
   } = {},
 ): Promise<CveAnalysisResponse> {
   const intent =
-    options.intent ?? (options.mode ? intentFromMode(options.mode) : "analyze");
+    options.intent ?? (options.mode ? intentFromMode(options.mode) : "insights");
   const mode = modeFromIntent(intent);
   const ids = [...cveIds].map((id) => id.toUpperCase()).filter(Boolean);
   const key = cacheKey(ids, intent);
@@ -221,6 +232,49 @@ export async function analyzeCves(
   };
   if (options.findings?.length) {
     // Drop empty optional fields so the payload matches Lambda FINDING_FIELDS.
+    body.findings = options.findings.slice(0, MAX_FINDINGS_PER_REQUEST).map((finding) =>
+      Object.fromEntries(
+        Object.entries(finding).filter(([, value]) => value !== undefined && value !== ""),
+      ),
+    );
+  }
+
+  const response = await fetch(apiUrl("/api/cve-analysis"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(parseErrorDetail(detail, response.status));
+  }
+  const data = assertUsableResult((await response.json()) as CveAnalysisResponse);
+  setCached(key, data);
+  return data;
+}
+
+/** Free-text question over whole-dashboard data (intent="ask_ai"). No CVE selection required. */
+export async function askAi(
+  question: string,
+  options: {
+    findings?: AnalysisFinding[];
+    cveIds?: string[];
+    bypassCache?: boolean;
+  } = {},
+): Promise<CveAnalysisResponse> {
+  const trimmed = question.trim();
+  if (!trimmed) throw new Error("A question is required.");
+
+  const ids = [...(options.cveIds ?? [])].map((id) => id.toUpperCase()).filter(Boolean);
+  const key = `ask_ai:${trimmed.toLowerCase()}`;
+  if (!options.bypassCache) {
+    const hit = getCachedEntry(key, "ask_ai")?.data;
+    if (hit) return hit;
+  }
+
+  const body: Record<string, unknown> = { intent: "ask_ai", mode: "detail", question: trimmed };
+  if (ids.length) body.cve_ids = ids.slice(0, MAX_CVE_IDS_PAYLOAD);
+  if (options.findings?.length) {
     body.findings = options.findings.slice(0, MAX_FINDINGS_PER_REQUEST).map((finding) =>
       Object.fromEntries(
         Object.entries(finding).filter(([, value]) => value !== undefined && value !== ""),

@@ -7,19 +7,16 @@ import {
   shouldAutoRefreshBrief,
 } from "@/features/ask-ai/askAiApi";
 import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
-import { pickPriorityCves } from "@/features/ask-ai/cveSelection";
+import { DEFAULT_PRIORITY_COUNT, pickPriorityCves } from "@/features/ask-ai/cveSelection";
 import { toAnalysisFindingsFromData } from "@/features/ask-ai/findings";
 import { sanitizeAiText } from "@/features/ask-ai/sanitizeAiText";
-import {
-  BRIEF_TOP_FINDINGS,
-  MAX_FINDINGS_PER_REQUEST,
-  type CveAnalysisResponse,
-} from "@/features/ask-ai/types";
+import { MAX_FINDINGS_PER_REQUEST, type CveAnalysisResponse } from "@/features/ask-ai/types";
 import { useDashboard } from "@/context/DashboardContext";
 import { useCves } from "@/features/cves/hooks";
 import { AiBriefMarkdown, briefHasMoreSections } from "./AiBriefMarkdown";
 
-/** Extra findings for posture context; Lambda briefs only the top BRIEF_TOP_FINDINGS. */
+/** Findings sent for whole-system posture; the "brief" intent describes the full
+ * analyzed set, not just the highest-risk sample. */
 const HOME_BRIEF_POSTURE_LIMIT = MAX_FINDINGS_PER_REQUEST;
 
 function formatAge(ageMs: number): string {
@@ -30,16 +27,17 @@ function formatAge(ageMs: number): string {
   return `${hrs}h ago`;
 }
 
-/** Home AI brief scoped to the Lambda brief sample (top 5). */
+/** Whole-system AI summary (Lambda intent "brief"). */
 export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "business" }) {
   const business = variant === "business";
   const { openWithCves } = useAskAiUi();
   const { data: dashboard } = useDashboard();
   const cves = useCves();
 
-  /** Exact set the brief narrative is about (≤5 unique CVEs). */
+  /** Top findings named as examples and used as the cache-invalidation signal —
+   * the brief itself now describes the whole analyzed set, not just these. */
   const briefFocus = useMemo(
-    () => pickPriorityCves(cves, BRIEF_TOP_FINDINGS),
+    () => pickPriorityCves(cves, DEFAULT_PRIORITY_COUNT),
     [cves],
   );
 
@@ -131,10 +129,6 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
   const canExpand = hasBrief && briefHasMoreSections(rawSummary, 1);
 
   const focusCount = briefFocus.length;
-  const briefedCount = Math.min(
-    BRIEF_TOP_FINDINGS,
-    data?.findings_detailed ?? focusCount,
-  );
   const setSize =
     data?.total_findings_analyzed ??
     data?.signal_summary?.findings_analyzed ??
@@ -142,17 +136,13 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
 
   const scopeLine = (() => {
     if (!focusCount) return null;
-    const top =
-      focusCount < BRIEF_TOP_FINDINGS
-        ? `All ${focusCount} available finding${focusCount === 1 ? "" : "s"}`
-        : `Top ${BRIEF_TOP_FINDINGS} highest-risk findings`;
-    const parts = [top];
-    if (setSize > BRIEF_TOP_FINDINGS) {
-      parts.push(`${setSize} in set`);
-    }
+    const parts = [`${setSize} finding${setSize === 1 ? "" : "s"} analyzed`];
     if (data?.signal_summary?.unique_assets != null) {
       const n = data.signal_summary.unique_assets;
       parts.push(`${n} asset${n === 1 ? "" : "s"}`);
+    }
+    if (data?.risk_score) {
+      parts.push(`Risk score ${data.risk_score.score} (${data.risk_score.rating})`);
     }
     if (hasBrief && ageMs != null) {
       parts.push(`Updated ${formatAge(ageMs)}`);
@@ -178,9 +168,9 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
     >
       {!business && (
         <div className="ai-brief__meta">
-          <span className="ai-brief__meta-label">AI brief</span>
+          <span className="ai-brief__meta-label">AI summary</span>
           <span className="ai-brief__meta-count">
-            {focusCount === 0 ? "—" : `Top ${briefedCount}`}
+            {setSize === 0 ? "—" : `${setSize} finding${setSize === 1 ? "" : "s"}`}
           </span>
         </div>
       )}
