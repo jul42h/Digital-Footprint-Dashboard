@@ -1012,6 +1012,31 @@ h4 {
   min-height: 28px;
 }
 
+.home-block__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.home-block__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  margin-top: 1px;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: #fff;
+}
+
+.home-block__icon .nav-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 1;
+}
+
 .home-block__title {
   margin: 0;
   font-family: var(--font-display);
@@ -1090,6 +1115,28 @@ h4 {
 
 .home-brief-block .ai-brief--business {
   margin-top: 0;
+}
+
+/* The AI brief is the home page's lead story — a cardinal top edge and a
+   touch more padding set it apart from the supporting cards below it without
+   introducing a new color or a different card shape. */
+.home-brief-block--hero {
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* Three classes so this reliably beats `.ai-brief.ai-brief--business`
+   regardless of source order — same equal-specificity footgun as that rule
+   was fixing, just one level removed. */
+.home-brief-block--hero .ai-brief.ai-brief--business {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
 }
 
 .risk-ring {
@@ -1283,7 +1330,11 @@ h4 {
   display: none;
 }
 
-.ai-brief--business {
+/* Compound selector (not just `.ai-brief--business`) so this reliably beats
+   the plain `.ai-brief` grid rule later in the file — same specificity single
+   classes are decided by source order, and that previously left the business
+   variant's actions column collapsed to 0 width, overlapping the summary text. */
+.ai-brief.ai-brief--business {
   display: flex;
   flex-direction: column;
   padding: 14px 16px;
@@ -2484,7 +2535,7 @@ h4 {
 
 .shortcuts-dialog {
   width: min(100%, 380px);
-  background: var(--surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-card);
@@ -3089,11 +3140,10 @@ h4 {
 
 .theme-selector__menu {
   padding: 10px;
-  background: var(--surface);
+  background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card), 0 16px 48px rgba(19, 40, 76, 0.14);
-  backdrop-filter: blur(16px);
   overflow-y: auto;
 }
 
@@ -3391,7 +3441,7 @@ h4 {
   min-height: 52px;
   padding: 0;
   justify-content: center;
-  background: var(--surface);
+  background: var(--bg-elevated);
   color: var(--text);
   border-color: var(--border-strong);
   box-shadow: 0 8px 20px color-mix(in srgb, #000 12%, transparent);
@@ -3422,8 +3472,11 @@ h4 {
   height: min(640px, calc(100vh - 96px));
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  /* Opaque, not the translucent `--surface` dark themes use for in-flow cards —
+     this floats directly over live page content with no dimming scrim behind
+     it, so any transparency here reads as page content bleeding through it. */
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
   border-radius: 16px;
   box-shadow: 0 18px 44px color-mix(in srgb, #000 16%, transparent);
   overflow: hidden;
