@@ -4,7 +4,6 @@ import type {
   IpRecord,
   ProductRisk,
   RiskTrendView,
-  SecurityAlert,
   VendorRisk,
 } from '@/types';
 import type { CVEFlatRecord, DashboardData } from '@/types/data';
@@ -149,20 +148,6 @@ export function toSolutions(cves: Cve[]): CveSolution[] {
       status: cve.exploitKnown ? ('triage' as const) : ('open' as const),
       effort: cve.cvss >= 9 ? ('high' as const) : ('medium' as const),
       vendorFixAvailable: false,
-    }));
-}
-
-export function toAlerts(cves: Cve[]): SecurityAlert[] {
-  return cves
-    .filter((c) => c.exploitKnown || (c.epss ?? 0) >= 0.1 || c.severity === 'critical')
-    .sort(compareSolutionPriority)
-    .slice(0, 12)
-    .map((cve) => ({
-      id: `alert-${cve.id}-${cve.asset}`,
-      message: `${cve.id}: ${cve.summary}`,
-      severity: cve.severity,
-      source: cve.asset,
-      occurredAt: cve.publishedAt,
     }));
 }
 
@@ -348,7 +333,6 @@ export interface DerivedData {
   cves: Cve[];
   ips: IpRecord[];
   solutions: CveSolution[];
-  alerts: SecurityAlert[];
   riskTrendView: RiskTrendView;
   vendors: VendorRisk[];
   products: ProductRisk[];
@@ -363,7 +347,6 @@ export function deriveDashboardViews(data: DashboardData): DerivedData {
     cves,
     ips,
     solutions: toSolutions(cves),
-    alerts: toAlerts(cves),
     riskTrendView: toRiskTrendView(data),
     vendors,
     products,

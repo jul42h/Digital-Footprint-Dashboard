@@ -9,10 +9,12 @@ import { SEVERITY_COLOR } from "@/lib/severity";
 import { useDashboard } from "@/context/DashboardContext";
 import { useDashboardSummary } from "./useDashboardSummary";
 
-/** Compact actionable signals beside severity. */
+/** Exploitability-evidence signals beside severity. Counts that already sit in
+ * the posture bar above (critical issues, pending remediations) are deliberately
+ * not repeated here. */
 export function PrioritySignals() {
   const { data } = useDashboard();
-  const { critical, exploited, pendingRemediations } = useDashboardSummary();
+  const { exploited } = useDashboardSummary();
   const cves = useCves();
   const { openWithCves } = useAskAiUi();
 
@@ -52,18 +54,11 @@ export function PrioritySignals() {
       disabled: priorityIds.length === 0,
     },
     {
-      key: "critical",
-      label: "Critical issues",
-      value: critical,
-      tone: critical > 0 ? SEVERITY_COLOR.critical : undefined,
+      key: "verified",
+      label: "Verified exposures",
+      value: data.stats.verifiedFindings,
+      tone: undefined,
       to: "/cves",
-    },
-    {
-      key: "fixes",
-      label: "Pending remediations",
-      value: pendingRemediations,
-      tone: pendingRemediations > 0 ? SEVERITY_COLOR.high : undefined,
-      to: "/solutions",
     },
   ] as const;
 
@@ -96,6 +91,7 @@ export function PrioritySignals() {
                 className="priority-signals__action"
                 disabled={"disabled" in row ? row.disabled : false}
                 onClick={"action" in row ? row.action : undefined}
+                title="Open Ask AI with these findings selected"
               >
                 {"actionLabel" in row ? row.actionLabel : "Open"}
               </button>

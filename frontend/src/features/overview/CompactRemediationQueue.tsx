@@ -34,7 +34,7 @@ export function CompactRemediationQueue({
   const body = (
     <div className="remediation-queue">
       {queue.length === 0 ? (
-        <p className="geo-map__empty">No pending remediations for critical or high findings.</p>
+        <p className="empty-note">No pending remediations for critical or high findings.</p>
       ) : (
         queue.map(({ item, cve }) =>
           cve ? (

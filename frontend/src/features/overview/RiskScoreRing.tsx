@@ -1,23 +1,18 @@
 import { SEVERITY_COLOR } from "@/lib/severity";
+import { riskRatingLabel } from "@/utils/summaryGenerator";
 import { useDashboardSummary } from "./useDashboardSummary";
 
+/** Tone per rating band — bands match riskRatingLabel (Lambda RISK_RATINGS). */
 function riskTone(score: number): string {
-  if (score >= 70) return SEVERITY_COLOR.critical;
-  if (score >= 40) return SEVERITY_COLOR.high;
-  if (score >= 20) return SEVERITY_COLOR.medium;
+  if (score >= 90) return SEVERITY_COLOR.critical;
+  if (score >= 75) return SEVERITY_COLOR.high;
+  if (score >= 50) return SEVERITY_COLOR.medium;
   return SEVERITY_COLOR.low;
-}
-
-export function riskLabel(score: number): string {
-  if (score >= 70) return "Critical";
-  if (score >= 40) return "Elevated";
-  if (score >= 20) return "Moderate";
-  return "Low";
 }
 
 /** Circular exposure score for Home. */
 export function RiskScoreRing() {
-  const { exposureScore, exposureDelta } = useDashboardSummary();
+  const { exposureScore } = useDashboardSummary();
   const clamped = Math.max(0, Math.min(100, exposureScore));
   const tone = riskTone(clamped);
   const size = 120;
@@ -55,13 +50,7 @@ export function RiskScoreRing() {
         <span className="risk-ring__score" style={{ color: tone }}>
           {clamped}
         </span>
-        <span className="risk-ring__label">{riskLabel(clamped)}</span>
-        {exposureDelta !== 0 && (
-          <span className={`risk-ring__delta${exposureDelta > 0 ? " risk-ring__delta--up" : ""}`}>
-            {exposureDelta > 0 ? "+" : ""}
-            {exposureDelta}
-          </span>
-        )}
+        <span className="risk-ring__label">{riskRatingLabel(clamped)}</span>
       </div>
     </div>
   );

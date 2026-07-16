@@ -52,11 +52,6 @@ export interface ThreatCount {
   count: number;
 }
 
-export interface RiskPoint {
-  date: string; // e.g. "Jun 14"
-  score: number; // 0 - 100 aggregate risk score
-}
-
 export type RiskTrendVariant =
   | "timeline"
   | "hourly"
@@ -97,14 +92,6 @@ export interface IpRecord {
   isp?: string;
   services?: string[];
   scanTypes?: string[];
-}
-
-export interface SecurityAlert {
-  id: string;
-  message: string;
-  severity: Severity;
-  source: string;
-  occurredAt: string; // ISO 8601
 }
 
 export type SolutionStatus = "open" | "triage" | "assigned" | "resolved";

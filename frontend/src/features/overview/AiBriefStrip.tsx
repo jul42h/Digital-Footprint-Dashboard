@@ -142,7 +142,7 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
       parts.push(`${n} asset${n === 1 ? "" : "s"}`);
     }
     if (data?.risk_score) {
-      parts.push(`Risk score ${data.risk_score.score} (${data.risk_score.rating})`);
+      parts.push(`AI risk score ${data.risk_score.score} (${data.risk_score.rating})`);
     }
     if (hasBrief && ageMs != null) {
       parts.push(`Updated ${formatAge(ageMs)}`);
@@ -228,6 +228,7 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
           className="ai-brief__ask ai-brief__ask--secondary"
           onClick={() => openWithCves(focusIds)}
           disabled={focusCount === 0 || loading}
+          title="Open Ask AI with the top findings selected"
         >
           Analyze
         </button>

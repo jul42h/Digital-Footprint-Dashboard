@@ -4,6 +4,7 @@ import { ChatMessageBubble, TypingIndicator } from "./ChatMessage";
 import { useAskAiUi } from "./AskAiContext";
 import { useCveAnalysisChat } from "./useAskAiChat";
 import { pickKevCveIds, pickPriorityCveIds } from "./cveSelection";
+import { GUIDED_QUESTION_GROUPS } from "./guidedQuestions";
 import {
   ANALYZE_PRESETS,
   MAX_CVE_IDS_PER_REQUEST,
@@ -84,11 +85,10 @@ function AskAiPanel({
 
   const [intent, setIntent] = useState<PanelIntent>("insights");
   // A deep-link with preselected CVEs (from Home / Priority signals) means the user
-  // wants CVE-scoped analysis; otherwise default to the free-text Ask tab.
+  // wants CVE-scoped analysis; otherwise default to the guided Ask tab.
   const [panelMode, setPanelMode] = useState<"ask" | "select">(
     pendingCveIds?.length ? "select" : "ask",
   );
-  const [question, setQuestion] = useState("");
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,17 +107,10 @@ function AskAiPanel({
   const picks = pickPriorityCveIds(cves, MAX_CVE_IDS_PER_REQUEST);
   const kevAvailable = pickKevCveIds(cves, 1).length > 0;
   const canRun = selectedIds.length > 0 && !loading;
-  const canAsk = question.trim().length > 0 && !loading;
 
   const run = () => {
     if (!canRun) return;
     void analyze(selectedIds, intent as AnalysisIntent);
-  };
-
-  const submitQuestion = () => {
-    if (!canAsk) return;
-    void ask(question);
-    setQuestion("");
   };
 
   return (
@@ -127,7 +120,7 @@ function AskAiPanel({
           <h2 className="ask-ai-panel__title">Ask AI</h2>
           <p className="ask-ai-panel__sub">
             {panelMode === "ask"
-              ? "Ask a question about your footprint"
+              ? "Guided risk questions, answered from your footprint"
               : "Risk insights for selected findings"}
           </p>
         </div>
@@ -146,20 +139,20 @@ function AskAiPanel({
         </div>
       </header>
 
-      <div className="ask-ai-panel__modes" role="tablist" aria-label="Assistant mode">
+      <div className="ask-ai-panel__modes" role="radiogroup" aria-label="Assistant mode">
         <button
           type="button"
-          role="tab"
-          aria-selected={panelMode === "ask"}
+          role="radio"
+          aria-checked={panelMode === "ask"}
           className={`ask-ai-mode${panelMode === "ask" ? " ask-ai-mode--on" : ""}`}
           onClick={() => setPanelMode("ask")}
         >
-          Ask
+          Guided questions
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={panelMode === "select"}
+          role="radio"
+          aria-checked={panelMode === "select"}
           className={`ask-ai-mode${panelMode === "select" ? " ask-ai-mode--on" : ""}`}
           onClick={() => setPanelMode("select")}
         >
@@ -172,12 +165,11 @@ function AskAiPanel({
           <div className="ask-ai-empty">
             {panelMode === "ask" ? (
               <>
-                <p className="ask-ai-empty__title">Ask about your footprint</p>
-                <ol className="ask-ai-empty__steps">
-                  <li>What should we fix first?</li>
-                  <li>Which assets are highest risk?</li>
-                  <li>Are there signs of active exploitation?</li>
-                </ol>
+                <p className="ask-ai-empty__title">Guided risk questions</p>
+                <p className="ask-ai-empty__hint">
+                  Pick a question below. The assistant answers only from your scanned
+                  data — there is no open-ended chat here by design.
+                </p>
               </>
             ) : (
               <>
@@ -200,33 +192,26 @@ function AskAiPanel({
 
       <footer className="ask-ai-panel__footer">
         {panelMode === "ask" ? (
-          <form
-            className="ask-ai-ask-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitQuestion();
-            }}
-          >
-            <textarea
-              className="ask-ai-ask-input"
-              placeholder="e.g. What should we fix first?"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  submitQuestion();
-                }
-              }}
-              rows={2}
-              maxLength={500}
-              disabled={loading}
-              aria-label="Ask a question about your footprint"
-            />
-            <button type="submit" className="ask-ai-run" disabled={!canAsk}>
-              {loading ? "Asking…" : "Ask"}
-            </button>
-          </form>
+          <div className="ask-ai-guided" role="group" aria-label="Guided questions">
+            {GUIDED_QUESTION_GROUPS.map((group) => (
+              <div key={group.id} className="ask-ai-footer__block">
+                <span className="ask-ai-footer__label">{group.label}</span>
+                <div className="ask-ai-guided-list">
+                  {group.items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="ask-ai-guided-btn"
+                      disabled={loading}
+                      onClick={() => void ask(item.question)}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
           <>
             <div className="ask-ai-footer__block">

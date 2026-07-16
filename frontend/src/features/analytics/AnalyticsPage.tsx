@@ -18,14 +18,18 @@ import { buildAnalyticsData, buildChartData, buildDomainFootprint } from "@/util
 import { formatMonthKey } from "@/utils/dateUtils";
 import { computeNetworkRiskScore } from "@/utils/summaryGenerator";
 import { severityColorValue } from "@/lib/severity";
-import { GeoExposureMap } from "@/features/overview/GeoExposureMap";
+import { GeoExposureMap } from "./GeoExposureMap";
 
 export function AnalyticsPage() {
   const { data } = useDashboard();
   const charts = buildChartData(data);
   const analytics = buildAnalyticsData(data);
   const domains = buildDomainFootprint(data);
-  const riskScore = computeNetworkRiskScore(data.stats);
+  const maxEpss = data.cveRecords.reduce<number | null>((max, record) => {
+    const epss = record.cve.epss ?? record.cve.rankingEpss;
+    return epss != null && (max == null || epss > max) ? epss : max;
+  }, null);
+  const riskScore = computeNetworkRiskScore(data.stats, maxEpss);
 
   const cvesOverTime = charts.cvesOverTime.map((entry) => ({
     name: formatMonthKey(entry.month),
@@ -40,7 +44,13 @@ export function AnalyticsPage() {
       />
 
       <div className="kpi-strip">
-        <KpiCard kpi={{ label: "Exposure score", value: String(riskScore), tone: riskScore >= 70 ? "critical" : "neutral" }} />
+        <KpiCard
+          kpi={{
+            label: "Exposure score",
+            value: String(riskScore),
+            tone: riskScore >= 75 ? "critical" : riskScore >= 50 ? "high" : "neutral",
+          }}
+        />
         <KpiCard kpi={{ label: "Unique CVEs", value: String(data.stats.uniqueCVEs), tone: "neutral" }} />
         <KpiCard kpi={{ label: "Known exploited", value: String(data.stats.kevFindings), tone: data.stats.kevFindings > 0 ? "critical" : "neutral" }} />
         <KpiCard kpi={{ label: "High EPSS", value: String(data.stats.highEpssFindings), tone: data.stats.highEpssFindings > 0 ? "high" : "neutral" }} />
@@ -91,7 +101,7 @@ function AnalyticsBarCard({
   if (data.length === 0) {
     return (
       <Card title={title} className="chart-card">
-        <p className="geo-map__empty">No data for this chart.</p>
+        <p className="empty-note">No data for this chart.</p>
       </Card>
     );
   }
@@ -134,7 +144,7 @@ function AnalyticsPieCard({ title, data }: { title: string; data: Array<{ name: 
   if (filtered.length === 0) {
     return (
       <Card title={title} className="chart-card">
-        <p className="geo-map__empty">No data for this chart.</p>
+        <p className="empty-note">No data for this chart.</p>
       </Card>
     );
   }

@@ -50,8 +50,8 @@ export const HELP_TEXT = {
     "Snapshot of exposure, priority signals, and where to act.",
   postureBar:
     "Key counts from the latest scan. Select a metric to open the related list.",
-  exposureScore: "Overall footprint risk from 0–100. Higher means greater exposure.",
-  severityDonut: "Unique CVEs grouped by CVSS severity.",
+  exposureScore:
+    "Whole-footprint risk from 0–100, weighted by known exploitation, severity mix, and asset spread — the same model behind the AI risk score.",
   prioritySignals: "Exploitability and urgency cues you can act on immediately.",
   aiBrief: "Whole-system AI summary of overall posture, main risks, and the most important next step.",
   topCriticalFindings: "The highest-risk findings behind the AI summary above.",

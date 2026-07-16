@@ -17,7 +17,7 @@ export function TopCriticalFindings() {
   const top = useMemo(() => pickPriorityCves(cves, DEFAULT_PRIORITY_COUNT), [cves]);
 
   if (!top.length) {
-    return <p className="geo-map__empty">No findings loaded yet.</p>;
+    return <p className="empty-note">No findings loaded yet.</p>;
   }
 
   return (

@@ -52,8 +52,8 @@ export function GuidePage() {
               remediation status.
             </li>
             <li>
-              Optional: floating <strong>Ask AI</strong> to ask a question or get a deeper write-up
-              on selected findings.
+              Optional: floating <strong>Ask AI</strong> for guided risk questions or a deeper
+              write-up on selected findings.
             </li>
           </ol>
         </Card>
