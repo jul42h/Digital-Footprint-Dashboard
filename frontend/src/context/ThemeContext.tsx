@@ -11,7 +11,7 @@ import {
   DEFAULT_THEME_ID,
   THEME_STORAGE_KEY,
   getThemeDefinition,
-  isThemeId,
+  migrateThemeId,
   type ThemeId,
 } from "@/lib/themes";
 
@@ -25,12 +25,17 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 function readStoredTheme(): ThemeId {
   try {
     const stored = localStorage.getItem(THEME_STORAGE_KEY);
-    if (isThemeId(stored)) return stored;
+    const migrated = migrateThemeId(stored);
+    if (migrated) {
+      if (migrated !== stored) localStorage.setItem(THEME_STORAGE_KEY, migrated);
+      return migrated;
+    }
   } catch {
     // localStorage unavailable
   }
   const attr = document.documentElement.getAttribute("data-theme");
-  if (isThemeId(attr)) return attr;
+  const migratedAttr = migrateThemeId(attr);
+  if (migratedAttr) return migratedAttr;
   return DEFAULT_THEME_ID;
 }
 
@@ -51,6 +56,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [themeId]);
 
   const setThemeId = useCallback((id: ThemeId) => {
+    /* Apply synchronously, not just via the effect above: some charts read
+       resolved CSS custom properties (getComputedStyle) during render to
+       fill SVG attributes that can't take var(). Those consumer components
+       re-render in the same pass as this context update, which is before
+       the effect above would run — so the DOM attribute has to already be
+       current by then, or they'd paint with the outgoing theme's colors. */
+    applyTheme(id);
     setThemeIdState(id);
   }, []);
 

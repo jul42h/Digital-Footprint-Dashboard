@@ -36,9 +36,6 @@ const VendorDetailPage = lazy(() =>
 const AnalyticsPage = lazy(() =>
   import("@/features/analytics/AnalyticsPage").then((m) => ({ default: m.AnalyticsPage })),
 );
-const AskAiPage = lazy(() =>
-  import("@/features/ask-ai/AskAiPage").then((m) => ({ default: m.AskAiPage })),
-);
 const GuidePage = lazy(() =>
   import("@/features/guide/GuidePage").then((m) => ({ default: m.GuidePage })),
 );
@@ -140,14 +137,6 @@ export const router = createBrowserRouter([
         element: (
           <LazyPage>
             <AnalyticsPage />
-          </LazyPage>
-        ),
-      },
-      {
-        path: "/ask",
-        element: (
-          <LazyPage>
-            <AskAiPage />
           </LazyPage>
         ),
       },

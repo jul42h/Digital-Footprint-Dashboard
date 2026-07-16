@@ -3,7 +3,6 @@ import type {
   CveSolution,
   IpRecord,
   ProductRisk,
-  RiskTrendView,
   VendorRisk,
 } from '@/types';
 import type { CVEFlatRecord, DashboardData } from '@/types/data';
@@ -11,19 +10,6 @@ import { compareSolutionPriority, exploitabilityScore } from '@/lib/exploitabili
 import { inferThreatType } from '@/lib/inferThreat';
 import { countryLabel, normalizeCountryCode } from '@/lib/geo';
 import { cvssToSeverity, sourceSeverityToUi } from '@/lib/severity';
-import {
-  formatDayKey,
-  formatHourLabel,
-  formatShortDay,
-  parseDate,
-  toDayKey,
-} from '@/utils/dateUtils';
-import {
-  buildChartData,
-  buildExploitabilitySignals,
-  buildScanSourceData,
-} from '@/utils/chartData';
-
 const CVE_ID_PATTERN = /^CVE-\d{4}-\d+/i;
 
 function isRealCveId(id: string): boolean {
@@ -151,105 +137,6 @@ export function toSolutions(cves: Cve[]): CveSolution[] {
     }));
 }
 
-function pickObservationFallback(data: DashboardData): RiskTrendView {
-  const scanSources = buildScanSourceData(data);
-  if (scanSources.length > 0) {
-    return {
-      variant: 'scan-sources',
-      title: 'Scan sources',
-      subtitle: 'Single observation window — where findings in this snapshot originated.',
-      points: scanSources.map((source) => ({ label: source.name, value: source.count })),
-    };
-  }
-
-  const ports = buildChartData(data).portHeatmap.slice(0, 8);
-  if (ports.length > 0) {
-    return {
-      variant: 'ports',
-      title: 'Findings by port',
-      subtitle: 'Single observation window — breakdown by affected port.',
-      points: ports.map((entry) => ({ label: entry.port, value: entry.count })),
-    };
-  }
-
-  const signals = buildExploitabilitySignals(data);
-  if (signals.length > 0) {
-    return {
-      variant: 'exploitability',
-      title: 'Exploitability signals',
-      subtitle: 'Single observation window — active risk indicators in this snapshot.',
-      points: signals,
-    };
-  }
-
-  return {
-    variant: 'timeline',
-    title: 'Observation timeline',
-    subtitle: 'Not enough dated observations to chart a trend or breakdown.',
-    points: [],
-  };
-}
-
-export function toRiskTrendView(data: DashboardData): RiskTrendView {
-  const datedRecords: Date[] = [];
-
-  for (const record of data.cveRecords) {
-    const date = parseDate(record.cve.publishedDate);
-    if (date) datedRecords.push(date);
-  }
-
-  if (datedRecords.length === 0) {
-    return pickObservationFallback(data);
-  }
-
-  const dayBuckets = new Map<string, number>();
-  for (const date of datedRecords) {
-    const dayKey = toDayKey(date);
-    dayBuckets.set(dayKey, (dayBuckets.get(dayKey) ?? 0) + 1);
-  }
-
-  if (dayBuckets.size >= 2) {
-    const points = [...dayBuckets.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-14)
-      .map(([dayKey, value]) => ({
-        label: formatShortDay(dayKey),
-        value,
-      }));
-
-    return {
-      variant: 'timeline',
-      title: 'Observation timeline',
-      subtitle: 'Findings grouped by observation day from scan timestamps.',
-      points,
-    };
-  }
-
-  const hourBuckets = new Map<number, number>();
-  for (const date of datedRecords) {
-    hourBuckets.set(date.getHours(), (hourBuckets.get(date.getHours()) ?? 0) + 1);
-  }
-
-  if (hourBuckets.size >= 2) {
-    const dayKey = [...dayBuckets.keys()][0];
-    const points = [...hourBuckets.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([hour, value]) => ({
-        label: formatHourLabel(hour),
-        value,
-      }));
-
-    return {
-      variant: 'hourly',
-      title: 'Observations by hour',
-      subtitle: `Findings observed on ${formatDayKey(dayKey)}.`,
-      points,
-    };
-  }
-
-  return pickObservationFallback(data);
-}
-
 export function toVendorsAndProducts(data: DashboardData): {
   vendors: VendorRisk[];
   products: ProductRisk[];
@@ -333,7 +220,6 @@ export interface DerivedData {
   cves: Cve[];
   ips: IpRecord[];
   solutions: CveSolution[];
-  riskTrendView: RiskTrendView;
   vendors: VendorRisk[];
   products: ProductRisk[];
 }
@@ -347,7 +233,6 @@ export function deriveDashboardViews(data: DashboardData): DerivedData {
     cves,
     ips,
     solutions: toSolutions(cves),
-    riskTrendView: toRiskTrendView(data),
     vendors,
     products,
   };

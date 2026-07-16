@@ -17,10 +17,16 @@ import { useDashboard } from "@/context/DashboardContext";
 import { buildAnalyticsData, buildChartData, buildDomainFootprint } from "@/utils/chartData";
 import { formatMonthKey } from "@/utils/dateUtils";
 import { computeNetworkRiskScore } from "@/utils/summaryGenerator";
-import { severityColorValue } from "@/lib/severity";
+import { chartCategoryColor } from "@/lib/severity";
+import { useTheme } from "@/context/ThemeContext";
 import { GeoExposureMap } from "./GeoExposureMap";
 
 export function AnalyticsPage() {
+  /* Chart colors below are resolved from CSS custom properties at render
+     time (SVG fill attributes can't take var() the way inline styles can),
+     so this page must re-render on theme change or the charts keep painting
+     the previous theme's colors. */
+  useTheme();
   const { data } = useDashboard();
   const charts = buildChartData(data);
   const analytics = buildAnalyticsData(data);
@@ -46,7 +52,7 @@ export function AnalyticsPage() {
       <div className="kpi-strip">
         <KpiCard
           kpi={{
-            label: "Exposure score",
+            label: "Risk score",
             value: String(riskScore),
             tone: riskScore >= 75 ? "critical" : riskScore >= 50 ? "high" : "neutral",
           }}
@@ -95,7 +101,7 @@ function AnalyticsBarCard({
   data: Array<{ name: string; count: number }>;
   horizontal?: boolean;
 }) {
-  const accent = severityColorValue("high");
+  const accent = chartCategoryColor(0);
   const height = horizontal ? Math.max(160, data.length * 36 + 24) : 220;
 
   if (data.length === 0) {
@@ -138,8 +144,8 @@ function AnalyticsBarCard({
 }
 
 function AnalyticsPieCard({ title, data }: { title: string; data: Array<{ name: string; value: number }> }) {
-  const colors = ["#e0463f", "#e2742a", "#d9a21b", "#3b8fd6", "#5a9e6f", "#8a92a0"];
   const filtered = data.filter((d) => d.value > 0);
+  const total = filtered.reduce((sum, d) => sum + d.value, 0);
 
   if (filtered.length === 0) {
     return (
@@ -149,22 +155,42 @@ function AnalyticsPieCard({ title, data }: { title: string; data: Array<{ name: 
     );
   }
 
+  const chartData = filtered.map((entry, i) => ({ ...entry, color: chartCategoryColor(i) }));
+
   return (
     <Card title={title} className="chart-card">
       <div className="chart-card__body">
-        <div style={{ height: 220, width: "100%" }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={filtered} dataKey="value" nameKey="name" innerRadius="50%" outerRadius="80%" paddingAngle={2} stroke="none">
-                {filtered.map((entry, i) => (
-                  <Cell key={entry.name} fill={colors[i % colors.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 8, fontSize: 12 }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+        <div className="chart-donut">
+          <div className="chart-donut__visual">
+            <div className="chart-donut__chart">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={chartData} dataKey="value" nameKey="name" innerRadius="68%" outerRadius="88%" paddingAngle={2} stroke="none">
+                    {chartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: "var(--surface)", border: "0.5px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="donut-center">
+                <span className="donut-center__value">{total}</span>
+                <span className="donut-center__label">total</span>
+              </div>
+            </div>
+          </div>
+
+          <ul className="donut-legend chart-donut__legend">
+            {chartData.map((entry) => (
+              <li key={entry.name} className="donut-legend__item">
+                <span className="donut-legend__swatch" style={{ background: entry.color }} />
+                <span className="donut-legend__label">{entry.name}</span>
+                <span className="donut-legend__count">{entry.value}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </Card>

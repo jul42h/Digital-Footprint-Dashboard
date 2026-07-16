@@ -4,6 +4,57 @@ import { sanitizeAiText } from "./sanitizeAiText";
 import type { AnalysisIntent, ChatMessage as ChatMessageType } from "./types";
 import { INTENT_USER_LABEL } from "./types";
 
+const CVE_PREVIEW_COUNT = 2;
+
+function RelatedCves({ ids }: { ids: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!ids.length) return null;
+
+  if (ids.length === 1) {
+    return (
+      <div className="ask-ai-msg__cves">
+        <Link to={`/cves/${ids[0]}`} className="ask-ai-chip">
+          {ids[0]}
+        </Link>
+      </div>
+    );
+  }
+
+  const visible = expanded ? ids : ids.slice(0, CVE_PREVIEW_COUNT);
+  const hidden = ids.length - visible.length;
+
+  return (
+    <div className="ask-ai-msg__cves">
+      <span className="ask-ai-msg__cves-label">
+        {ids.length} related finding{ids.length === 1 ? "" : "s"}
+      </span>
+      {visible.map((id) => (
+        <Link key={id} to={`/cves/${id}`} className="ask-ai-chip">
+          {id}
+        </Link>
+      ))}
+      {hidden > 0 && (
+        <button
+          type="button"
+          className="ask-ai-chip ask-ai-chip--more"
+          onClick={() => setExpanded(true)}
+        >
+          +{hidden} more
+        </button>
+      )}
+      {expanded && ids.length > CVE_PREVIEW_COUNT && (
+        <button
+          type="button"
+          className="ask-ai-chip ask-ai-chip--more"
+          onClick={() => setExpanded(false)}
+        >
+          Show less
+        </button>
+      )}
+    </div>
+  );
+}
+
 function renderInline(text: string): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|CVE-\d{4}-\d{4,7})/gi);
   return parts.filter(Boolean).map((part, i) => {
@@ -166,13 +217,7 @@ export function ChatMessageBubble({ message }: { message: ChatMessageType }) {
             )}
           </div>
           {message.cveIds && message.cveIds.length > 0 && (
-            <div className="ask-ai-msg__cves">
-              {message.cveIds.map((id) => (
-                <Link key={id} to={`/cves/${id}`} className="ask-ai-chip">
-                  {id}
-                </Link>
-              ))}
-            </div>
+            <RelatedCves ids={message.cveIds} />
           )}
           <button type="button" className="ask-ai-msg__copy" onClick={() => void copy()}>
             {copied ? "Copied" : "Copy"}

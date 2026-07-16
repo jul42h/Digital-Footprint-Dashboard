@@ -27,9 +27,9 @@ function formatAge(ageMs: number): string {
   return `${hrs}h ago`;
 }
 
-/** Whole-system AI summary (Lambda intent "brief"). */
-export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "business" }) {
-  const business = variant === "business";
+/** Whole-system AI summary (Lambda intent "brief"). Rendered on the home page;
+ * the AI Risk Intelligence page links here rather than repeating the summary. */
+export function AiBriefStrip() {
   const { openWithCves } = useAskAiUi();
   const { data: dashboard } = useDashboard();
   const cves = useCves();
@@ -102,10 +102,10 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
       return;
     }
 
-    const decision = shouldAutoRefreshBrief(focusIds, signalKey);
+    const decision = shouldAutoRefreshBrief(focusIds, signalKey, postureFindings);
 
     if (!decision.refresh) {
-      const cached = peekCachedAnalysis(focusIds, "brief");
+      const cached = peekCachedAnalysis(focusIds, "brief", postureFindings);
       if (cached) {
         setData(cached);
         setAgeMs(decision.ageMs);
@@ -114,7 +114,7 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
         return;
       }
     } else {
-      const cached = peekCachedAnalysis(focusIds, "brief");
+      const cached = peekCachedAnalysis(focusIds, "brief", postureFindings);
       if (cached) {
         setData(cached);
         setAgeMs(decision.ageMs);
@@ -122,7 +122,7 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
     }
 
     void runBrief(true);
-  }, [focusKey, focusIds, signalKey, runBrief]);
+  }, [focusKey, focusIds, signalKey, postureFindings, runBrief]);
 
   const rawSummary = sanitizeAiText(data?.ai_summary);
   const hasBrief = Boolean(rawSummary);
@@ -162,21 +162,9 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
   };
 
   return (
-    <section
-      className={`ai-brief${business ? " ai-brief--business" : ""}`}
-      aria-label="AI brief"
-    >
-      {!business && (
-        <div className="ai-brief__meta">
-          <span className="ai-brief__meta-label">AI summary</span>
-          <span className="ai-brief__meta-count">
-            {setSize === 0 ? "—" : `${setSize} finding${setSize === 1 ? "" : "s"}`}
-          </span>
-        </div>
-      )}
-
+    <section className="ai-brief ai-brief--business" aria-label="AI brief">
       <div className="ai-brief__body">
-        {business && scopeLine && <p className="ai-brief__scope">{scopeLine}</p>}
+        {scopeLine && <p className="ai-brief__scope">{scopeLine}</p>}
 
         {loading && !hasBrief ? (
           <p className="ai-brief__summary ai-brief__summary--skeleton" aria-live="polite">
@@ -230,7 +218,7 @@ export function AiBriefStrip({ variant = "default" }: { variant?: "default" | "b
           disabled={focusCount === 0 || loading}
           title="Open Ask AI with the top findings selected"
         >
-          Analyze
+          Ask AI
         </button>
       </div>
     </section>

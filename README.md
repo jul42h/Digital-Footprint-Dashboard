@@ -1,8 +1,12 @@
 # Digital Footprint Dashboard
 
-Fresno State cybersecurity dashboard for external footprint visibility — CVEs, IP assets, remediations, vendors, and analytics. Served by the **footprint-api** FastAPI app with live DynamoDB data.
+Fresno State **AI Risk Intelligence** dashboard for external footprint visibility.
+Scan findings from DynamoDB power curated AI summaries, risk scoring, threat context,
+and remediation priorities — plus inventory pages for CVEs, assets, vendors, and analytics.
 
-**Full architecture and section-by-section guide:** [DASHBOARD.md](./DASHBOARD.md) — includes data ingestion from DynamoDB, field mapping, and how metrics are calculated.
+Served by the **footprint-api** FastAPI app with live DynamoDB data.
+
+**Full architecture and section-by-section guide:** [DASHBOARD.md](./DASHBOARD.md)
 
 ## Project structure
 
@@ -10,7 +14,7 @@ Fresno State cybersecurity dashboard for external footprint visibility — CVEs,
 |------|-------------|
 | `frontend/` | React dashboard (Vite + TypeScript, Fresno State branding) |
 | `frontend/dist/` | Production build output (served by FastAPI) |
-| `footprint-api/` | FastAPI server (DynamoDB + static UI) |
+| `footprint-api/` | FastAPI server (DynamoDB + AI Lambda relay + static UI) |
 | `frontend_mount.py` | SPA routing helper used by the API |
 
 ## Quick start
@@ -44,9 +48,9 @@ See `footprint-api/README.md` for endpoint details and environment variables.
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Overview — posture, severity, AI brief, top critical findings, remediation queue |
-| `/insights` | AI Risk Intelligence — whole-system AI summary, AI insights, explainable risk score, threat intelligence |
-| `/cves` | All security issues |
+| `/` | Risk intelligence **home** — AI summary, risk score, threat signals, top findings, highest-risk assets, prioritized remediation |
+| `/insights` | Full **AI Risk Intelligence** — curated panels for every Lambda intent |
+| `/cves` | Security issues inventory |
 | `/threats` | Threat category guide |
 | `/ips` | Scanned IP assets |
 | `/solutions` | Remediation tracking |
@@ -54,6 +58,8 @@ See `footprint-api/README.md` for endpoint details and environment variables.
 | `/analytics` | Deeper charts — geography, ports, OS |
 | `/guide` | Metric & terminology reference |
 | `/settings` | Data source and remediation preferences |
+
+**Ask AI** is the floating panel (bottom-right FAB), not a sidebar route: guided questions, CVE lookup, and remediation for a selected set of findings.
 
 ## Optional: Vite dev server
 

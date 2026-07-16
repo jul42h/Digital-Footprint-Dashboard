@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
 import { pickKevCveIds, pickPriorityCveIds } from "@/features/ask-ai/cveSelection";
-import { MAX_CVE_IDS_PER_REQUEST } from "@/features/ask-ai/types";
+import { EPSS_NOTABLE, MAX_CVE_IDS_PER_REQUEST } from "@/features/ask-ai/types";
 import { useCves } from "@/features/cves/hooks";
 import { HELP_TEXT } from "@/lib/copy";
 import { SEVERITY_COLOR } from "@/lib/severity";
@@ -19,7 +19,7 @@ export function PrioritySignals() {
   const { openWithCves } = useAskAiUi();
 
   const epssHigh = useMemo(
-    () => cves.filter((c) => c.epss != null && c.epss >= 0.5).length,
+    () => cves.filter((c) => c.epss != null && c.epss >= EPSS_NOTABLE).length,
     [cves],
   );
 
@@ -41,16 +41,16 @@ export function PrioritySignals() {
       action: () => {
         if (kevIds.length) openWithCves(kevIds);
       },
-      actionLabel: "Analyze",
+      actionLabel: "Ask AI",
       disabled: kevIds.length === 0,
     },
     {
       key: "epss",
-      label: "High EPSS (≥0.5)",
+      label: `High EPSS (≥${EPSS_NOTABLE})`,
       value: epssHigh,
       tone: epssHigh > 0 ? SEVERITY_COLOR.medium : undefined,
       action: () => openWithCves(priorityIds),
-      actionLabel: "Analyze",
+      actionLabel: "Ask AI",
       disabled: priorityIds.length === 0,
     },
     {

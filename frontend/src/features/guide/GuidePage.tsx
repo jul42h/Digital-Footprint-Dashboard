@@ -35,8 +35,8 @@ export function GuidePage() {
           </p>
           <ol className="guide-start-list">
             <li>
-              <strong>Measure</strong> — <Link to="/">{NAV_LABELS.home}</Link> posture counts and
-              exposure score.
+              <strong>Measure</strong> — <Link to="/">{NAV_LABELS.home}</Link> AI summary, risk score,
+              and posture counts.
             </li>
             <li>
               <strong>Understand</strong> — AI brief on Home (refreshes every 2 hours or when top

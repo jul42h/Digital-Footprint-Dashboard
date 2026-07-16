@@ -46,3 +46,23 @@ export function severityColorValue(severity: Severity): string {
     .getPropertyValue(`--sev-${severity}`)
     .trim();
 }
+
+/* Non-severity categorical charts (e.g. OS/domain breakdowns) still need to
+   stay on-brand and theme-aware rather than an arbitrary rainbow palette.
+   Every var here is already remapped per-theme for AA contrast on dark
+   backgrounds (see the dark-theme overrides above), unlike fixed brand
+   color values. */
+const CHART_CATEGORY_VARS = [
+  "--chart-primary",
+  "--chart-secondary",
+  "--chart-tertiary",
+  "--chart-quaternary",
+  "--chart-fifth",
+  "--chart-sixth",
+];
+
+export function chartCategoryColor(index: number): string {
+  if (typeof window === "undefined") return "#888";
+  const name = CHART_CATEGORY_VARS[index % CHART_CATEGORY_VARS.length];
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}

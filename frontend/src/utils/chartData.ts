@@ -1,5 +1,4 @@
 import type { DashboardData } from '@/types/data';
-import { formatScanTypeLabel } from '@/lib/exploitability';
 import { countryLabel, normalizeCountryCode } from '@/lib/geo';
 import { toMonthKey } from '@/utils/dateUtils';
 
@@ -128,23 +127,6 @@ export function buildAnalyticsData(data: DashboardData) {
     countryDistribution,
     avgCVSSByOrg,
   };
-}
-
-export function buildExploitabilitySignals(data: DashboardData) {
-  const { stats } = data;
-  return [
-    { label: 'KEV', value: stats.kevFindings },
-    { label: 'High EPSS', value: stats.highEpssFindings },
-    { label: 'Verified', value: stats.verifiedFindings },
-    { label: 'Critical', value: stats.criticalCVEs },
-  ].filter((entry) => entry.value > 0);
-}
-
-export function buildScanSourceData(data: DashboardData) {
-  const counts = data.scanSourceCounts ?? {};
-  return Object.entries(counts)
-    .map(([name, count]) => ({ name: formatScanTypeLabel(name), rawName: name, count }))
-    .sort((a, b) => b.count - a.count);
 }
 
 export function buildDomainFootprint(data: DashboardData) {

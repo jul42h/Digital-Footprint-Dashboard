@@ -52,25 +52,6 @@ export interface ThreatCount {
   count: number;
 }
 
-export type RiskTrendVariant =
-  | "timeline"
-  | "hourly"
-  | "scan-sources"
-  | "ports"
-  | "exploitability";
-
-export interface RiskTrendPoint {
-  label: string;
-  value: number;
-}
-
-export interface RiskTrendView {
-  variant: RiskTrendVariant;
-  title: string;
-  subtitle?: string;
-  points: RiskTrendPoint[];
-}
-
 export interface IpRecord {
   address: string;
   hostname: string;

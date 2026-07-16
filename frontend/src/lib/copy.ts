@@ -47,30 +47,31 @@ export const LABELS = {
 /** Short explanations under page headers and key sections. */
 export const HELP_TEXT = {
   homePage:
-    "Snapshot of exposure, priority signals, and where to act.",
+    "Risk intelligence command center — what matters most, why it matters, and what to fix first.",
   postureBar:
     "Key counts from the latest scan. Select a metric to open the related list.",
   exposureScore:
-    "Whole-footprint risk from 0–100, weighted by known exploitation, severity mix, and asset spread — the same model behind the AI risk score.",
-  prioritySignals: "Exploitability and urgency cues you can act on immediately.",
-  aiBrief: "Whole-system AI summary of overall posture, main risks, and the most important next step.",
-  topCriticalFindings: "The highest-risk findings behind the AI summary above.",
-  fixFirst: "Highest-priority remediations, ranked by known exploitation and severity.",
-  atRiskAssets: "Internet-facing hosts with open vulnerabilities, ordered by highest CVSS.",
+    "Overall risk from 0–100, weighted by known exploitation, severity mix, and asset spread.",
+  riskScoreHome:
+    "Overall risk from 0–100 based on exploitation, severity, and exposure.",
+  prioritySignals: "Exploitability signals you can act on or ask about right away.",
+  aiBrief: "Plain-language summary of posture, main risks, and the most important next step.",
+  topCriticalFindings: "Highest-priority findings that drive the summary above.",
+  fixFirst: "What to fix first, ranked by known exploitation and severity.",
+  atRiskAssets: "Hosts carrying the most risk right now.",
   insightsPage:
-    "Whole-system AI summary, prioritized insights, an explainable risk score, and threat intelligence — grounded only in your scanned data.",
-  aiSummarySection:
-    "One paragraph on overall posture, main risks, affected areas, and the most important next step — not a CVE list.",
-  aiInsightsSection:
-    "The most impactful, actionable findings, each with why it matters, risk level, and a recommended action.",
+    "Curated risk intelligence for the whole footprint — insights, score, threat context, findings, assets, and remediation.",
+  aiInsightsSection: "Actionable conclusions: what matters, why, and what to do.",
   riskScoreSection:
-    "A pipeline-computed 0–100 score with the evidence behind it — exploitation, severity, and exposure.",
+    "A 0–100 score with the evidence behind it — exploitation, severity, and exposure.",
   threatIntelSection:
-    "Exploitation and exposure signals from your own data only — this dashboard has no external threat-feed access.",
-  criticalFindingsSection:
-    "The individual findings needing attention first, with business impact and next action.",
-  riskAssetsSection:
-    "Which assets carry the most risk and why, ranked by evidence rather than finding count alone.",
+    "Exploitation and exposure signals from your scanned data only — no external threat feeds.",
+  criticalFindingsSection: "Findings that need attention first, with impact and next action.",
+  riskAssetsSection: "Which assets carry the most risk and why.",
+  remediateSection: "What to fix first, concrete actions, and how to confirm.",
+  askAiPage:
+    "Ask specific questions, look up a CVE, or get remediation for selected findings.",
+  homeNextActions: "Jump to deeper intelligence, ask a question, or start remediating.",
   geoMap:
     "Asset locations from Shodan geodata. City coordinates when available; otherwise country center.",
   geoMapEmpty: "No location data available for vulnerable assets in this dataset.",

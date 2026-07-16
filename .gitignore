@@ -8,3 +8,4 @@ __pycache__/
 .env
 AppData/
 .DS_Store
+LAMBDA_COPY_ME.py

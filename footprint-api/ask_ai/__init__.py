@@ -2,11 +2,18 @@
 
 Flow: POST /api/cve-analysis with findings (+ cve_ids) + intent → Lambda → ai_summary.
 
-Intents (Lambda prompt headings):
-  brief      — Risk Posture, What Stands Out, Priority Action (prose; top 5 findings)
-  analyze    — Summary, Top Risks, Why It Matters, Confidence and Gaps
-  remediate  — Priority Order, Recommended Actions, Validation, Limitations
-  next_steps — Immediate, This Week, Owners, Data Needed
+Intents (one per dashboard surface):
+  brief              — home/insights AI summary (prose)
+  insights           — AI Insights panel (sections)
+  risk_score         — risk score rationale (prose; score computed in Lambda)
+  threat_intel       — threat intelligence panel (sections)
+  critical_findings  — top critical findings (sections)
+  risk_assets        — highest-risk assets (sections)
+  remediate          — prioritized remediation (sections)
+  ask_ai             — Ask AI answers (prose; requires question)
+
+Legacy aliases accepted by the Lambda (not by this API's request model):
+  analyze → insights, next_steps → remediate
 """
 
 from ask_ai.cve_dashboard_api import router as cve_analysis_router

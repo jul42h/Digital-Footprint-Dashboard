@@ -1,17 +1,13 @@
-import { MAX_QUESTION_LENGTH } from "./types";
+import type { AnalysisIntent } from "./types";
 
 /**
- * Fixed question set for the Ask AI "Guided" tab. The dashboard intentionally
- * has no free-text input here — users pick one of these vetted questions
- * instead of typing anything, so every `ask_ai` request the model sees is one
- * this dashboard authored and reviewed, not arbitrary user text.
+ * Guided Ask AI chips. Prompt text for these ids lives in the Lambda
+ * (`ASK_AI_PRESETS` / `ASK_AI_TEMPLATES`) — the dashboard only sends ids + labels.
  */
 export interface GuidedQuestion {
   id: string;
   /** Button label, kept short. */
   label: string;
-  /** Exact text sent as the `question` — must stay answerable from dashboard data alone. */
-  question: string;
 }
 
 export interface GuidedQuestionGroup {
@@ -20,79 +16,128 @@ export interface GuidedQuestionGroup {
   items: GuidedQuestion[];
 }
 
+/** Follow-up chip: ask a predetermined question, or run a remediation plan. */
+export type FollowUpAction =
+  | {
+      id: string;
+      kind: "ask";
+      label: string;
+      questionId: string;
+      params?: Record<string, string>;
+    }
+  | { id: string; kind: "remediate"; label: string; cveIds?: string[] };
+
 export const GUIDED_QUESTION_GROUPS: GuidedQuestionGroup[] = [
   {
-    id: "priority",
-    label: "Priority & remediation",
+    id: "decide",
+    label: "Decide what to do",
     items: [
-      {
-        id: "fix-first",
-        label: "What should we fix first?",
-        question: "What should we fix first, and why?",
-      },
-      {
-        id: "remediation-priority",
-        label: "Highest-priority remediation",
-        question: "What remediation has the highest priority right now?",
-      },
+      { id: "fix-first", label: "What should we fix first?" },
+      { id: "quick-wins", label: "Fastest risk reduction" },
+      { id: "if-one-hour", label: "If we only had one hour" },
     ],
   },
   {
-    id: "risk",
-    label: "Risk & assets",
+    id: "explain",
+    label: "Explain the situation",
     items: [
-      {
-        id: "highest-risk-assets",
-        label: "Which assets are highest risk?",
-        question: "Which assets are the highest risk right now, and why?",
-      },
-      {
-        id: "risk-score-drivers",
-        label: "What's driving the risk score?",
-        question: "What is driving the current overall risk score?",
-      },
-    ],
-  },
-  {
-    id: "threat",
-    label: "Threat context",
-    items: [
-      {
-        id: "active-exploitation",
-        label: "Signs of active exploitation?",
-        question: "Are there signs of active exploitation in this data?",
-      },
-      {
-        id: "threat-intel",
-        label: "Relevant threat intelligence",
-        question: "What threat intelligence is relevant here?",
-      },
-    ],
-  },
-  {
-    id: "leadership",
-    label: "For leadership",
-    items: [
-      {
-        id: "leadership-summary",
-        label: "Summarize the top business risk",
-        question:
-          "Summarize the top business risk in plain language for a non-technical leadership audience.",
-      },
+      { id: "risk-score-drivers", label: "What's driving the risk score?" },
+      { id: "active-exploitation", label: "Any known exploitation?" },
+      { id: "leadership-summary", label: "Explain for leadership" },
     ],
   },
 ];
 
-// Every question is sent as the Lambda's `question` field, which is capped at
-// MAX_QUESTION_CHARS server-side — catch an over-long addition at dev time.
-if (import.meta.env.DEV) {
-  for (const group of GUIDED_QUESTION_GROUPS) {
-    for (const item of group.items) {
-      if (item.question.length > MAX_QUESTION_LENGTH) {
-        console.warn(
-          `Guided question "${item.id}" exceeds MAX_QUESTION_LENGTH (${MAX_QUESTION_LENGTH}).`,
-        );
-      }
-    }
+const ALL_GUIDED = GUIDED_QUESTION_GROUPS.flatMap((group) => group.items);
+
+function guidedById(id: string): GuidedQuestion | undefined {
+  return ALL_GUIDED.find((q) => q.id === id);
+}
+
+/** Optional next-step prompts after an assistant answer. */
+export function pickFollowUpActions(options: {
+  lastUserContent?: string;
+  cveIds?: string[];
+  intent?: AnalysisIntent | null;
+  limit?: number;
+}): FollowUpAction[] {
+  const limit = options.limit ?? 3;
+  const last = (options.lastUserContent ?? "").trim().toLowerCase();
+  const cveIds = options.cveIds ?? [];
+  const primaryCve = cveIds.length === 1 ? cveIds[0] : null;
+
+  const candidates: FollowUpAction[] = [];
+
+  if (primaryCve) {
+    candidates.push(
+      {
+        id: `remediate-${primaryCve}`,
+        kind: "remediate",
+        label: "Remediation plan",
+        cveIds: [primaryCve],
+      },
+      {
+        id: `impact-${primaryCve}`,
+        kind: "ask",
+        label: "Business impact?",
+        questionId: "cve-impact",
+        params: { cve_id: primaryCve },
+      },
+      {
+        id: `assets-${primaryCve}`,
+        kind: "ask",
+        label: "Which assets are affected?",
+        questionId: "cve-assets",
+        params: { cve_id: primaryCve },
+      },
+    );
+  } else if (cveIds.length > 1) {
+    candidates.push({
+      id: "remediate-discussed",
+      kind: "remediate",
+      label: "Remediation plan",
+      cveIds,
+    });
   }
+
+  const sharedIds =
+    options.intent === "remediate"
+      ? (["fix-first", "active-exploitation", "leadership-summary"] as const)
+      : ([
+          "fix-first",
+          "quick-wins",
+          "risk-score-drivers",
+          "active-exploitation",
+          "leadership-summary",
+        ] as const);
+
+  for (const id of sharedIds) {
+    const item = guidedById(id);
+    if (!item) continue;
+    candidates.push({
+      id: item.id,
+      kind: "ask",
+      label: item.label,
+      questionId: item.id,
+    });
+  }
+
+  const seen = new Set<string>();
+  const out: FollowUpAction[] = [];
+  for (const item of candidates) {
+    if (seen.has(item.id)) continue;
+    if (item.kind === "ask") {
+      const alreadyAsked =
+        last &&
+        (item.label.toLowerCase() === last ||
+          item.questionId === last ||
+          last.includes(item.label.toLowerCase().slice(0, 18)));
+      if (alreadyAsked) continue;
+    }
+    if (item.kind === "remediate" && options.intent === "remediate") continue;
+    seen.add(item.id);
+    out.push(item);
+    if (out.length >= limit) break;
+  }
+  return out;
 }

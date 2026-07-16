@@ -9,10 +9,15 @@
     <script>
       (function () {
         var key = "df-dashboard-theme";
-        var valid = ["fresno","fresno-dark","valley","valley-dark"];
+        var valid = ["fresno", "fresno-dark", "valley-pride"];
+        var legacyValleyThemes = ["valley", "valley-dark", "valley-pride-dark"];
         try {
           var stored = localStorage.getItem(key);
-          if (stored && valid.indexOf(stored) !== -1) {
+          if (legacyValleyThemes.indexOf(stored) !== -1) {
+            stored = "valley-pride";
+            localStorage.setItem(key, stored);
+          }
+          if (valid.indexOf(stored) !== -1) {
             document.documentElement.setAttribute("data-theme", stored);
           }
         } catch (e) {}

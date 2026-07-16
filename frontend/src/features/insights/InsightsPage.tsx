@@ -2,11 +2,11 @@ import { useMemo } from "react";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { useDashboard } from "@/context/DashboardContext";
+import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
 import { toAnalysisFindingsFromData } from "@/features/ask-ai/findings";
 import { MAX_FINDINGS_PER_REQUEST } from "@/features/ask-ai/types";
 import type { AnalysisFinding } from "@/features/ask-ai/types";
 import { AiBriefMarkdown } from "@/features/overview/AiBriefMarkdown";
-import { AiBriefStrip } from "@/features/overview/AiBriefStrip";
 import { SEVERITY_COLOR } from "@/lib/severity";
 import { HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { useAiSection, type SectionIntent } from "./useAiSection";
@@ -49,7 +49,6 @@ function SectionBody({
   return <p className="ai-brief__summary">{error || "Analysis unavailable — try Refresh."}</p>;
 }
 
-/** Generic whole-system AI card: title, refresh action, and the section body. */
 function AiInsightSection({
   title,
   hint,
@@ -98,8 +97,7 @@ const RATING_COLOR: Record<string, string> = {
   low: SEVERITY_COLOR.low,
 };
 
-/** The Risk Score card: the pipeline-computed score/rating/drivers, plus the
- * model's rationale for that exact number (it never computes its own). */
+/** Risk score card: computed score/rating/drivers plus a short rationale. */
 function RiskScoreSection({ findings }: { findings: AnalysisFinding[] }) {
   const { data, loading, error, refresh } = useAiSection("risk_score", findings);
   const risk = data?.risk_score;
@@ -148,10 +146,13 @@ function RiskScoreSection({ findings }: { findings: AnalysisFinding[] }) {
   );
 }
 
-/** AI Risk Intelligence: whole-system summary, insights, explainable risk score,
- * threat intelligence, top critical findings, and highest-risk assets. */
+/**
+ * Curated whole-system intelligence. Interactive questions and CVE lookup live
+ * in Ask AI — this page is the prepared briefing, not a chat surface.
+ */
 export function InsightsPage() {
   const { data: dashboard } = useDashboard();
+  const { setOpen } = useAskAiUi();
 
   const findings = useMemo(
     () => toAnalysisFindingsFromData(dashboard, { limit: MAX_FINDINGS_PER_REQUEST }),
@@ -159,43 +160,55 @@ export function InsightsPage() {
   );
 
   return (
-    <div className="page">
+    <div className="page page--insights">
       <PageHeader title={NAV_LABELS.insights} subtitle={HELP_TEXT.insightsPage} />
 
-      <Card title="AI summary" className="insights-card">
-        <p className="card-footnote card-footnote--tight">{HELP_TEXT.aiSummarySection}</p>
-        <AiBriefStrip variant="business" />
-      </Card>
+      <p className="insights-bridge">
+        This is the prepared briefing. For a specific CVE or a follow-up question, open{" "}
+        <button type="button" className="insights-bridge__link" onClick={() => setOpen(true)}>
+          Ask AI
+        </button>
+        .
+      </p>
 
-      <AiInsightSection
-        title="AI insights"
-        hint={HELP_TEXT.aiInsightsSection}
-        intent="insights"
-        findings={findings}
-      />
+      <div className="insights-grid">
+        <AiInsightSection
+          title="AI insights"
+          hint={HELP_TEXT.aiInsightsSection}
+          intent="insights"
+          findings={findings}
+        />
 
-      <RiskScoreSection findings={findings} />
+        <RiskScoreSection findings={findings} />
 
-      <AiInsightSection
-        title="Threat intelligence"
-        hint={HELP_TEXT.threatIntelSection}
-        intent="threat_intel"
-        findings={findings}
-      />
+        <AiInsightSection
+          title="Threat intelligence"
+          hint={HELP_TEXT.threatIntelSection}
+          intent="threat_intel"
+          findings={findings}
+        />
 
-      <AiInsightSection
-        title="Top critical findings"
-        hint={HELP_TEXT.criticalFindingsSection}
-        intent="critical_findings"
-        findings={findings}
-      />
+        <AiInsightSection
+          title="Top critical findings"
+          hint={HELP_TEXT.criticalFindingsSection}
+          intent="critical_findings"
+          findings={findings}
+        />
 
-      <AiInsightSection
-        title="Highest-risk assets"
-        hint={HELP_TEXT.riskAssetsSection}
-        intent="risk_assets"
-        findings={findings}
-      />
+        <AiInsightSection
+          title="Highest-risk assets"
+          hint={HELP_TEXT.riskAssetsSection}
+          intent="risk_assets"
+          findings={findings}
+        />
+
+        <AiInsightSection
+          title="Prioritized remediation"
+          hint={HELP_TEXT.remediateSection}
+          intent="remediate"
+          findings={findings}
+        />
+      </div>
     </div>
   );
 }

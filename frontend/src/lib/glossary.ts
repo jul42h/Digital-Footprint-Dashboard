@@ -102,13 +102,6 @@ export const GLOSSARY_SECTIONS: GlossarySection[] = [
         detail:
           'DNS discovery and port scans can record hosts, services, and ports before a CVE is attached. These assets still expand your footprint picture and may warrant monitoring.',
       },
-      {
-        id: 'observation-timeline',
-        term: 'Observation timeline',
-        summary: 'How findings were observed over time, or a snapshot breakdown when data spans one window.',
-        detail:
-          'When scan timestamps cover multiple days, the home page charts findings per day. For a single day with varied times, it groups by hour. If everything was observed in one window, the panel switches to scan sources, ports, or exploitability signals from your live data — never placeholder values.',
-      },
     ],
   },
   {
@@ -147,7 +140,7 @@ export const GLOSSARY_SECTIONS: GlossarySection[] = [
       {
         id: 'scan-sources',
         term: 'Scan sources',
-        summary: 'Which pipeline produced each finding.',
+        summary: 'Which scan source produced each finding.',
         detail:
           'Shodan CVE imports bring vulnerability metadata (CVSS, EPSS, products). DNS discovery finds hosts and services without CVEs. XML CVE scans add additional curated vulnerability records. Source mix is visible on the Analytics page.',
       },

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Dict
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
-from urllib.request import Request, urlopen
+from urllib.request import Request as UrlRequest, urlopen
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, Response
@@ -65,7 +65,7 @@ def mount_frontend(app: FastAPI, dist_dir: Path | None = None) -> None:
 
 
 def _fetch_dev_asset(url: str, method: str) -> Response:
-    request = Request(url, method=method)
+    request = UrlRequest(url, method=method)
     try:
         with urlopen(request, timeout=10) as response:
             body = response.read()

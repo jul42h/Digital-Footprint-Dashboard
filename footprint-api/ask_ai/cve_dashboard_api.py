@@ -43,9 +43,9 @@ LAMBDA_CONFIGURED_TIMEOUT_SECONDS = int(
 )
 
 # Align with Lambda caps (practical UI payload stays under Lambda maxes).
-# Lambda: MAX_INPUT_FINDINGS=1500, MAX_CVE_IDS=25, MAX_DETAIL_FINDINGS=10 for
-# every intent. EPSS_NOTABLE=0.5 / EPSS_URGENT=0.9 live only inside the Lambda
-# posture/prompts — not dashboard stats.
+# Lambda: MAX_INPUT_FINDINGS=1500, MAX_CVE_IDS=25, MAX_DETAIL_FINDINGS=10,
+# MAX_QUESTION_CHARS=500. EPSS_NOTABLE=0.5 / EPSS_URGENT=0.9 live only inside
+# the Lambda posture/prompts — not dashboard stats.
 MAX_CVE_IDS_PER_REQUEST = 25
 MAX_FINDINGS_PER_REQUEST = 100
 MAX_QUESTION_LENGTH = 500
@@ -71,6 +71,12 @@ _LEAD_CHANNEL_RE = re.compile(
 _BOILERPLATE_RE = re.compile(
     r"(?:^|\n)\s*_?Output truncated at the token limit\.?_?\s*(?=\n|$)",
     re.I,
+)
+# Shown in place of the Lambda's raw truncation marker — deleting it silently
+# hid from analysts that a response (e.g. a remediation plan) was cut short.
+_TRUNCATION_NOTICE = (
+    "\n\n⚠ This response was cut short by the model's length limit — "
+    "some content may be missing."
 )
 
 AnalysisMode = Literal["brief", "detail"]
@@ -122,9 +128,12 @@ def _sanitize_ai_summary(text: Any) -> Optional[str]:
         cleaned = cleaned[heading.start() :]
 
     cleaned = _LEAD_CHANNEL_RE.sub("", cleaned.lstrip())
+    was_truncated = _BOILERPLATE_RE.search(cleaned) is not None
     cleaned = _BOILERPLATE_RE.sub("\n", cleaned)
     cleaned = re.sub(r"[ \t]+$", "", cleaned, flags=re.M)
     cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    if was_truncated and cleaned:
+        cleaned += _TRUNCATION_NOTICE
     return cleaned or None
 
 
@@ -187,7 +196,18 @@ class AnalyzeCVEsRequest(BaseModel):
     question: Optional[str] = Field(
         default=None,
         max_length=MAX_QUESTION_LENGTH,
-        description='Free-text question. Required when intent="ask_ai".',
+        description='Free-text question. Required for ask_ai unless question_id is set.',
+    )
+    question_id: Optional[str] = Field(
+        default=None,
+        max_length=64,
+        description=(
+            "Predetermined Ask AI prompt id. Lambda owns the canonical question text."
+        ),
+    )
+    question_params: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Template parameters for question_id (e.g. cve_id).",
     )
 
     @field_validator("cve_ids")
@@ -203,7 +223,37 @@ class AnalyzeCVEsRequest(BaseModel):
         if value is None:
             return None
         trimmed = value.strip()
-        return trimmed[:MAX_QUESTION_LENGTH] or None
+        if not trimmed:
+            return None
+        # Match Lambda: reject over-long questions instead of silently truncating
+        # mid-thought. The dashboard clamps before send; this guards other clients.
+        if len(trimmed) > MAX_QUESTION_LENGTH:
+            raise ValueError(
+                f"question must be {MAX_QUESTION_LENGTH} characters or fewer"
+            )
+        return trimmed
+
+    @field_validator("question_id")
+    @classmethod
+    def normalize_question_id(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        trimmed = value.strip().lower().replace("_", "-")
+        return trimmed or None
+
+    @field_validator("question_params")
+    @classmethod
+    def normalize_question_params(
+        cls, value: Optional[Dict[str, str]]
+    ) -> Optional[Dict[str, str]]:
+        if value is None:
+            return None
+        cleaned: Dict[str, str] = {}
+        for key, raw in value.items():
+            text = str(raw or "").strip()
+            if text:
+                cleaned[str(key)] = text[:120]
+        return cleaned or None
 
     @field_validator("findings")
     @classmethod
@@ -247,8 +297,10 @@ class AnalyzeCVEsRequest(BaseModel):
 
         assert intent is not None and mode is not None
 
-        if intent == "ask_ai" and not (self.question or "").strip():
-            raise ValueError('A "question" is required when intent="ask_ai".')
+        if intent == "ask_ai" and not (self.question or "").strip() and not self.question_id:
+            raise ValueError(
+                'A "question" or "question_id" is required when intent="ask_ai".'
+            )
 
         self.intent = intent
         self.mode = _intent_to_mode(intent)
@@ -280,6 +332,7 @@ class AnalyzeCVEsResponse(BaseModel):
     reason: Optional[str] = None
     error: Optional[str] = None
     question: Optional[str] = None
+    question_id: Optional[str] = None
     cve_ids_analyzed: List[str] = []
     total_valid_cve_ids: Optional[int] = None
     total_findings_provided: Optional[int] = None
@@ -378,6 +431,10 @@ async def analyze_cves(request: AnalyzeCVEsRequest) -> dict:
         payload["findings"] = request.findings
     if request.question:
         payload["question"] = request.question
+    if request.question_id:
+        payload["question_id"] = request.question_id
+    if request.question_params:
+        payload["question_params"] = request.question_params
 
     result = await to_thread(_invoke_analyzer_lambda, payload)
 

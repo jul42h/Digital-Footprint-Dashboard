@@ -4,21 +4,18 @@
  * Do not reuse these caps outside the AI analysis path.
  */
 
-/** UI select cap for the "Analyze findings" tab (matches Lambda MAX_DETAIL_FINDINGS). */
+/** UI select cap for remediation (matches Lambda MAX_DETAIL_FINDINGS). */
 export const MAX_CVE_IDS_PER_REQUEST = 10;
 /** Findings sent for posture aggregation (API relays up to 100; Lambda max 1500). */
 export const MAX_FINDINGS_PER_REQUEST = 100;
 /** Bare CVE ID list cap (matches Lambda MAX_CVE_IDS). */
 export const MAX_CVE_IDS_PAYLOAD = 25;
-/** Lambda detail sample size for every intent (MAX_DETAIL_FINDINGS). */
-export const MAX_DETAIL_FINDINGS = 10;
 /** Longest question the ask_ai intent accepts (Lambda MAX_QUESTION_CHARS). */
 export const MAX_QUESTION_LENGTH = 500;
-
-/** Matches Lambda EPSS_NOTABLE — use only when labeling AI/posture signals. */
+/** Show a character counter once the question approaches the hard limit. */
+export const QUESTION_SOFT_LIMIT = 420;
+/** "High EPSS" threshold for labeling exploitability signals (matches Lambda EPSS_NOTABLE). */
 export const EPSS_NOTABLE = 0.5;
-/** Matches Lambda EPSS_URGENT. */
-export const EPSS_URGENT = 0.9;
 
 /** One intent per dashboard surface — mirrors Lambda INTENTS exactly. */
 export type AnalysisIntent =
@@ -71,9 +68,9 @@ export const REQUIRED_HEADINGS: Partial<Record<AnalysisIntent, readonly string[]
 
 /** Word floor for prose intents (matches Lambda MIN_PROSE_WORDS). */
 export const MIN_PROSE_WORDS: Partial<Record<AnalysisIntent, number>> = {
-  brief: 40,
+  brief: 35,
   risk_score: 25,
-  ask_ai: 8,
+  ask_ai: 12,
 };
 
 /** Aggregate posture returned by the analyzer Lambda as `signal_summary`. */
@@ -93,7 +90,7 @@ export interface SignalSummary {
   top_services?: Array<{ value: string; findings: number }>;
   top_products?: Array<{ value: string; findings: number }>;
   assets_with_most_findings?: Array<{ value: string; findings: number }>;
-  // Optional Pipeline 4 context — zero/empty means "not supplied", not "none".
+  // Optional business/threat context — empty means "not supplied", not "none".
   internet_exposed_findings?: number;
   internet_exposure_known?: boolean;
   asset_criticality_breakdown?: Array<{ value: string; findings: number }>;
@@ -131,6 +128,7 @@ export interface CveAnalysisResponse {
   reason?: string | null;
   error?: string | null;
   question?: string | null;
+  question_id?: string | null;
   cve_ids_analyzed: string[];
   total_valid_cve_ids?: number | null;
   total_findings_provided?: number | null;
@@ -149,9 +147,9 @@ export interface CveAnalysisResponse {
 }
 
 /** Structured finding fields the Lambda accepts (subset of FINDING_FIELDS),
- * including optional Pipeline 4 business/threat context (PIPELINE4_FIELDS).
- * Every Pipeline 4 field is optional and copied only when present upstream —
- * none of it flows through dashboard_transform.py yet (see the TODO there). */
+ * including optional business/threat context fields when upstream supplies them.
+ * Those fields are optional and copied only when present — none of them flow
+ * through dashboard_transform.py yet. */
 export interface AnalysisFinding {
   cve_id: string;
   ip?: string;
@@ -171,7 +169,7 @@ export interface AnalysisFinding {
   domains?: string;
   hostnames?: string;
   os?: string;
-  // Pipeline 4 (optional; TODO(pipeline-4) — names are an open assumption).
+  // Optional business/threat context (when upstream supplies it).
   asset_criticality?: string;
   business_unit?: string;
   owner_team?: string;
@@ -197,19 +195,19 @@ export interface ChatMessage {
 }
 
 /**
- * Panel actions — map 1:1 to Lambda intents for the CVE-select "Analyze findings" tab.
- * `brief` / `insights` / `risk_score` / `threat_intel` / `critical_findings` /
- * `risk_assets` are whole-system views driven by the /insights page (not a CVE
- * selection); `ask_ai` is the panel's free-text tab. `remediate` is the only
- * intent that makes sense scoped to a hand-picked set of findings.
+ * Ask AI actions — interactive Q&A and selection-scoped remediation.
+ * Whole-system intelligence lives on /insights (AI Risk Intelligence).
  */
 export const ANALYZE_PRESETS: Array<{
-  id: Extract<AnalysisIntent, "insights" | "remediate">;
+  id: Extract<AnalysisIntent, "remediate">;
   label: string;
   hint: string;
 }> = [
-  { id: "insights", label: "Insights", hint: "Insights · Confidence and Gaps" },
-  { id: "remediate", label: "Remediate", hint: "Priority Order · Recommended Actions" },
+  {
+    id: "remediate",
+    label: "Remediate",
+    hint: "Priority order and concrete fixes for the selected findings",
+  },
 ];
 
 export const INTENT_USER_LABEL: Record<AnalysisIntent, string> = {

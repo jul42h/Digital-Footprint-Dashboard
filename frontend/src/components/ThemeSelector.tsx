@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "@/context/ThemeContext";
-import { THEME_GROUPS, THEMES, type ThemeId } from "@/lib/themes";
+import { THEME_GROUPS, THEMES } from "@/lib/themes";
 
 export function ThemeSelector() {
   const { themeId, setThemeId, theme } = useTheme();
@@ -82,7 +82,7 @@ export function ThemeSelector() {
                     aria-selected={themeId === option.id}
                     className={`theme-selector__option${themeId === option.id ? " theme-selector__option--active" : ""}`}
                     onClick={() => {
-                      setThemeId(option.id as ThemeId);
+                      setThemeId(option.id);
                       setOpen(false);
                     }}
                   >

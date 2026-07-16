@@ -15,6 +15,17 @@ function versionForProduct(ip: SourceIPRecord | undefined, product: string | und
   return ip.versions[idx] || undefined;
 }
 
+/** Keep prompt payloads lean — long CVE blurbs rarely improve ranking insight. */
+const MAX_SUMMARY_CHARS = 220;
+
+function compactSummary(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length <= MAX_SUMMARY_CHARS) return trimmed;
+  return `${trimmed.slice(0, MAX_SUMMARY_CHARS - 1).trimEnd()}…`;
+}
+
 /** Map one dashboard flat record → Lambda finding (vital fields only). */
 export function findingFromRecord(
   record: CVEFlatRecord,
@@ -35,7 +46,7 @@ export function findingFromRecord(
     ranking_epss: numStr(rankingEpss),
     kev: Boolean(record.cve.kev),
     verified: Boolean(record.verified ?? record.cve.verified),
-    summary: record.cve.summary || undefined,
+    summary: compactSummary(record.cve.summary),
     port: port != null ? String(port) : undefined,
     protocol: ip?.transport?.[0]?.toLowerCase(),
     transport: ip?.transport?.[0]?.toLowerCase(),
@@ -56,7 +67,7 @@ function findingFromCve(cve: Cve, assetOverride?: string): AnalysisFinding {
     epss: numStr(cve.epss),
     kev: Boolean(cve.exploitKnown),
     verified: cve.verified,
-    summary: cve.summary || undefined,
+    summary: compactSummary(cve.summary),
     port: cve.ports[0] != null ? String(cve.ports[0]) : undefined,
     protocol: cve.transport ? cve.transport.toLowerCase() : undefined,
     transport: cve.transport ? cve.transport.toLowerCase() : undefined,

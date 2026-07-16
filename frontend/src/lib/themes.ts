@@ -1,8 +1,7 @@
 export type ThemeId =
   | "fresno"
   | "fresno-dark"
-  | "valley"
-  | "valley-dark";
+  | "valley-pride";
 
 export type ThemeGroup = "brand" | "variant";
 
@@ -17,8 +16,6 @@ export interface ThemeDefinition {
 export const BRAND_COLORS = {
   cardinal: "#c41230",
   blue: "#13284c",
-  coolGray: "#ced1d4",
-  white: "#ffffff",
   green: "#007935",
 } as const;
 
@@ -46,18 +43,11 @@ export const THEMES: ThemeDefinition[] = [
     swatches: [BRAND_COLORS.blue, BRAND_COLORS.cardinal],
   },
   {
-    id: "valley",
+    id: "valley-pride",
     label: "Valley Pride",
-    description: "Sage canvas with white panels and valley-green accents",
+    description: "Valley sage canvas with Fresno State and Green V accents",
     group: "variant",
     swatches: [BRAND_COLORS.green, BRAND_COLORS.cardinal],
-  },
-  {
-    id: "valley-dark",
-    label: "Valley Pride Dark",
-    description: "Navy canvas with lifted panels and valley-green accents",
-    group: "variant",
-    swatches: [BRAND_COLORS.green, BRAND_COLORS.blue],
   },
 ];
 
@@ -65,6 +55,14 @@ const THEME_IDS = new Set(THEMES.map((t) => t.id));
 
 export function isThemeId(value: string | null | undefined): value is ThemeId {
   return value != null && THEME_IDS.has(value as ThemeId);
+}
+
+/** Normalize theme IDs previously shipped under Valley Pride's old names. */
+export function migrateThemeId(value: string | null | undefined): ThemeId | null {
+  if (value === "valley" || value === "valley-dark" || value === "valley-pride-dark") {
+    return "valley-pride";
+  }
+  return isThemeId(value) ? value : null;
 }
 
 export function getThemeDefinition(id: ThemeId): ThemeDefinition {

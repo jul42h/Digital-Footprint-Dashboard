@@ -1,17 +1,10 @@
 /* ============================================================
    Fresno State & Valley Pride brand themes.
    Set data-theme on <html> via ThemeSelector.
-   Brand: Cardinal #c41230 · Blue #13284c · Cool Gray #ced1d4 · Green #007935
+   Brand: Cardinal #c41230 · Blue #13284c · Green V #007935
    ============================================================ */
 
 :root {
-  --fs-cardinal: #c41230;
-  --fs-cardinal-dark: #9e0e26;
-  --fs-blue: #13284c;
-  --fs-cool-gray: #ced1d4;
-  --fs-white: #ffffff;
-  --fs-green: #007935;
-
   --sev-critical: #d64550;
   --sev-high: #e07b39;
   --sev-medium: #d9a441;
@@ -30,17 +23,13 @@
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Spacing scale — keep page and section rhythm consistent */
-  --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
-  --space-7: 28px;
   --space-8: 32px;
 
-  /* Brand ribbon shown at the very top of the app in every theme */
-  --brand-ribbon: linear-gradient(90deg, var(--fs-cardinal) 0%, var(--fs-cardinal-dark) 100%);
 }
 
 /* ---- Fresno State (light) — bright canvas, white panels, cardinal accents ---- */
@@ -58,17 +47,22 @@
   --text-muted: #6b7890;
   --accent: #c41230;
   --accent-soft: rgba(196, 18, 48, 0.09);
-  --highlight: #13284c;
-  --gradient-brand: linear-gradient(135deg, #c41230 0%, #13284c 100%);
+  --identity-accent: #c41230;
+  --identity-accent-soft: rgba(196, 18, 48, 0.09);
+  --focus-ring: #c41230;
+  --focus-shadow: 0 0 0 2px rgba(196, 18, 48, 0.16);
+  --chart-primary: #c41230;
+  --chart-secondary: #3f6fae;
+  --chart-tertiary: #b85e1c;
+  --chart-quaternary: #007935;
+  --chart-fifth: #927018;
+  --chart-sixth: #6b7890;
   --gradient-ambient: radial-gradient(ellipse 80% 60% at 4% -8%, rgba(196, 18, 48, 0.05), transparent 55%),
     radial-gradient(ellipse 60% 50% at 96% 0%, rgba(19, 40, 76, 0.06), transparent 50%);
   --shadow-card: 0 1px 2px rgba(19, 40, 76, 0.05), 0 8px 24px rgba(19, 40, 76, 0.07);
   --shadow-glow: 0 0 0 1px rgba(196, 18, 48, 0.12);
   --status-resolved: #007935;
-  --mark-glow: 0 4px 16px rgba(196, 18, 48, 0.22);
-  --title-style: solid;
   --brand-ribbon: linear-gradient(90deg, #c41230 0%, #9e0e26 100%);
-  --donut-stroke: rgba(19, 40, 76, 0.1);
 }
 
 /* ---- Fresno State Dark — lifted navy canvas, navy panels, cardinal accents ---- */
@@ -85,71 +79,89 @@
   --text-muted: #93a1ba;
   --accent: #ec4159;
   --accent-soft: rgba(236, 65, 89, 0.2);
-  --highlight: #ec4159;
-  --gradient-brand: linear-gradient(135deg, #e8354f 0%, #4a6fa5 55%, #2a4a7a 100%);
+  --identity-accent: #ec4159;
+  --identity-accent-soft: rgba(236, 65, 89, 0.2);
+  --focus-ring: #f16a7e;
+  --focus-shadow: 0 0 0 2px rgba(241, 106, 126, 0.28);
+  --chart-primary: #ec4159;
+  --chart-secondary: #60a5fa;
+  --chart-tertiary: #fb923c;
+  --chart-quaternary: #34c06e;
+  --chart-fifth: #fbbf24;
+  --chart-sixth: #cfd6e2;
   --gradient-ambient: radial-gradient(ellipse 72% 52% at 0% 0%, rgba(196, 18, 48, 0.16), transparent 50%),
     radial-gradient(ellipse 58% 46% at 100% 0%, rgba(74, 111, 165, 0.28), transparent 48%);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.32), 0 14px 34px rgba(4, 12, 26, 0.48);
   --shadow-glow: 0 0 0 1px rgba(236, 65, 89, 0.2), 0 0 24px rgba(236, 65, 89, 0.12);
   --status-resolved: #34c06e;
-  --mark-glow: 0 4px 20px rgba(196, 18, 48, 0.4);
-  --title-style: gradient;
   --brand-ribbon: linear-gradient(90deg, #c41230 0%, #9e0e26 100%);
-  --donut-stroke: rgba(255, 255, 255, 0.88);
 }
 
-/* ---- Valley Pride (light) — sage canvas, white panels, valley-green accents ---- */
-:root[data-theme="valley"] {
-  --bg: #eef2ef;
+/* ---- Valley Pride — Fresno State anchors with an intentional Green V accent ---- */
+:root[data-theme="valley-pride"] {
+  --bg: #eaf1ec;
   --bg-elevated: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f3f7f4;
-  --surface-hover: #e8efe9;
-  --border: rgba(0, 121, 53, 0.1);
-  --border-strong: rgba(0, 121, 53, 0.16);
+  --surface-2: #eef5f0;
+  --surface-hover: #e2eee6;
+  --border: rgba(19, 40, 76, 0.12);
+  --border-strong: rgba(19, 40, 76, 0.24);
   --text: #13284c;
-  --text-secondary: #3d5248;
-  --text-muted: #5c7564;
-  --accent: #007935;
-  --accent-soft: rgba(0, 121, 53, 0.1);
-  --highlight: #c41230;
-  --gradient-brand: linear-gradient(135deg, #007935 0%, #13284c 100%);
-  --gradient-ambient: radial-gradient(ellipse 80% 60% at 4% -8%, rgba(0, 121, 53, 0.07), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 96% 0%, rgba(196, 18, 48, 0.04), transparent 50%);
-  --shadow-card: 0 1px 2px rgba(0, 60, 26, 0.05), 0 8px 24px rgba(0, 60, 26, 0.07);
-  --shadow-glow: 0 0 0 1px rgba(0, 121, 53, 0.12);
+  --text-secondary: #364e59;
+  --text-muted: #586e68;
+  --accent: #c41230;
+  --accent-soft: rgba(196, 18, 48, 0.09);
+  --identity-accent: #007935;
+  --identity-accent-soft: rgba(0, 121, 53, 0.12);
+  --focus-ring: #13284c;
+  --focus-shadow: 0 0 0 2px rgba(19, 40, 76, 0.2);
+  --chart-primary: #007935;
+  --chart-secondary: #315f9b;
+  --chart-tertiary: #b85e1c;
+  --chart-quaternary: #c41230;
+  --chart-fifth: #927018;
+  --chart-sixth: #586e68;
+  --gradient-ambient: radial-gradient(ellipse 88% 62% at 0% -10%, rgba(0, 121, 53, 0.13), transparent 56%),
+    radial-gradient(ellipse 62% 52% at 100% 0%, rgba(19, 40, 76, 0.08), transparent 52%);
+  --shadow-card: 0 1px 2px rgba(0, 76, 33, 0.05), 0 9px 26px rgba(19, 40, 76, 0.08);
+  --shadow-glow: 0 0 0 2px rgba(0, 121, 53, 0.2);
   --status-resolved: #007935;
-  --mark-glow: 0 4px 16px rgba(0, 121, 53, 0.22);
-  --title-style: solid;
-  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
-  --donut-stroke: rgba(0, 121, 53, 0.12);
+  --brand-ribbon: linear-gradient(125deg, #13284c 0%, #173b4d 58%, #006b30 100%);
 }
 
-/* ---- Valley Pride Dark — same navy depth as Fresno Dark, green accents ---- */
-:root[data-theme="valley-dark"] {
-  --bg: #122744;
-  --bg-elevated: #173051;
-  --surface: rgba(30, 56, 96, 0.72);
-  --surface-2: rgba(38, 66, 110, 0.82);
-  --surface-hover: rgba(48, 78, 124, 0.9);
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --text: #f4f5f7;
-  --text-secondary: #cfd6e2;
-  --text-muted: #93a1ba;
-  --accent: #34d17a;
-  --accent-soft: rgba(52, 209, 122, 0.18);
-  --highlight: #ec4159;
-  --gradient-brand: linear-gradient(135deg, #22a558 0%, #4a6fa5 55%, #2a4a7a 100%);
-  --gradient-ambient: radial-gradient(ellipse 72% 52% at 0% 0%, rgba(0, 121, 53, 0.14), transparent 50%),
-    radial-gradient(ellipse 58% 46% at 100% 0%, rgba(74, 111, 165, 0.28), transparent 48%);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.32), 0 14px 34px rgba(4, 12, 26, 0.48);
-  --shadow-glow: 0 0 0 1px rgba(52, 209, 122, 0.2), 0 0 24px rgba(52, 209, 122, 0.1);
-  --status-resolved: #34d17a;
-  --mark-glow: 0 4px 20px rgba(0, 121, 53, 0.38);
-  --title-style: gradient;
-  --brand-ribbon: linear-gradient(90deg, #007935 0%, #005a28 100%);
-  --donut-stroke: rgba(255, 255, 255, 0.88);
+/* Valley Pride uses Green V as structure, while Cardinal remains the action
+   and risk color. The red inset line abstracts the red center of the Green V
+   without introducing a restricted athletics mark. */
+:root[data-theme="valley-pride"] .sidebar {
+  background: linear-gradient(180deg, #fbfdfb 0%, #f2f8f4 100%);
+}
+
+:root[data-theme="valley-pride"] .sidebar__brand {
+  box-shadow: inset 0 -3px 0 #c41230;
+}
+
+:root[data-theme="valley-pride"] .home-block__icon {
+  background: var(--identity-accent);
+  box-shadow: inset 0 -3px 0 #c41230;
+}
+
+:root[data-theme="valley-pride"] .insights-card,
+:root[data-theme="valley-pride"] .ask-ai-panel {
+  border-top: 3px solid var(--identity-accent);
+}
+
+:root[data-theme="valley-pride"] .ask-ai-panel__header {
+  background: linear-gradient(90deg, var(--identity-accent-soft), transparent 72%);
+}
+
+:root[data-theme="valley-pride"] .theme-selector__option--active {
+  background: var(--identity-accent-soft);
+  border-color: color-mix(in srgb, var(--identity-accent) 40%, var(--border));
+  border-left-color: var(--identity-accent);
+}
+
+:root[data-theme="valley-pride"] .theme-selector__check {
+  color: var(--identity-accent);
 }
 
 
@@ -212,8 +224,7 @@ h4 {
 }
 
 /* Dark themes need brighter severity + status hues for AA contrast */
-:root[data-theme="fresno-dark"],
-:root[data-theme="valley-dark"] {
+:root[data-theme="fresno-dark"] {
   --sev-critical: #f87171;
   --sev-high: #fb923c;
   --sev-medium: #fbbf24;
@@ -373,7 +384,7 @@ h4 {
   flex-shrink: 0;
 }
 .status-select:focus {
-  outline: 2px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -385,7 +396,7 @@ h4 {
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--surface);
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .settings-actions {
@@ -514,7 +525,7 @@ h4 {
   transition: background 0.12s ease;
 }
 .table tbody tr:hover {
-  background: var(--accent-soft);
+  background: var(--identity-accent-soft);
 }
 
 /* ---- Live dot ---- */
@@ -541,7 +552,7 @@ h4 {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -735,7 +746,7 @@ h4 {
 }
 
 .sidebar__toggle:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
 
@@ -822,8 +833,8 @@ h4 {
 }
 
 .sidebar__link--active {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--identity-accent);
+  background: var(--identity-accent-soft);
   font-weight: 600;
 }
 
@@ -835,7 +846,7 @@ h4 {
   bottom: 6px;
   width: 3px;
   border-radius: 0 2px 2px 0;
-  background: var(--accent);
+  background: var(--identity-accent);
 }
 
 .sidebar--collapsed .sidebar__link--active::before {
@@ -851,7 +862,7 @@ h4 {
 
 .sidebar__link--active .nav-icon {
   opacity: 1;
-  color: var(--accent);
+  color: var(--identity-accent);
 }
 
 .sidebar__badge {
@@ -877,7 +888,7 @@ h4 {
   height: 6px;
   padding: 0;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--identity-accent);
   border: 1.5px solid var(--surface);
   box-shadow: 0 0 0 1px var(--border);
 }
@@ -891,7 +902,7 @@ h4 {
 .topbar {
   min-height: 60px;
   flex-shrink: 0;
-  border-top: 3px solid var(--accent);
+  border-top: 3px solid var(--identity-accent);
   border-bottom: 1px solid var(--border-strong);
   background: var(--surface);
   backdrop-filter: blur(16px);
@@ -1067,6 +1078,96 @@ h4 {
   align-items: stretch;
 }
 
+/* Command strip under the AI brief: score + posture/threat signals. */
+.home-command {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.home-command > .home-visuals__score {
+  height: 100%;
+}
+
+.home-command__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.home-command__side .posture-bar {
+  margin: 0;
+}
+
+.home-command__side .priority-signals {
+  flex: 1;
+}
+
+.home-actions {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.home-actions__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: var(--space-3);
+}
+
+/* Ancestor-scoped (not just `.home-actions__btn`) so this reliably beats
+   `.view-all-link` regardless of source order — ViewAllLink renders both
+   classes together, and equal single-class specificity previously let
+   `.view-all-link`'s cardinal text color win, making white-on-cardinal
+   button text invisible. */
+.home-actions__row .home-actions__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.home-actions__row .home-actions__btn:hover {
+  filter: brightness(0.96);
+}
+
+.home-actions__row .home-actions__btn--secondary {
+  background: var(--surface-2, var(--surface));
+  color: var(--accent);
+  border-color: var(--border);
+}
+
+.home-actions__btn--secondary:hover {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  filter: none;
+}
+
+@media (max-width: 900px) {
+  .home-command {
+    grid-template-columns: 1fr;
+  }
+
+  .home-command > .home-visuals__score {
+    max-width: none;
+    width: 100%;
+  }
+}
+
 .home-visuals__score {
   display: flex;
   flex-direction: column;
@@ -1124,7 +1225,7 @@ h4 {
   padding: var(--space-4) var(--space-5) var(--space-5);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: 3px solid var(--accent);
+  border-top: 3px solid var(--identity-accent);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
 }
@@ -1283,6 +1384,19 @@ h4 {
   .priority-signals {
     grid-column: 1;
     max-width: none;
+  }
+
+  /* Below this width the lede text wraps to several lines, so the
+     `align-self: center` link ends up vertically centered mid-paragraph
+     instead of beside the title. Stack the link under the heading instead. */
+  .home-block__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-block__link {
+    margin-left: 0;
+    align-self: flex-start;
   }
 }
 
@@ -1554,11 +1668,6 @@ h4 {
   gap: 0;
 }
 
-.dashboard--home .severity-donut {
-  min-height: 0;
-  height: 100%;
-}
-
 .dashboard--home .remediation-row {
   padding: 8px 0;
 }
@@ -1601,10 +1710,10 @@ h4 {
   position: relative;
   margin-bottom: 0;
   padding-bottom: var(--space-5);
-  border-bottom: 1px solid var(--fs-cool-gray);
+  border-bottom: 1px solid var(--border-strong);
 }
 
-/* Accent underline — theme-aware (cardinal or valley green) */
+/* Identity accent — cardinal by default, Green V in Valley Pride. */
 .page-header::after {
   content: "";
   position: absolute;
@@ -1612,7 +1721,7 @@ h4 {
   bottom: -1px;
   width: 64px;
   height: 3px;
-  background: var(--accent);
+  background: var(--identity-accent);
 }
 
 .page-header__eyebrow {
@@ -1622,7 +1731,7 @@ h4 {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--accent);
+  color: var(--identity-accent);
   margin-bottom: 10px;
 }
 
@@ -1760,7 +1869,8 @@ h4 {
   min-height: 0;
 }
 
-.severity-donut {
+/* ---- Donut chart + legend (analytics pie cards) ---- */
+.chart-donut {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px 16px;
@@ -1770,30 +1880,7 @@ h4 {
   min-width: 0;
 }
 
-.severity-donut--home {
-  min-height: 0;
-  gap: 8px 12px;
-}
-
-.severity-donut--home .severity-donut__chart {
-  width: min(100%, 112px);
-}
-
-.severity-donut--home .donut-center__value {
-  font-size: 18px;
-}
-
-.severity-donut--home .donut-legend__item {
-  padding: 3px 0;
-  font-size: 12px;
-  gap: 6px;
-}
-
-.dashboard--home .chart-card--severity-home .chart-card__body {
-  padding-top: 4px;
-}
-
-.severity-donut__visual {
+.chart-donut__visual {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -1801,7 +1888,7 @@ h4 {
   min-width: 0;
 }
 
-.severity-donut__chart {
+.chart-donut__chart {
   position: relative;
   width: min(100%, 160px);
   aspect-ratio: 1;
@@ -1809,7 +1896,7 @@ h4 {
   overflow: hidden;
 }
 
-.severity-donut__legend {
+.chart-donut__legend {
   align-self: center;
   min-width: 0;
 }
@@ -1874,17 +1961,17 @@ h4 {
     grid-template-columns: 1fr;
   }
 
-  .severity-donut {
+  .chart-donut {
     grid-template-columns: 1fr;
     min-height: 0;
   }
 
-  .severity-donut__chart {
+  .chart-donut__chart {
     width: min(100%, 180px);
     margin: 0 auto;
   }
 
-  .severity-donut__legend {
+  .chart-donut__legend {
     width: 100%;
   }
 }
@@ -1906,7 +1993,7 @@ h4 {
   position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: 3px solid var(--accent);
+  border-top: 3px solid var(--identity-accent);
   border-radius: 0 0 var(--radius) var(--radius);
   padding: 16px 18px;
   display: block;
@@ -1919,7 +2006,7 @@ h4 {
 
 .kpi-card--link:hover {
   border-color: var(--border-strong);
-  border-top-color: var(--accent);
+  border-top-color: var(--identity-accent);
   background: var(--surface-2);
   transform: translateY(-2px);
   box-shadow: var(--shadow-card), var(--shadow-glow);
@@ -2130,7 +2217,46 @@ h4 {
 
 .card-footnote--tight {
   margin-top: 6px;
-  text-align: right;
+}
+
+.page--insights {
+  max-width: 1120px;
+}
+
+.insights-bridge {
+  margin: 0 0 var(--space-2);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.insights-bridge a,
+.insights-bridge__link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.insights-bridge a:hover,
+.insights-bridge__link:hover {
+  text-decoration: underline;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+.insights-grid > .insights-card {
+  margin: 0;
+  height: 100%;
 }
 
 .insights-card__layout {
@@ -2143,6 +2269,12 @@ h4 {
 .insights-card__body {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .insights-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -2422,7 +2554,7 @@ h4 {
 }
 
 .remediation-row__open:hover .remediation-row__id {
-  color: var(--text-primary);
+  color: var(--text);
 }
 
 .remediation-row__main {
@@ -2444,6 +2576,11 @@ h4 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Without this, a nowrap flex child's automatic min-width equals its full
+     text width, so it never actually shrinks small enough for the ellipsis
+     above to kick in — it just overflows and gets painted over by the
+     effort/status badges next to it on narrow rows. */
+  min-width: 0;
 }
 
 .remediation-row__meta {
@@ -2475,6 +2612,15 @@ h4 {
 .remediation-row__effort--medium {
   color: var(--sev-high);
   background: color-mix(in srgb, var(--sev-high) 14%, transparent);
+}
+
+/* Badge + CVE ID + asset + effort + status can't all fit on one line below
+   this width even with ellipsis truncation — drop the asset (least essential
+   of the five) rather than let it clip to an unreadable sliver. */
+@media (max-width: 560px) {
+  .remediation-row__asset {
+    display: none;
+  }
 }
 
 .donut-legend--compact .donut-legend__item {
@@ -2736,7 +2882,7 @@ h4 {
 
 .table-toolbar__input:focus {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--focus-shadow);
 }
 
 .table-toolbar__count {
@@ -2775,7 +2921,7 @@ h4 {
 
 .table-toolbar__select:focus {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--focus-shadow);
 }
 
 .table-toolbar__filters {
@@ -3265,33 +3411,6 @@ h4 {
   border-radius: var(--radius);
 }
 
-.ai-brief__meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  min-width: 64px;
-  padding: 2px 10px 2px 0;
-  border-right: 1px solid var(--border);
-  gap: 2px;
-}
-
-.ai-brief__meta-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.ai-brief__meta-count {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--accent);
-}
-
 .ai-brief__body {
   min-width: 0;
 }
@@ -3416,6 +3535,10 @@ h4 {
   pointer-events: auto;
 }
 
+.ask-ai-widget--open > .ask-ai-fab {
+  display: none;
+}
+
 .ask-ai-fab {
   display: inline-flex;
   align-items: center;
@@ -3468,8 +3591,8 @@ h4 {
 }
 
 .ask-ai-panel {
-  width: min(400px, calc(100vw - 28px));
-  height: min(640px, calc(100vh - 96px));
+  width: min(520px, calc(100vw - 28px));
+  height: min(780px, calc(100dvh - 28px));
   display: flex;
   flex-direction: column;
   /* Opaque, not the translucent `--surface` dark themes use for in-flow cards —
@@ -3477,7 +3600,7 @@ h4 {
      it, so any transparency here reads as page content bleeding through it. */
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 18px 44px color-mix(in srgb, #000 16%, transparent);
   overflow: hidden;
 }
@@ -3487,7 +3610,7 @@ h4 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -3495,7 +3618,7 @@ h4 {
 .ask-ai-panel__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 700;
   line-height: 1.2;
 }
@@ -3503,6 +3626,15 @@ h4 {
 .ask-ai-panel__sub {
   margin: 4px 0 0;
   font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.ask-ai-panel__context {
+  margin: 6px 0 0;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 500;
   line-height: 1.35;
   color: var(--text-muted);
 }
@@ -3535,36 +3667,6 @@ h4 {
   cursor: not-allowed;
 }
 
-.ask-ai-panel__modes {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  margin: 10px 16px 0;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.ask-ai-mode {
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 7px 6px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.ask-ai-mode--on {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
 .ask-ai-panel__thread {
   flex: 1 1 auto;
   min-height: 0;
@@ -3573,50 +3675,332 @@ h4 {
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+  background: color-mix(in srgb, var(--surface-2) 36%, var(--surface));
 }
 
 .ask-ai-empty {
   margin: auto 0;
-  padding: 8px 4px;
+  padding: 12px 6px 8px;
+  text-align: center;
+}
+
+.ask-ai-empty__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--identity-accent-soft);
+  color: var(--identity-accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .ask-ai-empty__title {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
 }
 
 .ask-ai-empty__steps {
-  margin: 0;
+  width: fit-content;
+  margin: 0 auto;
   padding-left: 1.15rem;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  text-align: left;
   font-size: 13px;
   line-height: 1.45;
   color: var(--text-muted);
 }
 
 .ask-ai-error {
-  margin: 0;
-  padding: 8px 16px;
+  margin: 0 14px 10px;
+  padding: 8px 10px;
   font-size: 12px;
   line-height: 1.4;
   color: var(--sev-critical, #c41230);
-  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--sev-critical) 8%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--sev-critical) 22%, var(--border));
+  border-radius: var(--radius);
   flex-shrink: 0;
 }
 
 .ask-ai-panel__footer {
   flex-shrink: 0;
   border-top: 1px solid var(--border);
-  padding: 12px 14px 14px;
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: color-mix(in srgb, var(--surface-2) 50%, var(--surface));
+  gap: 10px;
+  background: var(--bg-elevated);
+}
+
+.ask-ai-findings {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ask-ai-findings__summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-secondary);
+  list-style: none;
+}
+
+.ask-ai-findings__summary::-webkit-details-marker {
+  display: none;
+}
+
+.ask-ai-findings__summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-muted);
+  transition: transform 0.15s var(--ease);
+}
+
+.ask-ai-findings[open] > .ask-ai-findings__summary::before {
+  transform: rotate(180deg);
+}
+
+.ask-ai-findings__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-ai-findings__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+}
+
+.ask-ai-composer-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ask-ai-examples {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 2;
+  max-height: min(320px, 42vh);
+  overflow-y: auto;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  box-shadow: 0 12px 28px color-mix(in srgb, #000 14%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ask-ai-examples__intro,
+.ask-ai-examples__tips {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.ask-ai-examples__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ask-ai-examples__group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ask-ai-examples__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ask-ai-examples__btn {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ask-ai-examples__btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.ask-ai-examples__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ask-ai-examples-toggle {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.ask-ai-examples-toggle:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.ask-ai-examples-toggle--on {
+  color: var(--identity-accent);
+  border-color: color-mix(in srgb, var(--identity-accent) 40%, var(--border));
+  background: var(--identity-accent-soft);
+}
+
+.ask-ai-examples-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ask-ai-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+
+.ask-ai-composer:focus-within {
+  border-color: var(--focus-ring);
+  box-shadow: var(--focus-shadow);
+}
+
+.ask-ai-composer__input {
+  width: 100%;
+  min-height: 48px;
+  max-height: 110px;
+  resize: vertical;
+  padding: 2px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ask-ai-composer__input::placeholder {
+  color: var(--text-muted);
+}
+
+.ask-ai-composer__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ask-ai-composer__count {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+.ask-ai-composer__count--warn {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ask-ai-composer__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.ask-ai-send {
+  flex: 0 0 auto;
+  min-width: 58px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ask-ai-send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 88%, #000);
+}
+
+.ask-ai-send:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.ask-ai-run--secondary {
+  width: auto;
+  min-height: 0;
+  padding: 7px 12px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ask-ai-run--secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
 }
 
 .ask-ai-footer__block {
@@ -3644,13 +4028,6 @@ h4 {
 .ask-ai-footer__meta {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
-}
-
-.ask-ai-footer__hint {
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.35;
   color: var(--text-muted);
 }
 
@@ -3728,39 +4105,6 @@ h4 {
   cursor: not-allowed;
 }
 
-.ask-ai-segments {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
-.ask-ai-segment {
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 6px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.ask-ai-segment--on {
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  color: var(--text);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.ask-ai-segment:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .ask-ai-run {
   width: 100%;
   min-height: 42px;
@@ -3784,32 +4128,73 @@ h4 {
 }
 
 .ask-ai-empty__hint {
-  margin: 0;
+  margin: 0 auto;
   font-size: 12.5px;
-  line-height: 1.5;
+  line-height: 1.45;
   color: var(--text-muted);
-  max-width: 34ch;
+  max-width: 36ch;
 }
 
-.ask-ai-guided {
+.ask-ai-quick-list {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 300px);
+  margin: 14px auto 0;
+}
+
+.ask-ai-quick-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+
+.ask-ai-quick-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.ask-ai-quick-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ask-ai-followups {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: 260px;
-  overflow-y: auto;
+  gap: 7px;
+  padding-top: 2px;
 }
 
-.ask-ai-guided-list {
+.ask-ai-followups__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ask-ai-followups__list {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.ask-ai-guided-btn {
+.ask-ai-followups__btn {
   max-width: 100%;
-  padding: 7px 11px;
+  padding: 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 999px;
   background: var(--surface);
   color: var(--text-secondary);
   font: inherit;
@@ -3818,15 +4203,16 @@ h4 {
   line-height: 1.3;
   text-align: left;
   cursor: pointer;
-  white-space: normal;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.ask-ai-guided-btn:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+.ask-ai-followups__btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--identity-accent) 40%, var(--border));
   color: var(--text);
+  background: var(--surface-hover);
 }
 
-.ask-ai-guided-btn:disabled {
+.ask-ai-followups__btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -3842,10 +4228,11 @@ h4 {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 10px;
-  max-width: 100%;
-  padding: 8px 12px;
+  max-width: 86%;
+  padding: 9px 12px;
   border-radius: 12px 12px 4px 12px;
-  background: color-mix(in srgb, var(--navy, #13284c) 90%, #000);
+  /* Fresno State Blue brand anchor — stays readable with white text in every theme */
+  background: color-mix(in srgb, #13284c 90%, #000);
   color: #fff;
 }
 
@@ -3867,7 +4254,7 @@ h4 {
 .ask-ai-msg__assistant {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -3881,21 +4268,22 @@ h4 {
 }
 
 .ask-ai-msg__content {
-  padding: 12px 14px;
+  padding: 12px 13px;
   border: 1px solid var(--border);
-  border-radius: 12px 12px 12px 4px;
+  border-left: 3px solid var(--identity-accent);
+  border-radius: 4px 10px 10px 4px;
   background: var(--surface);
   min-width: 0;
 }
 
 .ask-ai-section + .ask-ai-section {
-  margin-top: 12px;
-  padding-top: 12px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
 }
 
 .ask-ai-msg__heading {
-  margin: 0 0 6px;
+  margin: 0 0 5px;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -3903,7 +4291,7 @@ h4 {
 }
 
 .ask-ai-msg__para {
-  margin: 0 0 8px;
+  margin: 0 0 7px;
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-secondary);
@@ -3933,7 +4321,15 @@ h4 {
 .ask-ai-msg__cves {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 5px;
+}
+
+.ask-ai-msg__cves-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: 2px;
 }
 
 .ask-ai-chip {
@@ -3953,8 +4349,23 @@ a.ask-ai-chip:hover {
   color: var(--accent);
 }
 
+button.ask-ai-chip--more {
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  background: transparent;
+  border-style: dashed;
+}
+
+button.ask-ai-chip--more:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
 .ask-ai-msg__copy {
-  align-self: flex-start;
+  align-self: flex-end;
   border: 0;
   background: none;
   padding: 0;
@@ -4016,8 +4427,26 @@ a.ask-ai-chip:hover {
 
 @media (max-width: 720px) {
   .ask-ai-widget {
-    right: 14px;
-    bottom: 14px;
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .ask-ai-panel {
+    width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    border-radius: 10px;
+  }
+
+  .ask-ai-panel__header {
+    padding: 13px 14px 11px;
+  }
+
+  .ask-ai-panel__thread {
+    padding: 14px;
+  }
+
+  .ask-ai-empty {
+    padding: 12px 4px;
   }
 
   .ask-ai-fab:not(.ask-ai-fab--active) .ask-ai-fab__label {
@@ -4059,11 +4488,6 @@ a.ask-ai-chip:hover {
 
   .ai-brief__ask {
     flex: 0 0 auto;
-  }
-
-  .ask-ai-widget {
-    right: 14px;
-    bottom: 14px;
   }
 
   .ask-ai-fab:not(.ask-ai-fab--active) {

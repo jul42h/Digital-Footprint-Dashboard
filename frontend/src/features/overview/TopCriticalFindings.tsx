@@ -17,39 +17,45 @@ export function TopCriticalFindings() {
   const top = useMemo(() => pickPriorityCves(cves, DEFAULT_PRIORITY_COUNT), [cves]);
 
   if (!top.length) {
-    return <p className="empty-note">No findings loaded yet.</p>;
+    return (
+      <div className="home-panel">
+        <p className="empty-note">No findings loaded yet.</p>
+      </div>
+    );
   }
 
   return (
-    <table className="mini-table">
-      <thead>
-        <tr>
-          <th>CVE</th>
-          <th>Asset</th>
-          <th>Severity</th>
-          <th>Signal</th>
-        </tr>
-      </thead>
-      <tbody>
-        {top.map((cve) => (
-          <tr key={cve.id} onClick={() => navigate(`/cves/${cve.id}`)}>
-            <td>
-              <span className="mini-table__primary mono">{cve.id}</span>
-            </td>
-            <td>
-              <span className="mini-table__secondary mono">{cve.asset}</span>
-            </td>
-            <td>
-              <SeverityBadge severity={cve.severity} />
-            </td>
-            <td>
-              <span className="mini-table__secondary mono">
-                {exploitSignal(cve.exploitKnown, cve.epss)}
-              </span>
-            </td>
+    <div className="home-panel">
+      <table className="mini-table">
+        <thead>
+          <tr>
+            <th>CVE</th>
+            <th>Asset</th>
+            <th>Severity</th>
+            <th>Signal</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {top.map((cve) => (
+            <tr key={cve.id} onClick={() => navigate(`/cves/${cve.id}`)}>
+              <td>
+                <span className="mini-table__primary mono">{cve.id}</span>
+              </td>
+              <td>
+                <span className="mini-table__secondary mono">{cve.asset}</span>
+              </td>
+              <td>
+                <SeverityBadge severity={cve.severity} />
+              </td>
+              <td>
+                <span className="mini-table__secondary mono">
+                  {exploitSignal(cve.exploitKnown, cve.epss)}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

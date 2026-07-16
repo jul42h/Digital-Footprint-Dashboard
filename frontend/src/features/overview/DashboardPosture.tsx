@@ -5,8 +5,8 @@ import { useDashboard } from "@/context/DashboardContext";
 import { useDashboardSummary } from "./useDashboardSummary";
 
 /**
- * Home KPI strip — aligned with nav destinations.
- * Exposure score is shown in the ring below (not repeated here).
+ * Home KPI strip — quick posture counts below the AI brief.
+ * Risk score is shown in the ring (not repeated here).
  */
 export function DashboardPosture() {
   const { data } = useDashboard();

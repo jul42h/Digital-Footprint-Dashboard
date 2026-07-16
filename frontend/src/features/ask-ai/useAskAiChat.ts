@@ -9,12 +9,13 @@ import {
   INTENT_USER_LABEL,
   MAX_CVE_IDS_PER_REQUEST,
   MAX_FINDINGS_PER_REQUEST,
+  MAX_QUESTION_LENGTH,
   type AnalysisIntent,
   type ChatMessage,
   type CveAnalysisResponse,
 } from "./types";
 
-const STORAGE_KEY = "df-cve-analysis-chat-v5";
+const STORAGE_KEY = "df-cve-analysis-chat-v6";
 
 function uid(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -102,7 +103,6 @@ export function useCveAnalysisChat() {
       ]);
 
       try {
-        // Instance-level findings for the selected CVEs (Lambda ranks + postures them).
         const fromRecords = toAnalysisFindingsFromData(dashboard, {
           onlyCveIds: cveIds,
           preferCveIds: cveIds,
@@ -145,31 +145,57 @@ export function useCveAnalysisChat() {
   );
 
   const ask = useCallback(
-    async (question: string) => {
-      const trimmed = question.trim();
-      if (!trimmed || loading) return;
+    async (
+      question: string,
+      options?: {
+        focusCveIds?: string[];
+        displayLabel?: string;
+        questionId?: string;
+        questionParams?: Record<string, string>;
+      },
+    ) => {
+      const trimmed = question.trim().slice(0, MAX_QUESTION_LENGTH);
+      const questionId = options?.questionId?.trim();
+      if ((!trimmed && !questionId) || loading) return;
 
       setError(null);
       setLoading(true);
+
+      const focus = uniqueIds(options?.focusCveIds ?? []);
+      const display = options?.displayLabel ?? (trimmed || questionId || "Ask AI");
 
       setMessages((prev) => [
         ...prev,
         {
           id: uid(),
           role: "user",
-          content: trimmed,
+          // Callers like lookupCve / guided chips may send a question_id for the
+          // Lambda while showing a short label in the transcript.
+          content: display,
+          cveIds: focus.length ? focus : undefined,
           intent: "ask_ai",
           createdAt: Date.now(),
         },
       ]);
 
       try {
-        // Whole-dashboard top-ranked sample — no CVE selection required for a question.
         const findings = toAnalysisFindingsFromData(dashboard, {
+          preferCveIds: focus.length ? focus : undefined,
+          onlyCveIds: focus.length ? focus : undefined,
           limit: MAX_FINDINGS_PER_REQUEST,
         });
+        // If focusing a CVE that somehow has no rows, fall back to whole sample
+        // so the model can still say the data does not include it.
+        const payloadFindings =
+          findings.length > 0
+            ? findings
+            : toAnalysisFindingsFromData(dashboard, { limit: MAX_FINDINGS_PER_REQUEST });
+
         const data = await askAi(trimmed, {
-          findings: findings.length ? findings : undefined,
+          findings: payloadFindings.length ? payloadFindings : undefined,
+          cveIds: focus.length ? focus : undefined,
+          questionId,
+          questionParams: options?.questionParams,
         });
         setMessages((prev) => [
           ...prev,
@@ -177,6 +203,7 @@ export function useCveAnalysisChat() {
             id: uid(),
             role: "assistant",
             content: formatSummary(data),
+            cveIds: focus.length ? focus : data.cve_ids_analyzed,
             intent: "ask_ai",
             createdAt: Date.now(),
           },
@@ -201,6 +228,80 @@ export function useCveAnalysisChat() {
     [dashboard, loading],
   );
 
+  /**
+   * Look up a typed CVE ID in the loaded footprint. Missing IDs get a local
+   * answer — no model call — so analysts are not charged for empty lookups.
+   */
+  const lookupCve = useCallback(
+    async (raw: string) => {
+      if (loading) return;
+
+      const id = normalizeCveId(raw);
+      if (!id) {
+        // "CVE-YYYY-NNNNN", not a real ID like "CVE-2024-12345" — chat messages
+        // auto-link anything matching the CVE pattern, which would otherwise
+        // turn this format example into a dead-end link to a CVE that (almost
+        // certainly) isn't in the loaded footprint.
+        const message =
+          "Enter a CVE ID like CVE-YYYY-NNNNN. Letters, year, and number are all required.";
+        setError(message);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            role: "user",
+            content: raw.trim() || "CVE lookup",
+            intent: "ask_ai",
+            createdAt: Date.now(),
+          },
+          {
+            id: uid(),
+            role: "assistant",
+            content: message,
+            intent: "ask_ai",
+            createdAt: Date.now(),
+          },
+        ]);
+        return;
+      }
+
+      const match = cves.find((c) => c.id.toUpperCase() === id);
+      if (!match) {
+        const message = `${id} is not in the current footprint data. It may be outside the scanned set, filtered out, or not yet loaded — try Refresh (R) or search Security issues.`;
+        setError(null);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: uid(),
+            role: "user",
+            content: id,
+            cveIds: [id],
+            intent: "ask_ai",
+            createdAt: Date.now(),
+          },
+          {
+            id: uid(),
+            role: "assistant",
+            content: message,
+            cveIds: [id],
+            intent: "ask_ai",
+            createdAt: Date.now(),
+          },
+        ]);
+        return;
+      }
+
+      setSelectedIdsCap([id]);
+      await ask("", {
+        focusCveIds: [id],
+        displayLabel: id,
+        questionId: "cve-lookup",
+        questionParams: { cve_id: id },
+      });
+    },
+    [ask, cves, loading, setSelectedIdsCap],
+  );
+
   return {
     messages,
     selectedIds,
@@ -208,6 +309,7 @@ export function useCveAnalysisChat() {
     error,
     analyze,
     ask,
+    lookupCve,
     clearChat,
     toggleCveId,
     setSelectedIdsCap,

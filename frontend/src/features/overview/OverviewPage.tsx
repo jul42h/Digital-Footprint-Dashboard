@@ -1,8 +1,8 @@
-import { lazy, Suspense } from "react";
+import { useAskAiUi } from "@/features/ask-ai/AskAiContext";
 import { PageHeader } from "@/components/PageHeader";
 import { NavIcon } from "@/components/NavIcon";
 import { ViewAllLink } from "@/components/ViewAllLink";
-import { APP_NAME, HELP_TEXT } from "@/lib/copy";
+import { APP_NAME, HELP_TEXT, NAV_LABELS } from "@/lib/copy";
 import { AtRiskAssets } from "./AtRiskAssets";
 import { AiBriefStrip } from "./AiBriefStrip";
 import { CompactRemediationQueue } from "./CompactRemediationQueue";
@@ -11,21 +11,17 @@ import { PrioritySignals } from "./PrioritySignals";
 import { RiskScoreRing } from "./RiskScoreRing";
 import { TopCriticalFindings } from "./TopCriticalFindings";
 
-const SeverityDonut = lazy(() =>
-  import("./SeverityDonut").then((m) => ({ default: m.SeverityDonut })),
-);
-
 /**
- * Home flow: posture counts, then the AI brief as the lead story (what
- * matters and why), then the supporting exposure/severity/signal visuals,
- * then the concrete findings, assets, and remediation queues that back it up.
+ * Home = AI Risk Intelligence command center.
+ * Lead with the AI brief, then risk score + threat signals, then the findings,
+ * assets, and remediation queues analysts act on next — not a raw data browser.
  */
 export function OverviewPage() {
+  const { setOpen } = useAskAiUi();
+
   return (
     <div className="page dashboard dashboard--home dashboard--home-business">
       <PageHeader title={APP_NAME} subtitle={HELP_TEXT.homePage} />
-
-      <DashboardPosture />
 
       <section
         className="home-brief-block home-brief-block--hero home-block"
@@ -47,25 +43,22 @@ export function OverviewPage() {
             Full AI Risk Intelligence
           </ViewAllLink>
         </header>
-        <AiBriefStrip variant="business" />
+        <AiBriefStrip />
       </section>
 
-      <div className="home-visuals">
-        <section className="home-visuals__score home-panel" aria-labelledby="home-exposure-label">
-          <h2 id="home-exposure-label" className="home-panel__title">
-            Exposure score
+      <div className="home-command">
+        <section className="home-visuals__score home-panel" aria-labelledby="home-risk-label">
+          <h2 id="home-risk-label" className="home-panel__title">
+            Risk score
           </h2>
-          <p className="home-panel__hint">{HELP_TEXT.exposureScore}</p>
+          <p className="home-panel__hint">{HELP_TEXT.riskScoreHome}</p>
           <RiskScoreRing />
         </section>
 
-        <section className="home-visuals__severity" aria-label="Findings by severity">
-          <Suspense fallback={<div className="chart-placeholder">Loading…</div>}>
-            <SeverityDonut title="Findings by severity" compact />
-          </Suspense>
-        </section>
-
-        <PrioritySignals />
+        <div className="home-command__side">
+          <DashboardPosture />
+          <PrioritySignals />
+        </div>
       </div>
 
       <section className="home-block" aria-labelledby="home-critical-label">
@@ -99,7 +92,7 @@ export function OverviewPage() {
           <header className="home-block__head">
             <div>
               <h2 id="home-fix-label" className="home-block__title">
-                Priority remediation
+                Prioritized remediation
               </h2>
               <p className="home-block__lede">{HELP_TEXT.fixFirst}</p>
             </div>
@@ -108,6 +101,32 @@ export function OverviewPage() {
           <CompactRemediationQueue limit={4} compact hideTitle />
         </section>
       </div>
+
+      <section className="home-actions" aria-labelledby="home-actions-label">
+        <header className="home-block__head">
+          <div>
+            <h2 id="home-actions-label" className="home-block__title">
+              Next actions
+            </h2>
+            <p className="home-block__lede">{HELP_TEXT.homeNextActions}</p>
+          </div>
+        </header>
+        <div className="home-actions__row">
+          <ViewAllLink to="/insights" className="home-actions__btn">
+            {NAV_LABELS.insights}
+          </ViewAllLink>
+          <button
+            type="button"
+            className="home-actions__btn home-actions__btn--secondary"
+            onClick={() => setOpen(true)}
+          >
+            Ask AI
+          </button>
+          <ViewAllLink to="/solutions" className="home-actions__btn home-actions__btn--secondary">
+            Track remediations
+          </ViewAllLink>
+        </div>
+      </section>
     </div>
   );
 }
