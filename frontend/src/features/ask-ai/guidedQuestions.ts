@@ -4,13 +4,13 @@ import type { AnalysisIntent } from "./types";
  * Guided Ask AI chips. Prompt text for these ids lives in the Lambda
  * (`ASK_AI_PRESETS` / `ASK_AI_TEMPLATES`) — the dashboard only sends ids + labels.
  */
-export interface GuidedQuestion {
+interface GuidedQuestion {
   id: string;
   /** Button label, kept short. */
   label: string;
 }
 
-export interface GuidedQuestionGroup {
+interface GuidedQuestionGroup {
   id: string;
   label: string;
   items: GuidedQuestion[];

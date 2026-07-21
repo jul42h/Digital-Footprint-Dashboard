@@ -13,7 +13,7 @@ const STORAGE_KEY = "df-cve-analysis-cache-v8";
 const BRIEF_SIGNAL_KEY = "df-home-brief-signal-v4";
 
 /** Home brief auto-refreshes at most every 2 hours unless priority signals change. */
-export const BRIEF_REFRESH_MS = 2 * 60 * 60 * 1000;
+const BRIEF_REFRESH_MS = 2 * 60 * 60 * 1000;
 const DETAIL_TTL_MS = 30 * 60 * 1000;
 
 /** Whole-system views (like `brief`) reflect the full dataset, not one CVE selection —
@@ -39,7 +39,7 @@ function ttlForIntent(intent: AnalysisIntent): number {
  * Fingerprint the findings sample so whole-system caches (empty cve_ids) invalidate
  * when the underlying ranked set changes — not just when the clock TTL expires.
  */
-export function findingsCacheFingerprint(findings?: AnalysisFinding[]): string {
+function findingsCacheFingerprint(findings?: AnalysisFinding[]): string {
   if (!findings?.length) return "";
   return findings
     .slice(0, 25)
@@ -86,7 +86,7 @@ function assertUsableResult(data: CveAnalysisResponse): CveAnalysisResponse {
   throw new Error("Analysis completed with no summary returned.");
 }
 
-export function cacheKey(
+function cacheKey(
   cveIds: string[],
   intent: AnalysisIntent,
   findings?: AnalysisFinding[],
@@ -188,7 +188,7 @@ export function peekCachedAnalysis(
   return getCachedEntry(cacheKey(cveIds, intent, findings), intent)?.data ?? null;
 }
 
-export function peekCachedAnalysisMeta(
+function peekCachedAnalysisMeta(
   cveIds: string[],
   intent: AnalysisIntent,
   findings?: AnalysisFinding[],

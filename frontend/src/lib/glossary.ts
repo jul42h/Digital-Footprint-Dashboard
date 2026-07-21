@@ -1,18 +1,18 @@
-export type GlossaryCategory =
+type GlossaryCategory =
   | 'vulnerabilities'
   | 'metrics'
   | 'remediation'
   | 'data'
   | 'threats';
 
-export interface GlossaryEntry {
+interface GlossaryEntry {
   id: string;
   term: string;
   summary: string;
   detail: string;
 }
 
-export interface GlossarySection {
+interface GlossarySection {
   id: GlossaryCategory;
   title: string;
   description: string;

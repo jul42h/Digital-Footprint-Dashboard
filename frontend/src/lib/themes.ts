@@ -3,9 +3,9 @@ export type ThemeId =
   | "fresno-dark"
   | "valley-pride";
 
-export type ThemeGroup = "brand" | "variant";
+type ThemeGroup = "brand" | "variant";
 
-export interface ThemeDefinition {
+interface ThemeDefinition {
   id: ThemeId;
   label: string;
   description: string;
@@ -13,7 +13,7 @@ export interface ThemeDefinition {
   swatches: [string, string];
 }
 
-export const BRAND_COLORS = {
+const BRAND_COLORS = {
   cardinal: "#c41230",
   blue: "#13284c",
   green: "#007935",
@@ -53,7 +53,7 @@ export const THEMES: ThemeDefinition[] = [
 
 const THEME_IDS = new Set(THEMES.map((t) => t.id));
 
-export function isThemeId(value: string | null | undefined): value is ThemeId {
+function isThemeId(value: string | null | undefined): value is ThemeId {
   return value != null && THEME_IDS.has(value as ThemeId);
 }
 

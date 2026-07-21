@@ -38,15 +38,6 @@ export function sourceSeverityToUi(severity: string | undefined): Severity | nul
   return null;
 }
 
-/* Charts need real color values, not CSS var names. Reads the computed
-   custom properties so they stay in sync with the stylesheet + theme. */
-export function severityColorValue(severity: Severity): string {
-  if (typeof window === "undefined") return "#888";
-  return getComputedStyle(document.documentElement)
-    .getPropertyValue(`--sev-${severity}`)
-    .trim();
-}
-
 /* Non-severity categorical charts (e.g. OS/domain breakdowns) still need to
    stay on-brand and theme-aware rather than an arbitrary rainbow palette.
    Every var here is already remapped per-theme for AA contrast on dark

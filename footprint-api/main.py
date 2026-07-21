@@ -9,7 +9,7 @@ Endpoints:
     GET  /cves/latest-raw
     GET  /health
 
-This version keeps the original design but tightens the unsafe areas:
+Design notes:
     - validates CVE IDs, severity, date-pair filters, and record limits before calling NVD
     - converts non-retryable NVD/httpx failures into clean HTTPException responses
     - uses an async rate limiter for specific-CVE lookups so requests can overlap safely
@@ -333,9 +333,8 @@ async def fetch_specific_cves(cve_ids: Sequence[str], max_workers: Optional[int]
     """
     Fetch specific CVEs from NVD.
 
-    The original code slept after each completed request. This version spaces
-    request starts instead, allowing response time to overlap without knowingly
-    exceeding the configured API pacing.
+    Spaces request starts (rather than sleeping after each completes) so
+    response times overlap without exceeding the configured API pacing.
     """
     normalized_ids = normalize_cve_ids(cve_ids)
     if not normalized_ids:

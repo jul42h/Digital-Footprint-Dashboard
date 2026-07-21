@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import type { DerivedData } from '@/lib/adapters';
 import type { DashboardData } from '@/types/data';
 
-export interface DashboardContextValue {
+interface DashboardContextValue {
   data: DashboardData;
   derived: DerivedData;
   loading: boolean;

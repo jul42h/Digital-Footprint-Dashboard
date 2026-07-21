@@ -9,7 +9,7 @@ import {
 } from "react";
 
 const SIDEBAR_KEY = "df-sidebar-collapsed";
-export const MOBILE_BREAKPOINT_PX = 900;
+const MOBILE_BREAKPOINT_PX = 900;
 
 type LayoutContextValue = {
   sidebarCollapsed: boolean;

@@ -194,22 +194,6 @@ export interface ChatMessage {
   createdAt: number;
 }
 
-/**
- * Ask AI actions — interactive Q&A and selection-scoped remediation.
- * Whole-system intelligence lives on /insights (AI Risk Intelligence).
- */
-export const ANALYZE_PRESETS: Array<{
-  id: Extract<AnalysisIntent, "remediate">;
-  label: string;
-  hint: string;
-}> = [
-  {
-    id: "remediate",
-    label: "Remediate",
-    hint: "Priority order and concrete fixes for the selected findings",
-  },
-];
-
 export const INTENT_USER_LABEL: Record<AnalysisIntent, string> = {
   brief: "AI summary",
   insights: "AI Insights",

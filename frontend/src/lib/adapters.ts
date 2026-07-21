@@ -48,7 +48,7 @@ function mergeCve(existing: Cve, incoming: Cve): Cve {
   };
 }
 
-export function toCves(data: DashboardData): Cve[] {
+function toCves(data: DashboardData): Cve[] {
   const map = new Map<string, Cve>();
 
   for (const record of data.cveRecords) {
@@ -87,7 +87,7 @@ export function toCves(data: DashboardData): Cve[] {
   );
 }
 
-export function toIpRecords(data: DashboardData): IpRecord[] {
+function toIpRecords(data: DashboardData): IpRecord[] {
   return data.ips
     .map((ip) => {
       const criticalCount = ip.cves.filter((c) => cvssToSeverity(c.score) === 'critical').length;
@@ -122,7 +122,7 @@ export function toIpRecords(data: DashboardData): IpRecord[] {
     .sort((a, b) => b.maxCvss - a.maxCvss || b.cveCount - a.cveCount);
 }
 
-export function toSolutions(cves: Cve[]): CveSolution[] {
+function toSolutions(cves: Cve[]): CveSolution[] {
   return cves
     .filter((c) => c.severity === 'critical' || c.severity === 'high')
     .sort(compareSolutionPriority)
@@ -137,7 +137,7 @@ export function toSolutions(cves: Cve[]): CveSolution[] {
     }));
 }
 
-export function toVendorsAndProducts(data: DashboardData): {
+function toVendorsAndProducts(data: DashboardData): {
   vendors: VendorRisk[];
   products: ProductRisk[];
 } {

@@ -1,6 +1,5 @@
-/* Domain types shared across features. These mirror the shape your
-   pipeline API is expected to return for vulnerability data — adjust
-   to match your real schema. */
+/* UI domain types shared across features. Produced by lib/adapters.ts from the
+   raw DashboardData API shape (see types/data.ts). */
 
 export type Severity = "critical" | "high" | "medium" | "low";
 
@@ -21,11 +20,11 @@ export interface Cve {
   cvss: number; // 0.0 - 10.0
   severity: Severity; // derived from cvss
   threatType: ThreatType;
-  ports: number[]; // affected ports
-  transport: Transport; // TCP / UDP
-  summary: string; // vulnerability summary
-  asset: string; // affected asset / service
-  vector?: string; // CVSS vector string
+  ports: number[];
+  transport: Transport;
+  summary: string;
+  asset: string;
+  vector?: string;
   publishedAt: string; // ISO 8601
   exploitKnown?: boolean; // known exploited (KEV)
   epss?: number;
@@ -40,11 +39,6 @@ export interface Kpi {
   tone?: Severity | "neutral";
   hint?: string;
   to?: string;
-}
-
-export interface SeverityCount {
-  severity: Severity;
-  count: number;
 }
 
 export interface ThreatCount {

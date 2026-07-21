@@ -7,7 +7,3 @@ export function useSolutions() {
   const { applyOverrides } = useRemediation();
   return useMemo(() => applyOverrides(solutions), [solutions, applyOverrides]);
 }
-
-export function useSolutionsForCve(cveId: string) {
-  return useSolutions().filter((s) => s.cveId === cveId);
-}

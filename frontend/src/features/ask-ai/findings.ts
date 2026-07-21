@@ -27,7 +27,7 @@ function compactSummary(text: string | undefined): string | undefined {
 }
 
 /** Map one dashboard flat record → Lambda finding (vital fields only). */
-export function findingFromRecord(
+function findingFromRecord(
   record: CVEFlatRecord,
   ipLookup?: Map<string, SourceIPRecord>,
 ): AnalysisFinding {
@@ -76,7 +76,7 @@ function findingFromCve(cve: Cve, assetOverride?: string): AnalysisFinding {
 }
 
 /** Rank flat records like the Lambda: KEV > EPSS > CVSS > verified. */
-export function rankFindingRecords(records: CVEFlatRecord[]): CVEFlatRecord[] {
+function rankFindingRecords(records: CVEFlatRecord[]): CVEFlatRecord[] {
   return [...records].sort((a, b) => {
     const kev = Number(Boolean(b.cve.kev)) - Number(Boolean(a.cve.kev));
     if (kev !== 0) return kev;

@@ -1,20 +1,7 @@
 import { useMemo } from 'react';
-import type { SeverityCount, ThreatCount } from '@/types';
+import type { ThreatCount } from '@/types';
 import { THREAT_ORDER } from '@/lib/threats';
-import { SEVERITY_ORDER } from '@/lib/severity';
 import { useDashboard } from '@/context/DashboardContext';
-
-export function useSeverityCounts(): SeverityCount[] {
-  const cves = useDashboard().derived.cves;
-  return useMemo(
-    () =>
-      SEVERITY_ORDER.map((severity) => ({
-        severity,
-        count: cves.filter((c) => c.severity === severity).length,
-      })),
-    [cves],
-  );
-}
 
 export function useThreatDistribution(): ThreatCount[] {
   const cves = useDashboard().derived.cves;

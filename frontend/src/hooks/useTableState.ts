@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 export type SortDirection = "asc" | "desc";
 
-export interface SortState<K extends string> {
+interface SortState<K extends string> {
   key: K;
   direction: SortDirection;
 }

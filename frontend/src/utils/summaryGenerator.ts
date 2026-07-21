@@ -17,7 +17,7 @@ const EXPOSURE_SATURATION_ASSETS = 10;
 
 const SEVERITY_POINTS = { critical: 100, high: 75, medium: 45, low: 15 } as const;
 
-export type RiskRating = 'Critical' | 'High' | 'Elevated' | 'Moderate' | 'Low';
+type RiskRating = 'Critical' | 'High' | 'Elevated' | 'Moderate' | 'Low';
 
 /** Score → rating, matching Lambda RISK_RATINGS so both surfaces share one vocabulary. */
 export function riskRatingLabel(score: number): RiskRating {

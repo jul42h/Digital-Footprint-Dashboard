@@ -80,7 +80,7 @@ function renderInline(text: string): ReactNode[] {
   });
 }
 
-export type Section = { title: string | null; body: string };
+type Section = { title: string | null; body: string };
 
 export function splitIntoSections(content: string): Section[] {
   const cleaned = sanitizeAiText(content);

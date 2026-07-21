@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export interface TableSelectFilter {
+interface TableSelectFilter {
   label: string;
   value: string;
   onChange: (value: string) => void;

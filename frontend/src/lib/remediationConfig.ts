@@ -11,13 +11,6 @@ export const DEFAULT_STATUS_LABELS: Record<SolutionStatus, string> = {
   resolved: 'Done',
 };
 
-export const STATUS_COLORS: Record<SolutionStatus, string> = {
-  open: 'var(--sev-critical)',
-  triage: 'var(--sev-medium)',
-  assigned: 'var(--accent)',
-  resolved: 'var(--status-resolved)',
-};
-
 /** Default statuses counted as pending in posture metrics and the remediation donut. */
 export const DEFAULT_PENDING_STATUSES: SolutionStatus[] = ['open', 'triage'];
 

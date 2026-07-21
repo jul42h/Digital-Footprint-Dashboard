@@ -12,7 +12,7 @@ function normalizeDashboard(data: DashboardData): DashboardData {
       uniqueCVEs: stats.uniqueCVEs || stats.totalCVEs,
     },
     scanSourceCounts: data.scanSourceCounts ?? {},
-    source: data.source === "dynamodb" ? "dynamodb" : data.source === "api" ? "api" : data.source,
+    source: data.source,
   };
 }
 
