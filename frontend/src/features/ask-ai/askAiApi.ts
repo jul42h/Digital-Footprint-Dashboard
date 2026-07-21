@@ -9,7 +9,7 @@ import type {
 import { intentFromMode, modeFromIntent, MAX_CVE_IDS_PAYLOAD, MAX_FINDINGS_PER_REQUEST, MAX_QUESTION_LENGTH } from "./types";
 
 const MEMORY = new Map<string, { savedAt: number; data: CveAnalysisResponse }>();
-const STORAGE_KEY = "df-cve-analysis-cache-v8";
+const STORAGE_KEY = "df-cve-analysis-cache-v9";
 const BRIEF_SIGNAL_KEY = "df-home-brief-signal-v4";
 
 /** Home brief auto-refreshes at most every 2 hours unless priority signals change. */

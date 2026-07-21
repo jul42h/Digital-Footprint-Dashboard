@@ -13,8 +13,10 @@ const REASON_TAG_RE =
 const FENCE_RE = /^\s*```[A-Za-z]*\s*\n([\s\S]*?)\n?\s*```\s*$/;
 const HEADING_RE = /^#{1,4}\s+\S/m;
 const LEAD_CHANNEL_RE = /^(assistant)?\s*(analysis|commentary|final)\b[:.\s]*/i;
-const BOILERPLATE_RE =
-  /(?:^|\n)\s*_?Output truncated at the token limit\.?_?\s*(?=\n|$)/gi;
+// The Lambda appends this marker inline for prose intents (brief, risk_score,
+// ask_ai) and on its own line for sectioned ones, so match it anywhere — not
+// only at a line boundary — or the prose form leaks to the UI verbatim.
+const BOILERPLATE_RE = /\s*_{0,2}Output truncated at the token limit\.?_{0,2}\s*/gi;
 /** Shown in place of the Lambda's raw truncation marker — deleting it silently
  * hid from analysts that a response (e.g. a remediation plan) was cut short. */
 const TRUNCATION_NOTICE = "\n\n⚠ This response was cut short by the model's length limit — some content may be missing.";
@@ -53,7 +55,7 @@ export function sanitizeAiText(raw: string | null | undefined): string {
   // `.match()`, not `.test()`, on this shared `g`-flagged constant — `.test()`
   // would mutate its `lastIndex` and corrupt the next call to this function.
   const wasTruncated = text.match(BOILERPLATE_RE) !== null;
-  text = text.replace(BOILERPLATE_RE, "\n");
+  text = text.replace(BOILERPLATE_RE, "");
   text = text.replace(SEPARATOR_RUN_RE, "\n");
   // Only collapse obvious double-escaped noise; leave normal backslashes alone.
   if (/\\[nrt]/.test(text) && !text.includes("\n\n")) {
