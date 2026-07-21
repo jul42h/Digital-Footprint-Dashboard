@@ -100,9 +100,11 @@ export function pickFollowUpActions(options: {
     });
   }
 
+  // After a remediation plan, surface understanding-oriented questions rather
+  // than "fix-first"/"quick-wins" (which just restate the plan's priority).
   const sharedIds =
     options.intent === "remediate"
-      ? (["fix-first", "active-exploitation", "leadership-summary"] as const)
+      ? (["active-exploitation", "risk-score-drivers", "leadership-summary"] as const)
       : ([
           "fix-first",
           "quick-wins",

@@ -16,6 +16,9 @@ SEVERITY_ORDER = {
 
 CVE_ID_PATTERN = re.compile(r"^CVE-\d{4}-\d+", re.IGNORECASE)
 HOSTNAME_XML_PATTERN = re.compile(r'name="([^"]+)"')
+# Scan source ranges are stored as "network:prefix" (colon) rather than CIDR
+# "network/prefix" — a DynamoDB-side workaround. See _parse_ip_range.
+IP_RANGE_PATTERN = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,2})$")
 
 
 def _pick(item: Dict[str, Any], *keys: str) -> Any:
@@ -139,6 +142,40 @@ def _parse_observed_at(value: Any) -> str:
         return text
 
 
+def _parse_ip_range(value: Any) -> Optional[str]:
+    """Decode the scan source range into standard CIDR notation.
+
+    DynamoDB stores the range as ``network:prefix`` (e.g. ``129.8.242.0:24``)
+    because the ``/`` from real CIDR notation could not be used as stored. Emit
+    the conventional ``129.8.242.0/24`` for display; pass through anything that
+    is already in another form.
+    """
+    text = _as_str(value)
+    if not text:
+        return None
+    match = IP_RANGE_PATTERN.match(text)
+    if match:
+        return f"{match.group(1)}/{match.group(2)}"
+    return text
+
+
+def _parse_os(value: Any) -> Optional[str]:
+    """Normalize an operating-system label.
+
+    ``os`` is a clean value ("Ubuntu"), but ``os_best_guess`` is an nmap-style
+    ranked list like ``[Linux 4.19 - 5.15, Linux 5.4, ...]``. Strip the brackets
+    and keep the top guess so a usable OS still shows for hosts that only have
+    the guessed value.
+    """
+    text = _as_str(value)
+    if not text:
+        return None
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1]
+    top_guess = text.split(",")[0].strip()
+    return top_guess or None
+
+
 # TODO(pipeline-4): the AI Risk Analyzer Lambda (lambda_ai_risk_analyzer.py,
 # PIPELINE4_FIELDS) already assumes DynamoDB rows may carry optional business/
 # threat fields once Pipeline 4 lands: asset_criticality, business_unit,
@@ -163,6 +200,7 @@ def _build_cve(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     score = _parse_score(_pick(item, "cvss", "cve_score", "score", "cvss_v2"))
     severity_raw = _pick(item, "cvss_severity", "severity", "risk_level")
     severity = _normalize_severity(severity_raw) if severity_raw else _score_to_severity(score)
+    cvss_version = _as_str(_pick(item, "cvss_version"))
 
     ports = _parse_ports(_pick(item, "port", "port_id", "ports"))
     epss = _parse_score(_pick(item, "epss"))
@@ -177,6 +215,7 @@ def _build_cve(item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "id": cve_id.upper(),
         "score": score,
         "severity": severity,
+        "cvssVersion": cvss_version or None,
         "publishedDate": _parse_observed_at(_pick(item, "observed_at", "published_date", "published", "processed_at", "timestamp")),
         "lastUpdated": _parse_observed_at(_pick(item, "processed_at", "last_updated", "updated")) or None,
         "summary": _as_str(_pick(item, "summary", "description")) or None,
@@ -203,6 +242,7 @@ def _empty_ip_record(ip: str) -> Dict[str, Any]:
         "country": "",
         "city": None,
         "asn": None,
+        "ipRange": None,
         "hostnames": [],
         "domains": [],
         "operatingSystem": None,
@@ -221,6 +261,7 @@ def _empty_ip_record(ip: str) -> Dict[str, Any]:
         "summary": None,
         "lastSeen": None,
         "hostStatus": None,
+        "hostStatusReason": None,
         "scanTypes": [],
     }
 
@@ -240,9 +281,10 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
     country = _as_str(_pick(item, "location_country_code", "country", "country_code"))
     city = _as_str(_pick(item, "location_city", "city"))
     asn = _as_str(_pick(item, "asn"))
+    ip_range = _parse_ip_range(_pick(item, "ip_range_source", "ip_range"))
     hostnames = _parse_hostnames(item)
     domains = _split_list(_pick(item, "domains", "domain"))
-    operating_system = _as_str(_pick(item, "os", "operating_system", "operatingSystem"))
+    operating_system = _parse_os(_pick(item, "os", "operating_system", "operatingSystem", "os_best_guess"))
     transport = _split_list(_pick(item, "transport", "protocol"))
     services = _split_list(_pick(item, "service_name", "service", "services"))
     products = _split_list(_pick(item, "product", "products"))
@@ -253,6 +295,7 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
     timestamp = _parse_observed_at(_pick(item, "observed_at", "processed_at", "timestamp", "last_seen", "lastSeen"))
     summary = _as_str(_pick(item, "summary", "description"))
     host_status = _as_str(_pick(item, "host_status")) or None
+    host_status_reason = _as_str(_pick(item, "host_status_reason")) or None
     scan_type = _as_str(_pick(item, "scan_type")) or None
     scan_types = list(existing.get("scanTypes", []))
     if scan_type:
@@ -266,6 +309,7 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
         "country": country or existing["country"],
         "city": city or existing.get("city"),
         "asn": asn or existing.get("asn"),
+        "ipRange": ip_range or existing.get("ipRange"),
         "hostnames": _merge_unique(existing["hostnames"], hostnames),
         "domains": _merge_unique(existing.get("domains", []), domains),
         "operatingSystem": operating_system or existing.get("operatingSystem"),
@@ -284,6 +328,7 @@ def _merge_ip_record(existing: Dict[str, Any], item: Dict[str, Any]) -> Dict[str
         "summary": summary or existing.get("summary"),
         "lastSeen": timestamp or existing.get("lastSeen"),
         "hostStatus": host_status or existing.get("hostStatus"),
+        "hostStatusReason": host_status_reason or existing.get("hostStatusReason"),
         "scanTypes": scan_types,
     }
 

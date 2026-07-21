@@ -84,6 +84,11 @@ export function CveDetailPage() {
           </Row>
           <Row label={LABELS.riskScore}>
             <CvssScore score={cve.cvss} />
+            {cve.cvssVersion && (
+              <span style={{ marginLeft: 8, color: "var(--text-secondary)", fontSize: 13 }}>
+                CVSS v{cve.cvssVersion}
+              </span>
+            )}
           </Row>
           <Row label={LABELS.system}>
             <span className="mono">{cve.asset}</span>

@@ -26,6 +26,7 @@ export const LABELS = {
   summary: "What we found",
   hostname: "System name",
   ipAddress: "Network address",
+  ipRange: "IP range",
   viewAll: "View all",
   learnMore: "See details",
   activelyTargeted: "Known exploited",

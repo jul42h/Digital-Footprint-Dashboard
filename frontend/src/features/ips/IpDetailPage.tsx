@@ -35,6 +35,12 @@ export function IpDetailPage() {
                   <span>{formatIpLocation(ip.city, ip.country)}</span>
                 </div>
               )}
+              {ip.ipRange && (
+                <div>
+                  <span className="detail-inline__label">{LABELS.ipRange} </span>
+                  <span className="mono">{ip.ipRange}</span>
+                </div>
+              )}
               {ip.domains && ip.domains.length > 0 && (
                 <div>
                   <span className="detail-inline__label">Domains </span>
@@ -44,7 +50,10 @@ export function IpDetailPage() {
               {ip.hostStatus && (
                 <div>
                   <span className="detail-inline__label">Host status </span>
-                  <span>{ip.hostStatus}</span>
+                  <span>
+                    {ip.hostStatus}
+                    {ip.hostStatusReason ? ` (${ip.hostStatusReason})` : ""}
+                  </span>
                 </div>
               )}
               {ip.operatingSystem && (
@@ -77,11 +86,18 @@ export function IpDetailPage() {
                   <span>{ip.scanTypes.join(", ")}</span>
                 </div>
               )}
-              {ip.openPortCount != null && ip.openPortCount > 0 && (
+              {ip.ports && ip.ports.length > 0 ? (
                 <div>
                   <span className="detail-inline__label">Open ports </span>
-                  <span>{ip.openPortCount}</span>
+                  <span className="mono">{ip.ports.join(", ")}</span>
                 </div>
+              ) : (
+                ip.openPortCount != null && ip.openPortCount > 0 && (
+                  <div>
+                    <span className="detail-inline__label">Open ports </span>
+                    <span>{ip.openPortCount}</span>
+                  </div>
+                )
               )}
               <div>
                 <span className="detail-inline__label">{LABELS.issues} </span>

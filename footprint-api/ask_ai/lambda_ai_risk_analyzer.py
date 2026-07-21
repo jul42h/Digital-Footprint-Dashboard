@@ -125,11 +125,11 @@ Dependency:
   openai
 """
 
-# NOTE: reference copy for local review/testing only. Nothing in this repo
-# imports this module — ask_ai/__init__.py only wires up cve_dashboard_api.py,
-# which calls the real deployed Lambda over the network via boto3. Lambda
-# deployment/config lives in AWS, not here; edits to this file have no effect
-# on the running dashboard.
+# Reference source for the deployed AWS Lambda `ai-risk-analyzer`, kept
+# deployment-ready: this file is copied into the Lambda, so changes here reach
+# production on the next deploy (not automatically). Nothing in this repo imports
+# it — the FastAPI relay (ask_ai/cve_dashboard_api.py) invokes the deployed
+# function over the network via boto3.
 
 from __future__ import annotations
 
@@ -1301,6 +1301,8 @@ _FORMAT_RULES: dict[str, str] = {
 # budget, so the cap must cover reasoning + answer. Length is controlled by the
 # prompt, not by the cap. An over-tight cap surfaces as an empty `content` with
 # populated `reasoning_content`, which _generate reports as a ModelError.
+# remediate carries the largest budget: it is the only five-section intent, and
+# its reasoning + answer overran a smaller cap on the legacy (reasoning) model.
 _INTENT_PROMPTS: dict[str, tuple[str, int]] = {
     "brief": (
         """
@@ -1406,29 +1408,44 @@ Rank on evidence, not finding count alone. If criticality was not supplied, say 
     ),
     "remediate": (
         """
-Prioritized remediation plan for this data — sequenced, not a checklist.
+Remediation plan for this data — sequenced and specific, not a checklist. Keep
+every section lean; scale detail to the findings, not to a fixed length.
 
-### Priority Order
-2-4 single-line bullets: what to fix, assets, ranking signal, risk removed (tie to a
-risk_score driver when it applies).
+### Recommended Action
+2-4 single-line bullets: the most effective durable fix per priority finding —
+patch or upgrade a named product+version, apply a specific configuration change,
+or remove/replace the exposed service. Tie each to a finding. This is the
+preferred long-term remediation.
 
-### Recommended Actions
-3-5 concrete single-line bullets: patch/upgrade named product+version, close/restrict
-a port, review config, segment, or validate. Tie each to a finding.
+### Implementation Guidance
+2-3 single-line bullets on carrying out that fix: the concrete change, where it
+applies (asset, service, or port), and how to confirm it took (version re-check,
+port closed, config re-scan).
 
-### Owners
-2-3 single-line bullets: use `owner_team`/`business_unit` when present; else name the
-function (vulnerability management, IT ops, network/security, app owners).
+### Alternative Controls
+Only when the preferred fix may be delayed, unavailable, or operationally
+disruptive. 1-3 single-line bullets of interim compensating controls that reduce
+risk meanwhile — segmentation, access restriction, firewall/allow-list rules,
+service isolation, least privilege, temporary config hardening, or added
+monitoring/logging. Mark them as temporary. If the fix can be applied directly,
+write one line saying so and that no interim controls are needed. Do not invent a
+business restriction that the data does not show.
 
-### Validation
-2-3 single-line bullets on confirming the fix against the provided finding/exposure/version.
+### Residual Risk
+1-2 single-line bullets: the risk that remains if only the interim controls are in
+place, why they do not replace the preferred fix, and when to revisit the
+permanent remediation. If the preferred fix is applied, say residual risk is
+minimal once it is verified.
 
-### Limitations
-1-3 single-line bullets on missing data that blocks more specific guidance.
+### Priority
+1-2 single-line bullets: how urgent, and in what order, tied to the ranking
+signals (KEV, EPSS, CVSS, exposure) and the risk_score drivers.
 
-Never invent vendor patches, versions, or advisories not in the data.
+Never invent vendor patches, versions, advisories, or business restrictions not
+supported by the data. Never claim a compensating control removes the underlying
+risk — it only reduces it until the fix lands.
 """,
-        800,
+        1200,
     ),
     "ask_ai": (
         """
@@ -1441,7 +1458,9 @@ One paragraph, 60-120 words when the question is answerable from the data:
 - Answer first. Do not restate the question.
 - Support with specific numbers, CVEs, assets, or services from the data.
 - If partly answerable, say what is known and what is missing.
-- If a decision is implied, end with one practical next step.
+- If the question implies a decision (what to fix, where to start), give the top
+  one or two priorities and why, in prose — a concise answer, not a multi-section
+  remediation plan.
 
 Do not open with an overall dashboard, risk-score, or estate summary unless the
 question asks about overall risk, posture, priority across the footprint, or
@@ -1492,11 +1511,11 @@ REQUIRED_HEADINGS: dict[str, tuple[str, ...]] = {
     "critical_findings": ("Critical Findings", "Business Impact", "Next Action"),
     "risk_assets": ("Highest-Risk Assets", "Why They Rank", "Next Action"),
     "remediate": (
-        "Priority Order",
-        "Recommended Actions",
-        "Owners",
-        "Validation",
-        "Limitations",
+        "Recommended Action",
+        "Implementation Guidance",
+        "Alternative Controls",
+        "Residual Risk",
+        "Priority",
     ),
 }
 

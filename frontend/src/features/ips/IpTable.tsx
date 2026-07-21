@@ -13,7 +13,7 @@ import { cvssToSeverity, SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/severity";
 import type { IpRecord, Severity } from "@/types";
 import { useIps } from "./hooks";
 
-type IpSortKey = "address" | "hostname" | "serviceCount" | "cveCount" | "maxCvss" | "lastScanAt";
+type IpSortKey = "address" | "ipRange" | "hostname" | "serviceCount" | "cveCount" | "maxCvss" | "lastScanAt";
 type SeverityFilter = Severity | "all";
 type IssueFilter = "all" | "with-issues" | "critical";
 
@@ -24,7 +24,10 @@ interface IpTableProps {
 
 function searchIp(ip: IpRecord, query: string): boolean {
   const location = formatIpLocation(ip.city, ip.country);
-  const haystack = [ip.address, ip.hostname, location].filter(Boolean).join(" ").toLowerCase();
+  const haystack = [ip.address, ip.ipRange, ip.hostname, location]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
   return haystack.includes(query);
 }
 
@@ -32,6 +35,8 @@ function sortIp(ip: IpRecord, key: IpSortKey): string | number {
   switch (key) {
     case "address":
       return ip.address;
+    case "ipRange":
+      return ip.ipRange ?? "";
     case "hostname":
       return ip.hostname;
     case "serviceCount":
@@ -132,6 +137,7 @@ export function IpTable({ limit, title = "IP assets" }: IpTableProps) {
           <thead>
             <tr>
               <SortableTh label={LABELS.ipAddress} sortKey="address" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 120 }} />
+              <SortableTh label={LABELS.ipRange} sortKey="ipRange" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 128 }} />
               <SortableTh label={LABELS.hostname} sortKey="hostname" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 140 }} />
               <SortableTh label={LABELS.services} sortKey="serviceCount" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 72 }} />
               <SortableTh label={LABELS.vulns} sortKey="cveCount" activeKey={sort.key} direction={sort.direction} onSort={toggleSort} style={{ width: 64 }} />
@@ -143,7 +149,7 @@ export function IpTable({ limit, title = "IP assets" }: IpTableProps) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="table-empty">
+                <td colSpan={8} className="table-empty">
                   No assets match your filters.
                 </td>
               </tr>
@@ -151,6 +157,9 @@ export function IpTable({ limit, title = "IP assets" }: IpTableProps) {
               rows.map((ip) => (
                 <tr key={ip.address} onClick={() => navigate(`/ips/${encodeURIComponent(ip.address)}`)}>
                   <td className="mono">{ip.address}</td>
+                  <td className="mono" style={{ color: "var(--text-secondary)" }}>
+                    {ip.ipRange ?? "—"}
+                  </td>
                   <td>
                     <span className="mini-table__primary">{ip.hostname}</span>
                     {(ip.city || ip.country) && formatIpLocation(ip.city, ip.country) && (

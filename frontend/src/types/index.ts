@@ -18,6 +18,7 @@ export type Transport = "TCP" | "UDP";
 export interface Cve {
   id: string; // e.g. "CVE-2024-3094"
   cvss: number; // 0.0 - 10.0
+  cvssVersion?: string; // CVSS scoring version: "2" | "3" | "4"
   severity: Severity; // derived from cvss
   threatType: ThreatType;
   ports: number[];
@@ -61,9 +62,12 @@ export interface IpRecord {
   lastScanAt: string; // ISO 8601
   domains?: string[];
   hostStatus?: string;
+  hostStatusReason?: string;
   openPortCount?: number;
+  ports?: number[];
   operatingSystem?: string;
   asn?: string;
+  ipRange?: string; // scan source range, CIDR notation
   isp?: string;
   services?: string[];
   scanTypes?: string[];

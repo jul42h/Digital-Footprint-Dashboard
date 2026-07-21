@@ -51,34 +51,6 @@ MAX_FINDINGS_PER_REQUEST = 100
 MAX_QUESTION_LENGTH = 500
 CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,7}$", re.I)
 
-_HARMONY_FINAL_RE = re.compile(r"<\|channel\|>\s*final\s*<\|message\|>", re.I)
-_HARMONY_TOKEN_RE = re.compile(r"<\|[^|]*\|>")
-_REASON_BLOCK_RE = re.compile(
-    r"<\s*(think|thinking|reasoning|analysis|scratchpad)\b[^>]*>"
-    r".*?<\s*/\s*\1\s*>",
-    re.I | re.S,
-)
-_REASON_TAG_RE = re.compile(
-    r"<\s*/?\s*(think|thinking|reasoning|analysis|scratchpad|final|commentary)"
-    r"\b[^>]*>",
-    re.I,
-)
-_FENCE_RE = re.compile(r"\A\s*```[A-Za-z]*\s*\n(.*?)\n?\s*```\s*\Z", re.S)
-_HEADING_RE = re.compile(r"^#{1,4}\s+\S", re.M)
-_LEAD_CHANNEL_RE = re.compile(
-    r"\A(assistant)?\s*(analysis|commentary|final)\b[:.\s]*", re.I
-)
-_BOILERPLATE_RE = re.compile(
-    r"(?:^|\n)\s*_?Output truncated at the token limit\.?_?\s*(?=\n|$)",
-    re.I,
-)
-# Shown in place of the Lambda's raw truncation marker — deleting it silently
-# hid from analysts that a response (e.g. a remediation plan) was cut short.
-_TRUNCATION_NOTICE = (
-    "\n\n⚠ This response was cut short by the model's length limit — "
-    "some content may be missing."
-)
-
 AnalysisMode = Literal["brief", "detail"]
 AnalysisIntent = Literal[
     "brief",
@@ -102,39 +74,6 @@ _lambda_client = boto3.client(
 )
 
 router = APIRouter(tags=["cve-analysis"])
-
-
-def _sanitize_ai_summary(text: Any) -> Optional[str]:
-    """Defense-in-depth mirror of the Lambda's own sanitizing, in case leaked
-    scaffolding ever slips past it before reaching the UI."""
-    if text is None:
-        return None
-    cleaned = str(text).replace("\r\n", "\n")
-
-    finals = list(_HARMONY_FINAL_RE.finditer(cleaned))
-    if finals:
-        cleaned = cleaned[finals[-1].end() :]
-
-    cleaned = _REASON_BLOCK_RE.sub("", cleaned)
-    cleaned = _HARMONY_TOKEN_RE.sub("", cleaned)
-    cleaned = _REASON_TAG_RE.sub("", cleaned)
-
-    fenced = _FENCE_RE.match(cleaned)
-    if fenced:
-        cleaned = fenced.group(1)
-
-    heading = _HEADING_RE.search(cleaned)
-    if heading and heading.start() > 0:
-        cleaned = cleaned[heading.start() :]
-
-    cleaned = _LEAD_CHANNEL_RE.sub("", cleaned.lstrip())
-    was_truncated = _BOILERPLATE_RE.search(cleaned) is not None
-    cleaned = _BOILERPLATE_RE.sub("\n", cleaned)
-    cleaned = re.sub(r"[ \t]+$", "", cleaned, flags=re.M)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
-    if was_truncated and cleaned:
-        cleaned += _TRUNCATION_NOTICE
-    return cleaned or None
 
 
 def _intent_to_mode(intent: AnalysisIntent) -> AnalysisMode:
@@ -446,10 +385,10 @@ async def analyze_cves(request: AnalyzeCVEsRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(message))
 
     if isinstance(result, dict):
+        # The Lambda normalizes ai_summary at generation and the dashboard cleans
+        # it for presentation; the relay passes it through unchanged.
         if "mode" not in result:
             result = {**result, "mode": request.mode}
         if "intent" not in result:
             result = {**result, "intent": request.intent}
-        if "ai_summary" in result:
-            result = {**result, "ai_summary": _sanitize_ai_summary(result.get("ai_summary"))}
     return result

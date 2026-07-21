@@ -39,6 +39,7 @@ function mergeCve(existing: Cve, incoming: Cve): Cve {
     verified: existing.verified || incoming.verified,
     epss: Math.max(existing.epss ?? 0, incoming.epss ?? 0) || undefined,
     cvss: Math.max(existing.cvss, incoming.cvss),
+    cvssVersion: incoming.cvss >= existing.cvss ? incoming.cvssVersion : existing.cvssVersion,
     severity:
       exploitabilityScore(incoming) > exploitabilityScore(existing)
         ? incoming.severity
@@ -60,6 +61,7 @@ function toCves(data: DashboardData): Cve[] {
     const incoming: Cve = {
       id: record.cve.id,
       cvss,
+      cvssVersion: record.cve.cvssVersion,
       severity: sourceSeverityToUi(record.cve.severity) ?? cvssToSeverity(cvss),
       threatType: inferThreatType(record.cve.summary ?? record.cve.id),
       ports,
@@ -111,9 +113,12 @@ function toIpRecords(data: DashboardData): IpRecord[] {
         lastScanAt: ip.lastSeen || ip.timestamp || data.lastUpdated,
         domains: ip.domains,
         hostStatus: ip.hostStatus,
+        hostStatusReason: ip.hostStatusReason,
         openPortCount: ip.openPorts.length,
+        ports: ip.ports,
         operatingSystem: ip.operatingSystem,
         asn: ip.asn,
+        ipRange: ip.ipRange,
         isp: ip.isp,
         services: ip.services,
         scanTypes: ip.scanTypes,

@@ -4,6 +4,7 @@ export interface SourceCVE {
   id: string;
   score: number;
   severity: SourceSeverity;
+  cvssVersion?: string;
   publishedDate: string;
   lastUpdated?: string;
   summary?: string;
@@ -22,6 +23,8 @@ export interface SourceIPRecord {
   country: string;
   city?: string;
   asn?: string;
+  /** Scan source range in CIDR notation, e.g. "129.8.242.0/24". */
+  ipRange?: string;
   hostnames: string[];
   domains?: string[];
   operatingSystem?: string;
@@ -40,6 +43,7 @@ export interface SourceIPRecord {
   summary?: string;
   lastSeen?: string;
   hostStatus?: string;
+  hostStatusReason?: string;
   scanTypes?: string[];
 }
 

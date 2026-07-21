@@ -153,6 +153,10 @@ function AskAiPanel({
 
   const kevAvailable = pickKevCveIds(cves, 1).length > 0;
   const canRemediate = selectedIds.length > 0 && !loading;
+  const remediateHint =
+    selectedIds.length === 0
+      ? "Select findings below to build a remediation plan"
+      : "Remediation plan for the selected findings: preferred fix, interim controls, and residual risk";
   const questionLen = question.length;
   const nearLimit = questionLen >= QUESTION_SOFT_LIMIT;
   const directCveLookup =
@@ -266,7 +270,9 @@ function AskAiPanel({
       <header className="ask-ai-panel__header">
         <div>
           <h2 className="ask-ai-panel__title">Ask AI</h2>
-          <p className="ask-ai-panel__sub">Ask questions or build a remediation plan</p>
+          <p className="ask-ai-panel__sub">
+            Ask about a finding, asset, or risk — or select findings for a remediation plan
+          </p>
           <DashboardContextStrip />
         </div>
         <div className="ask-ai-panel__header-actions">
@@ -475,6 +481,7 @@ function AskAiPanel({
                   type="button"
                   className="ask-ai-run ask-ai-run--secondary"
                   disabled={!canRemediate}
+                  title={remediateHint}
                   onClick={() => void analyze(selectedIds, "remediate")}
                 >
                   {loading ? "Running…" : "Remediate"}

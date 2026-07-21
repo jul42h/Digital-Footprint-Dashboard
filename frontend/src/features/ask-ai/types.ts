@@ -63,7 +63,13 @@ export const REQUIRED_HEADINGS: Partial<Record<AnalysisIntent, readonly string[]
   threat_intel: ["Known Exploitation", "Attacker Interest", "Exposed Technology", "Evidence Gaps"],
   critical_findings: ["Critical Findings", "Business Impact", "Next Action"],
   risk_assets: ["Highest-Risk Assets", "Why They Rank", "Next Action"],
-  remediate: ["Priority Order", "Recommended Actions", "Owners", "Validation", "Limitations"],
+  remediate: [
+    "Recommended Action",
+    "Implementation Guidance",
+    "Alternative Controls",
+    "Residual Risk",
+    "Priority",
+  ],
 };
 
 /** Word floor for prose intents (matches Lambda MIN_PROSE_WORDS). */
