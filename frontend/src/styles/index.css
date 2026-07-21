@@ -3988,21 +3988,6 @@ h4 {
   cursor: not-allowed;
 }
 
-.ask-ai-run--secondary {
-  width: auto;
-  min-height: 0;
-  padding: 7px 12px;
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border-strong);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.ask-ai-run--secondary:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-
 .ask-ai-footer__block {
   display: flex;
   flex-direction: column;

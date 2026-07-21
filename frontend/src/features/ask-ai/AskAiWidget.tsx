@@ -155,7 +155,7 @@ function AskAiPanel({
   const canRemediate = selectedIds.length > 0 && !loading;
   const remediateHint =
     selectedIds.length === 0
-      ? "Select findings below to build a remediation plan"
+      ? "Select findings to build a remediation plan"
       : "Remediation plan for the selected findings: preferred fix, interim controls, and residual risk";
   const questionLen = question.length;
   const nearLimit = questionLen >= QUESTION_SOFT_LIMIT;
@@ -407,6 +407,19 @@ function AskAiPanel({
                 })
               )}
             </div>
+            <button
+              type="button"
+              className="ask-ai-run"
+              disabled={!canRemediate}
+              title={remediateHint}
+              onClick={() => void analyze(selectedIds, "remediate")}
+            >
+              {loading
+                ? "Running…"
+                : selectedIds.length > 0
+                  ? `Remediate ${selectedIds.length} finding${selectedIds.length === 1 ? "" : "s"}`
+                  : "Remediate"}
+            </button>
           </div>
         </details>
 
@@ -477,15 +490,6 @@ function AskAiPanel({
                 {nearLimit ? `${questionLen}/${MAX_QUESTION_LENGTH}` : ""}
               </span>
               <div className="ask-ai-composer__actions">
-                <button
-                  type="button"
-                  className="ask-ai-run ask-ai-run--secondary"
-                  disabled={!canRemediate}
-                  title={remediateHint}
-                  onClick={() => void analyze(selectedIds, "remediate")}
-                >
-                  {loading ? "Running…" : "Remediate"}
-                </button>
                 <button
                   type="submit"
                   className="ask-ai-send"
