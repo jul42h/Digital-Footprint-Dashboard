@@ -9,3 +9,4 @@ __pycache__/
 AppData/
 .DS_Store
 LAMBDA_COPY_ME.py
+footprint-api/auth/auth.db*

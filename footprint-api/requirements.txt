@@ -5,3 +5,8 @@ boto3==1.35.24
 pydantic==2.13.4
 python-dotenv==1.0.1
 openai>=1.50.0
+
+# Authentication (footprint-api/auth/) — self-contained, no third-party auth provider
+sqlmodel==0.0.39
+bcrypt==5.0.0
+PyJWT==2.13.0

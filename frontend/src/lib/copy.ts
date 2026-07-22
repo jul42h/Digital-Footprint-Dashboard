@@ -12,6 +12,7 @@ export const NAV_LABELS = {
   analytics: "Analytics",
   guide: "Guide",
   settings: "Settings",
+  manageUsers: "Manage users",
 } as const;
 
 export const LABELS = {
@@ -95,6 +96,7 @@ export const HELP_TEXT = {
   analyticsPage:
     "Geography, ports, operating systems, and services — patterns across the footprint.",
   settingsPage: "Data source, refresh, and remediation status labels.",
+  manageUsersPage: "Create, promote, disable, or delete accounts. Admin only.",
   guidePage: "Definitions for CVE, CVSS, KEV, EPSS, remediation statuses, and dashboard terms.",
   loading: "Loading your security footprint…",
 } as const;

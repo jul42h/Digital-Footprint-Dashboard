@@ -24,6 +24,7 @@ import json
 import logging
 import os
 import sys
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -31,10 +32,19 @@ from typing import Any, Dict, List, Optional
 import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI, HTTPException
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+# Must run before the `auth` import below: auth/jwt.py reads AUTH_JWT_SECRET
+# from os.environ at import time, so .env has to be loaded into the
+# environment first, not just present on disk.
+load_dotenv()
+
 from ask_ai import cve_analysis_router
+from auth import router as auth_router
+from auth.database import create_db_and_tables
+from auth.dependencies import get_current_user, require_admin, require_analyst_or_admin
 from dashboard_transform import findings_to_dashboard
 from frontend_sync import (
     dist_is_stale,
@@ -178,7 +188,14 @@ def _setup_frontend(app: FastAPI) -> None:
 # FastAPI app + routes
 # ----------------------------------------------------------------------
 
-app = FastAPI(title="Footprint Dashboard API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()  # creates auth/auth.db and its tables if not present yet
+    yield
+
+
+app = FastAPI(title="Footprint Dashboard API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -189,7 +206,7 @@ app.add_middleware(
 )
 
 
-@app.get("/api/v1/build-info")
+@app.get("/api/v1/build-info", dependencies=[Depends(get_current_user)])
 def build_info() -> Dict[str, Any]:
     if _effective_dev_url:
         return {"mode": "dev-proxy", "devUrl": _effective_dev_url}
@@ -204,13 +221,17 @@ def build_info() -> Dict[str, Any]:
     }
 
 
-@app.get("/health")
-@app.get("/api/v1/health")
+# NOTE: per the "protect every existing endpoint" requirement, these are now
+# gated too. If this ever sits behind a load balancer / uptime monitor /
+# container orchestrator that expects an unauthenticated health probe, give
+# that specific caller its own exemption rather than reopening this route.
+@app.get("/health", dependencies=[Depends(get_current_user)])
+@app.get("/api/v1/health", dependencies=[Depends(get_current_user)])
 def health() -> Dict[str, Any]:
     return {"status": "ok", "table": TABLE_NAME}
 
 
-@app.get("/api/v1/dashboard")
+@app.get("/api/v1/dashboard", dependencies=[Depends(get_current_user)])
 def dashboard() -> Dict[str, Any]:
     try:
         return load_dashboard()
@@ -221,19 +242,19 @@ def dashboard() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@app.post("/api/v1/dashboard/refresh")
+@app.post("/api/v1/dashboard/refresh", dependencies=[Depends(require_admin)])
 def refresh_dashboard() -> Dict[str, Any]:
     data = load_dashboard(force_refresh=True)
     return {"status": "refreshed", "records": data["stats"]["totalCVEs"]}
 
 
-@app.get("/findings")
+@app.get("/findings", dependencies=[Depends(require_analyst_or_admin)])
 def list_findings(ip: Optional[str] = None) -> Dict[str, Any]:
     items = query_ip(ip) if ip else scan_all()
     return {"count": len(items), "items": items}
 
 
-@app.get("/findings/{ip}/{cve_id}")
+@app.get("/findings/{ip}/{cve_id}", dependencies=[Depends(require_analyst_or_admin)])
 def get_finding(ip: str, cve_id: str) -> Dict[str, Any]:
     item = get_item(ip, cve_id)
     if item is None:
@@ -242,7 +263,12 @@ def get_finding(ip: str, cve_id: str) -> Dict[str, Any]:
 
 
 # CVE AI analysis: POST /api/cve-analysis → Lambda AI Risk Analyzer → ai_summary
-app.include_router(cve_analysis_router)
+# Admin + Analyst only ("AI Summary" is an Analyst-tier permission; Viewer
+# does not get it, consistent with keeping the billed Lambda call gated).
+app.include_router(cve_analysis_router, dependencies=[Depends(require_analyst_or_admin)])
+
+# Authentication & user management: /api/v1/auth/* (login, refresh, /me, admin user CRUD, ...)
+app.include_router(auth_router)
 
 
 # ----------------------------------------------------------------------

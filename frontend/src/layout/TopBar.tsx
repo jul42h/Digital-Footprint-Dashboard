@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ThemeSelector } from "@/components/ThemeSelector";
+import { useAuth } from "@/context/AuthContext";
 import { useDashboard } from "@/context/DashboardContext";
 import { useLayout } from "@/context/LayoutContext";
 import { formatRelativeTime } from "@/lib/format";
@@ -7,11 +8,14 @@ import { formatRelativeTime } from "@/lib/format";
 export function TopBar() {
   const { data, refreshing, reload } = useDashboard();
   const { toggleSidebar, sidebarOverlayOpen } = useLayout();
+  const { user, logout } = useAuth();
+  const canRefresh = user?.role === "admin";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== "r") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!canRefresh) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       e.preventDefault();
@@ -19,7 +23,7 @@ export function TopBar() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [reload]);
+  }, [reload, canRefresh]);
 
   const sourceLabel =
     data.source === "api" || data.source === "dynamodb"
@@ -56,19 +60,21 @@ export function TopBar() {
         </span>
       </div>
       <div className="topbar__actions">
-        <button
-          type="button"
-          className="btn btn--compact"
-          onClick={reload}
-          disabled={refreshing}
-          title="Refresh data (R)"
-          aria-label="Refresh data"
-        >
-          <span className="topbar__refresh-icon" aria-hidden>
-            ↻
-          </span>
-          <span className="topbar__refresh-label">{refreshing ? "…" : "Refresh"}</span>
-        </button>
+        {canRefresh && (
+          <button
+            type="button"
+            className="btn btn--compact"
+            onClick={reload}
+            disabled={refreshing}
+            title="Refresh data (R)"
+            aria-label="Refresh data"
+          >
+            <span className="topbar__refresh-icon" aria-hidden>
+              ↻
+            </span>
+            <span className="topbar__refresh-label">{refreshing ? "…" : "Refresh"}</span>
+          </button>
+        )}
         <ThemeSelector />
         <button
           type="button"
@@ -78,6 +84,20 @@ export function TopBar() {
           onClick={() => window.dispatchEvent(new Event("df-show-shortcuts"))}
         >
           ?
+        </button>
+        {user && (
+          <span className="topbar__user" title={`Signed in as ${user.username} (${user.role})`}>
+            {user.username}
+          </span>
+        )}
+        <button
+          type="button"
+          className="btn btn--ghost"
+          title="Log out"
+          aria-label="Log out"
+          onClick={() => void logout()}
+        >
+          Log out
         </button>
       </div>
     </header>

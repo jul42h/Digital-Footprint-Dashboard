@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { NavIcon } from "@/components/NavIcon";
+import { useAuth } from "@/context/AuthContext";
 import { useLayout } from "@/context/LayoutContext";
 import { APP_NAME, APP_TAGLINE, NAV_LABELS } from "@/lib/copy";
 import { useDashboard } from "@/context/DashboardContext";
@@ -15,7 +16,8 @@ type NavIconName =
   | "providers"
   | "analytics"
   | "guide"
-  | "settings";
+  | "settings"
+  | "users";
 
 interface NavItem {
   to: string;
@@ -23,6 +25,10 @@ interface NavItem {
   end: boolean;
   icon: NavIconName;
   count?: (d: DerivedData) => number;
+  /** Hidden for non-admins. The route itself is also guarded server-side
+   * and via RequireAdmin — this is just so the link doesn't show up for
+   * roles that would just get redirected away from it. */
+  adminOnly?: boolean;
 }
 
 interface NavGroup {
@@ -95,6 +101,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/guide", label: NAV_LABELS.guide, end: false, icon: "guide" },
       { to: "/settings", label: NAV_LABELS.settings, end: false, icon: "settings" },
+      { to: "/users", label: NAV_LABELS.manageUsers, end: false, icon: "users", adminOnly: true },
     ],
   },
 ];
@@ -102,6 +109,8 @@ const NAV_GROUPS: NavGroup[] = [
 export function Sidebar() {
   const { derived } = useDashboard();
   const { sidebarCollapsed, toggleSidebar, closeSidebarOverlay } = useLayout();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   return (
     <aside
@@ -135,52 +144,56 @@ export function Sidebar() {
       </div>
 
       <nav className="sidebar__nav">
-        {NAV_GROUPS.map((group) => (
-          <div key={group.id} className="sidebar__group">
-            {!sidebarCollapsed && (
-              <p className="sidebar__group-label" id={`nav-${group.id}`}>
-                {group.label}
-              </p>
-            )}
-            <div
-              className="sidebar__group-links"
-              role="group"
-              aria-labelledby={sidebarCollapsed ? undefined : `nav-${group.id}`}
-              aria-label={sidebarCollapsed ? group.label : undefined}
-            >
-              {group.items.map((item) => {
-                const badge = item.count?.(derived);
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    title={sidebarCollapsed ? item.label : undefined}
-                    onClick={closeSidebarOverlay}
-                    className={({ isActive }) =>
-                      `sidebar__link${isActive ? " sidebar__link--active" : ""}`
-                    }
-                  >
-                    <span className="sidebar__link-main">
-                      <NavIcon name={item.icon} />
-                      {!sidebarCollapsed && (
-                        <span className="sidebar__link-text">{item.label}</span>
-                      )}
-                    </span>
-                    {badge != null && badge > 0 && (
-                      <span
-                        className={`sidebar__badge${sidebarCollapsed ? " sidebar__badge--dot" : ""}`}
-                        aria-label={`${badge} items`}
-                      >
-                        {sidebarCollapsed ? "" : badge}
+        {NAV_GROUPS.map((group) => {
+          const items = group.items.filter((item) => !item.adminOnly || isAdmin);
+          if (items.length === 0) return null;
+          return (
+            <div key={group.id} className="sidebar__group">
+              {!sidebarCollapsed && (
+                <p className="sidebar__group-label" id={`nav-${group.id}`}>
+                  {group.label}
+                </p>
+              )}
+              <div
+                className="sidebar__group-links"
+                role="group"
+                aria-labelledby={sidebarCollapsed ? undefined : `nav-${group.id}`}
+                aria-label={sidebarCollapsed ? group.label : undefined}
+              >
+                {items.map((item) => {
+                  const badge = item.count?.(derived);
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      title={sidebarCollapsed ? item.label : undefined}
+                      onClick={closeSidebarOverlay}
+                      className={({ isActive }) =>
+                        `sidebar__link${isActive ? " sidebar__link--active" : ""}`
+                      }
+                    >
+                      <span className="sidebar__link-main">
+                        <NavIcon name={item.icon} />
+                        {!sidebarCollapsed && (
+                          <span className="sidebar__link-text">{item.label}</span>
+                        )}
                       </span>
-                    )}
-                  </NavLink>
-                );
-              })}
+                      {badge != null && badge > 0 && (
+                        <span
+                          className={`sidebar__badge${sidebarCollapsed ? " sidebar__badge--dot" : ""}`}
+                          aria-label={`${badge} items`}
+                        >
+                          {sidebarCollapsed ? "" : badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
     </aside>
   );

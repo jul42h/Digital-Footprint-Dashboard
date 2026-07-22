@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/api";
+import { authFetch, parseApiError } from "@/lib/api";
 import { sanitizeAiText } from "./sanitizeAiText";
 import type {
   AnalysisFinding,
@@ -48,26 +48,6 @@ function findingsCacheFingerprint(findings?: AnalysisFinding[]): string {
         `${String(f.cve_id).toUpperCase()}:${f.ip ?? ""}:${f.kev ?? ""}:${f.cvss ?? ""}:${f.epss ?? ""}`,
     )
     .join("|");
-}
-
-function parseErrorDetail(text: string, status: number): string {
-  try {
-    const parsed = JSON.parse(text) as { detail?: unknown; error?: unknown };
-    if (typeof parsed.detail === "string") return parsed.detail;
-    if (typeof parsed.error === "string") return parsed.error;
-    if (Array.isArray(parsed.detail)) {
-      return parsed.detail
-        .map((item) =>
-          typeof item === "object" && item && "msg" in item
-            ? String((item as { msg: string }).msg)
-            : String(item),
-        )
-        .join("; ");
-    }
-  } catch {
-    /* use raw text */
-  }
-  return text || `CVE analysis failed (${status})`;
 }
 
 function assertUsableResult(data: CveAnalysisResponse): CveAnalysisResponse {
@@ -284,14 +264,14 @@ export async function analyzeCves(
     );
   }
 
-  const response = await fetch(apiUrl("/api/cve-analysis"), {
+  const response = await authFetch("/api/cve-analysis", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(parseErrorDetail(detail, response.status));
+    throw new Error(parseApiError(detail, `CVE analysis failed (${response.status})`));
   }
   const data = assertUsableResult((await response.json()) as CveAnalysisResponse);
   setCached(key, data);
@@ -344,14 +324,14 @@ export async function askAi(
     );
   }
 
-  const response = await fetch(apiUrl("/api/cve-analysis"), {
+  const response = await authFetch("/api/cve-analysis", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(parseErrorDetail(detail, response.status));
+    throw new Error(parseApiError(detail, `CVE analysis failed (${response.status})`));
   }
   const data = assertUsableResult((await response.json()) as CveAnalysisResponse);
   setCached(key, data);

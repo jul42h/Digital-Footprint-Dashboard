@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { useDashboard } from "@/context/DashboardContext";
 import { peekCachedAnalysis } from "@/features/ask-ai/askAiApi";
 import { DEFAULT_PRIORITY_COUNT, pickPriorityCves } from "@/features/ask-ai/cveSelection";
@@ -62,6 +63,12 @@ function DashboardContextStrip() {
 
 export function AskAiWidget() {
   const { open, setOpen, pendingCveIds, consumePendingCveIds } = useAskAiUi();
+  const { user } = useAuth();
+
+  // Ask AI invokes a billed Lambda per request — Viewer is read-only by
+  // design and doesn't get it, matching the backend's require_analyst_or_admin
+  // gate on POST /api/cve-analysis.
+  if (user?.role === "viewer") return null;
 
   return (
     <div className={`ask-ai-widget${open ? " ask-ai-widget--open" : ""}`}>

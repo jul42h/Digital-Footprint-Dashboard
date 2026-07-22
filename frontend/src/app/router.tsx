@@ -2,6 +2,10 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/layout/AppLayout";
 import { OverviewPage } from "@/features/overview/OverviewPage";
+import { LoginPage } from "@/features/auth/LoginPage";
+import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
+import { RequireAdmin } from "@/features/auth/RequireAdmin";
+import { RequireAuth } from "@/features/auth/RequireAuth";
 
 const InsightsPage = lazy(() =>
   import("@/features/insights/InsightsPage").then((m) => ({ default: m.InsightsPage })),
@@ -42,14 +46,23 @@ const GuidePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 );
+const ManageUsersPage = lazy(() =>
+  import("@/features/users/ManageUsersPage").then((m) => ({ default: m.ManageUsersPage })),
+);
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<div className="page-loading">Loading…</div>}>{children}</Suspense>;
 }
 
 export const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
+  { path: "/forgot-password", element: <ForgotPasswordPage /> },
   {
-    element: <AppLayout />,
+    element: (
+      <RequireAuth>
+        <AppLayout />
+      </RequireAuth>
+    ),
     children: [
       { path: "/", element: <OverviewPage /> },
       {
@@ -154,6 +167,16 @@ export const router = createBrowserRouter([
           <LazyPage>
             <SettingsPage />
           </LazyPage>
+        ),
+      },
+      {
+        path: "/users",
+        element: (
+          <RequireAdmin>
+            <LazyPage>
+              <ManageUsersPage />
+            </LazyPage>
+          </RequireAdmin>
         ),
       },
     ],
