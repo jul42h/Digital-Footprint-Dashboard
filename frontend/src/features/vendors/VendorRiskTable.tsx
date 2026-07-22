@@ -63,6 +63,11 @@ export function VendorRiskTable({
         shown={shown}
         total={total}
         placeholder="Search provider…"
+        resetVisible={Boolean(query.trim()) || riskFilter !== "all"}
+        onReset={() => {
+          setQuery("");
+          setRiskFilter("all");
+        }}
         filters={
           <>
             <FilterChip active={riskFilter === "all"} onClick={() => setRiskFilter("all")}>

@@ -84,6 +84,13 @@ export function SolutionTable({
         shown={shown}
         total={total}
         placeholder="Search remediation, CVE, or status…"
+        resetVisible={Boolean(query.trim()) || statusFilter !== "all" || effortFilter !== "all" || vendorFixFilter !== "all"}
+        onReset={() => {
+          setQuery("");
+          setStatusFilter("all");
+          setEffortFilter("all");
+          setVendorFixFilter("all");
+        }}
         filters={
           showFilter ? (
             <>

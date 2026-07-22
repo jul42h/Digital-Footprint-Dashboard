@@ -9,7 +9,10 @@ import type {
 import { intentFromMode, modeFromIntent, MAX_CVE_IDS_PAYLOAD, MAX_FINDINGS_PER_REQUEST, MAX_QUESTION_LENGTH } from "./types";
 
 const MEMORY = new Map<string, { savedAt: number; data: CveAnalysisResponse }>();
-const STORAGE_KEY = "df-cve-analysis-cache-v9";
+const IN_FLIGHT = new Map<string, Promise<CveAnalysisResponse>>();
+// Bump when prompt headings/semantics change so stale answers cannot be shown
+// under a newer UI contract after the reference Lambda is deployed.
+const STORAGE_KEY = "df-cve-analysis-cache-v10";
 const BRIEF_SIGNAL_KEY = "df-home-brief-signal-v4";
 
 /** Home brief auto-refreshes at most every 2 hours unless priority signals change. */
@@ -35,19 +38,46 @@ function ttlForIntent(intent: AnalysisIntent): number {
   return BRIEF_LIKE_INTENTS.has(intent) ? BRIEF_REFRESH_MS : DETAIL_TTL_MS;
 }
 
+function hashFingerprint(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 /**
- * Fingerprint the findings sample so whole-system caches (empty cve_ids) invalidate
- * when the underlying ranked set changes — not just when the clock TTL expires.
+ * Compact fingerprint of the evidence that can change prioritization or an AI
+ * answer. This keeps whole-system caches accurate without putting raw findings
+ * into localStorage keys.
  */
-function findingsCacheFingerprint(findings?: AnalysisFinding[]): string {
+export function analysisFindingsKey(findings?: AnalysisFinding[]): string {
   if (!findings?.length) return "";
-  return findings
-    .slice(0, 25)
-    .map(
-      (f) =>
-        `${String(f.cve_id).toUpperCase()}:${f.ip ?? ""}:${f.kev ?? ""}:${f.cvss ?? ""}:${f.epss ?? ""}`,
+  const evidence = findings
+    .slice(0, MAX_FINDINGS_PER_REQUEST)
+    .map((f) =>
+      [
+        f.cve_id,
+        f.ip,
+        f.kev,
+        f.cvss,
+        f.epss,
+        f.verified,
+        f.product,
+        f.version,
+        f.port,
+        f.service_name,
+        f.asset_criticality,
+        f.internet_exposed,
+        f.remediation_status,
+        f.last_seen,
+      ]
+        .map((value) => String(value ?? ""))
+        .join("\u001f"),
     )
-    .join("|");
+    .join("\u001e");
+  return `${findings.length}:${hashFingerprint(evidence)}`;
 }
 
 function assertUsableResult(data: CveAnalysisResponse): CveAnalysisResponse {
@@ -66,13 +96,25 @@ function assertUsableResult(data: CveAnalysisResponse): CveAnalysisResponse {
   throw new Error("Analysis completed with no summary returned.");
 }
 
+async function throwAnalysisError(response: Response): Promise<never> {
+  const detail = await response.text();
+  if (response.status === 429) {
+    const retryAfter = response.headers.get("Retry-After");
+    const wait = retryAfter
+      ? ` Try again in about ${retryAfter} seconds.`
+      : " Try again shortly.";
+    throw new Error(`AI analysis is busy.${wait}`);
+  }
+  throw new Error(parseApiError(detail, `CVE analysis failed (${response.status})`));
+}
+
 function cacheKey(
   cveIds: string[],
   intent: AnalysisIntent,
   findings?: AnalysisFinding[],
 ): string {
   const ids = [...cveIds].map((id) => id.toUpperCase()).sort().join(",");
-  const fp = findingsCacheFingerprint(findings);
+  const fp = analysisFindingsKey(findings);
   // Whole-system calls often pass empty cve_ids; the fingerprint keeps those keys distinct.
   return fp ? `${intent}:${ids}:${fp}` : `${intent}:${ids}`;
 }
@@ -168,7 +210,7 @@ export function peekCachedAnalysis(
   return getCachedEntry(cacheKey(cveIds, intent, findings), intent)?.data ?? null;
 }
 
-function peekCachedAnalysisMeta(
+export function peekCachedAnalysisMeta(
   cveIds: string[],
   intent: AnalysisIntent,
   findings?: AnalysisFinding[],
@@ -249,6 +291,11 @@ export async function analyzeCves(
     if (hit) return hit;
   }
 
+  // Coalesce identical requests across components. Bypassing the cache refreshes
+  // stored data, but does not duplicate a request that is already running.
+  const existing = IN_FLIGHT.get(key);
+  if (existing) return existing;
+
   // Prefer findings; cve_ids remain as fallback / identity for cache and Lambda echo.
   const body: Record<string, unknown> = {
     intent,
@@ -264,18 +311,24 @@ export async function analyzeCves(
     );
   }
 
-  const response = await authFetch("/api/cve-analysis", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(parseApiError(detail, `CVE analysis failed (${response.status})`));
+  const request = (async () => {
+    const response = await authFetch("/api/cve-analysis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) await throwAnalysisError(response);
+    const data = assertUsableResult((await response.json()) as CveAnalysisResponse);
+    setCached(key, data);
+    return data;
+  })();
+
+  IN_FLIGHT.set(key, request);
+  try {
+    return await request;
+  } finally {
+    IN_FLIGHT.delete(key);
   }
-  const data = assertUsableResult((await response.json()) as CveAnalysisResponse);
-  setCached(key, data);
-  return data;
 }
 
 /** Free-text question over whole-dashboard data (intent="ask_ai"). No CVE selection required. */
@@ -300,11 +353,15 @@ export async function askAi(
   const cacheSeed = questionId
     ? `id:${questionId}:${JSON.stringify(options.questionParams ?? {})}`
     : trimmed.toLowerCase();
-  const key = `ask_ai:${cacheSeed}:${findingsCacheFingerprint(findings)}`;
+  const idsKey = [...ids].sort().join(",");
+  const key = `ask_ai:${cacheSeed}:${idsKey}:${analysisFindingsKey(findings)}`;
   if (!options.bypassCache) {
     const hit = getCachedEntry(key, "ask_ai")?.data;
     if (hit) return hit;
   }
+
+  const existing = IN_FLIGHT.get(key);
+  if (existing) return existing;
 
   const body: Record<string, unknown> = { intent: "ask_ai", mode: "detail" };
   if (questionId) {
@@ -324,16 +381,22 @@ export async function askAi(
     );
   }
 
-  const response = await authFetch("/api/cve-analysis", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(parseApiError(detail, `CVE analysis failed (${response.status})`));
+  const request = (async () => {
+    const response = await authFetch("/api/cve-analysis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) await throwAnalysisError(response);
+    const data = assertUsableResult((await response.json()) as CveAnalysisResponse);
+    setCached(key, data);
+    return data;
+  })();
+
+  IN_FLIGHT.set(key, request);
+  try {
+    return await request;
+  } finally {
+    IN_FLIGHT.delete(key);
   }
-  const data = assertUsableResult((await response.json()) as CveAnalysisResponse);
-  setCached(key, data);
-  return data;
 }

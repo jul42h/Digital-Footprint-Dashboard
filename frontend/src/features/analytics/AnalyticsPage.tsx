@@ -64,31 +64,51 @@ export function AnalyticsPage() {
         <KpiCard kpi={{ label: "Discovered hosts", value: String(data.stats.discoveredHosts), tone: "neutral" }} />
       </div>
 
-      <div className="dashboard-2col dashboard-2col--geo">
-        <GeoExposureMap />
-        <AnalyticsBarCard title="CVE findings over time" data={cvesOverTime} />
-      </div>
+      <AnalyticsSection title="Exposure overview" description="Where vulnerable assets are located and how findings have changed over time.">
+        <div className="dashboard-2col dashboard-2col--geo">
+          <GeoExposureMap />
+          <AnalyticsBarCard title="CVE findings over time" data={cvesOverTime} />
+        </div>
+      </AnalyticsSection>
 
-      <div className="dashboard-charts-row">
-        <AnalyticsBarCard title="Top IPs by finding count" data={charts.topIPs.map((d) => ({ name: d.ip, count: d.count }))} />
-        <AnalyticsBarCard title="Vulnerable ports" data={charts.portHeatmap.map((d) => ({ name: d.port, count: d.count }))} />
-      </div>
+      <AnalyticsSection title="Risk concentration" description="Hosts and network entry points carrying the greatest finding volume.">
+        <div className="dashboard-charts-row">
+          <AnalyticsBarCard title="Top IPs by finding count" data={charts.topIPs.map((d) => ({ name: d.ip, count: d.count }))} />
+          <AnalyticsBarCard title="Vulnerable ports" data={charts.portHeatmap.map((d) => ({ name: d.port, count: d.count }))} />
+        </div>
+      </AnalyticsSection>
 
-      <div className="dashboard-charts-row">
-        <AnalyticsPieCard title="OS distribution" data={charts.osDistribution} />
-        <AnalyticsBarCard title="Domain footprint" data={domains} horizontal />
-      </div>
+      <AnalyticsSection title="Technology footprint" description="Operating systems, domains, services, and products represented in the scan.">
+        <div className="dashboard-charts-row">
+          <AnalyticsPieCard title="OS distribution" data={charts.osDistribution} />
+          <AnalyticsBarCard title="Domain footprint" data={domains} horizontal />
+        </div>
+        <div className="dashboard-charts-row">
+          <AnalyticsBarCard title="Services" data={analytics.services.slice(0, 8)} horizontal />
+          <AnalyticsBarCard title="Products with CVE linkage" data={analytics.products.slice(0, 8)} horizontal />
+        </div>
+      </AnalyticsSection>
 
-      <div className="dashboard-charts-row">
-        <AnalyticsBarCard title="Services" data={analytics.services.slice(0, 8)} horizontal />
-        <AnalyticsBarCard title="Products with CVE linkage" data={analytics.products.slice(0, 8)} horizontal />
-      </div>
-
-      <div className="dashboard-charts-row">
-        <AnalyticsBarCard title="Country distribution" data={analytics.countryDistribution.slice(0, 8)} horizontal />
-        <AnalyticsBarCard title="Avg CVSS by organization" data={analytics.avgCVSSByOrg.slice(0, 8).map((d) => ({ name: d.name, count: d.count }))} horizontal />
-      </div>
+      <AnalyticsSection title="Organization context" description="Geographic distribution and average severity by observed organization.">
+        <div className="dashboard-charts-row">
+          <AnalyticsBarCard title="Country distribution" data={analytics.countryDistribution.slice(0, 8)} horizontal />
+          <AnalyticsBarCard title="Avg CVSS by organization" data={analytics.avgCVSSByOrg.slice(0, 8).map((d) => ({ name: d.name, count: d.count }))} horizontal />
+        </div>
+      </AnalyticsSection>
     </div>
+  );
+}
+
+function AnalyticsSection({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  const id = `analytics-${title.toLowerCase().replace(/\s+/g, "-")}`;
+  return (
+    <section className="analytics-section" aria-labelledby={id}>
+      <header className="analytics-section__header">
+        <h2 id={id} className="analytics-section__title">{title}</h2>
+        <p className="analytics-section__description">{description}</p>
+      </header>
+      {children}
+    </section>
   );
 }
 

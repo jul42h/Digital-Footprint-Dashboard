@@ -7,6 +7,7 @@ import { CvssScore } from "@/components/CvssScore";
 import { SortableTh } from "@/components/SortableTh";
 import { FilterChip, TableToolbar } from "@/components/TableToolbar";
 import { useTableState } from "@/hooks/useTableState";
+import { HIGH_EPSS } from "@/lib/exploitability";
 import { SEVERITY_LABEL, SEVERITY_ORDER } from "@/lib/severity";
 import { THREAT_LABEL, THREAT_ORDER } from "@/lib/threats";
 import { LABELS } from "@/lib/copy";
@@ -75,7 +76,7 @@ export function CveTable({
     if (filter !== "all") list = list.filter((c) => c.severity === filter);
     if (transportFilter !== "all") list = list.filter((c) => c.transport === transportFilter);
     if (kevFilter === "exploited") list = list.filter((c) => c.exploitKnown);
-    if (kevFilter === "high-epss") list = list.filter((c) => (c.epss ?? 0) >= 0.1);
+    if (kevFilter === "high-epss") list = list.filter((c) => (c.epss ?? 0) >= HIGH_EPSS);
     return list;
   }, [cves, filter, kevFilter, threatFilter, threatType, transportFilter]);
 
@@ -100,6 +101,14 @@ export function CveTable({
         shown={shown}
         total={total}
         placeholder="Search CVE, summary, or asset…"
+        resetVisible={Boolean(query.trim()) || filter !== "all" || (!threatFilter && threatType !== "all") || transportFilter !== "all" || kevFilter !== "all"}
+        onReset={() => {
+          setQuery("");
+          setFilter("all");
+          setThreatType(threatFilter ?? "all");
+          setTransportFilter("all");
+          setKevFilter("all");
+        }}
         selects={
           showFilter && !threatFilter
             ? [

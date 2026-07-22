@@ -94,6 +94,13 @@ export function IpTable({ limit, title = "IP assets" }: IpTableProps) {
         shown={shown}
         total={total}
         placeholder="Search IP, hostname, or location…"
+        resetVisible={Boolean(query.trim()) || severityFilter !== "all" || issueFilter !== "all" || countryFilter !== "all"}
+        onReset={() => {
+          setQuery("");
+          setSeverityFilter("all");
+          setIssueFilter("all");
+          setCountryFilter("all");
+        }}
         selects={
           countries.length > 1
             ? [

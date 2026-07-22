@@ -15,6 +15,8 @@ interface TableToolbarProps {
   placeholder?: string;
   filters?: ReactNode;
   selects?: TableSelectFilter[];
+  onReset?: () => void;
+  resetVisible?: boolean;
 }
 
 export function TableToolbar({
@@ -25,6 +27,8 @@ export function TableToolbar({
   placeholder = "Search…",
   filters,
   selects,
+  onReset,
+  resetVisible = false,
 }: TableToolbarProps) {
   const filtered = shown !== total;
 
@@ -59,6 +63,15 @@ export function TableToolbar({
             </select>
           </label>
         ))}
+        {onReset && resetVisible && (
+          <button
+            type="button"
+            className="table-toolbar__reset btn btn--ghost btn--compact"
+            onClick={onReset}
+          >
+            Clear filters
+          </button>
+        )}
         <span className="table-toolbar__count" aria-live="polite">
           {filtered ? `${shown} of ${total}` : `${total} total`}
         </span>

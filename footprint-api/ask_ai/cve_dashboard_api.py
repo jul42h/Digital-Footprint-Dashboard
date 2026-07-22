@@ -21,11 +21,12 @@ score in either direction, only relays it in the response.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import re
-from asyncio import to_thread
+from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Literal, Optional
 
 import boto3
@@ -40,6 +41,16 @@ LAMBDA_FUNCTION_NAME = os.environ.get("CVE_ANALYZER_LAMBDA_NAME", "ai-risk-analy
 LAMBDA_INVOKE_REGION = os.environ.get("CVE_ANALYZER_LAMBDA_REGION", "us-west-2")
 LAMBDA_CONFIGURED_TIMEOUT_SECONDS = int(
     os.environ.get("CVE_ANALYZER_LAMBDA_TIMEOUT_SECONDS", "60")
+)
+MAX_CONCURRENT_ANALYSES = max(
+    1, int(os.environ.get("CVE_ANALYZER_MAX_CONCURRENT_REQUESTS", "2"))
+)
+MAX_ADMITTED_ANALYSES = max(
+    MAX_CONCURRENT_ANALYSES,
+    int(os.environ.get("CVE_ANALYZER_MAX_ADMITTED_REQUESTS", "6")),
+)
+ANALYSIS_RETRY_AFTER_SECONDS = max(
+    1, int(os.environ.get("CVE_ANALYZER_RETRY_AFTER_SECONDS", "10"))
 )
 
 # Align with Lambda caps (practical UI payload stays under Lambda maxes).
@@ -74,6 +85,36 @@ _lambda_client = boto3.client(
 )
 
 router = APIRouter(tags=["cve-analysis"])
+
+_analysis_slots = asyncio.Semaphore(MAX_CONCURRENT_ANALYSES)
+_analysis_admission_lock = asyncio.Lock()
+_admitted_analyses = 0
+
+
+@asynccontextmanager
+async def _analysis_slot():
+    """Bound active and queued Lambda work per API process."""
+    global _admitted_analyses
+
+    async with _analysis_admission_lock:
+        if _admitted_analyses >= MAX_ADMITTED_ANALYSES:
+            raise HTTPException(
+                status_code=429,
+                detail="AI analysis is busy. Please try again shortly.",
+                headers={"Retry-After": str(ANALYSIS_RETRY_AFTER_SECONDS)},
+            )
+        _admitted_analyses += 1
+
+    acquired = False
+    try:
+        await _analysis_slots.acquire()
+        acquired = True
+        yield
+    finally:
+        if acquired:
+            _analysis_slots.release()
+        async with _analysis_admission_lock:
+            _admitted_analyses -= 1
 
 
 def _intent_to_mode(intent: AnalysisIntent) -> AnalysisMode:
@@ -259,8 +300,8 @@ class RiskScoreResult(BaseModel):
     score: int
     rating: str
     confidence: str
-    confidence_notes: List[str] = []
-    drivers: List[RiskScoreDriver] = []
+    confidence_notes: List[str] = Field(default_factory=list)
+    drivers: List[RiskScoreDriver] = Field(default_factory=list)
     method: Optional[str] = None
 
 
@@ -272,7 +313,9 @@ class AnalyzeCVEsResponse(BaseModel):
     error: Optional[str] = None
     question: Optional[str] = None
     question_id: Optional[str] = None
-    cve_ids_analyzed: List[str] = []
+    generated_at: Optional[str] = None
+    prompt_version: Optional[str] = None
+    cve_ids_analyzed: List[str] = Field(default_factory=list)
     total_valid_cve_ids: Optional[int] = None
     total_findings_provided: Optional[int] = None
     total_findings_analyzed: Optional[int] = None
@@ -306,11 +349,25 @@ def _invoke_analyzer_lambda(payload: dict) -> dict:
             InvocationType="RequestResponse",
             Payload=json.dumps(payload).encode("utf-8"),
         )
-    except (BotoCoreError, ClientError) as exc:
+    except ClientError as exc:
+        error_code = str(exc.response.get("Error", {}).get("Code") or "")
+        if error_code in {"TooManyRequestsException", "ThrottlingException"}:
+            logger.warning("Analyzer Lambda throttled the request: %s", error_code)
+            raise HTTPException(
+                status_code=429,
+                detail="AI analysis is busy. Please try again shortly.",
+                headers={"Retry-After": str(ANALYSIS_RETRY_AFTER_SECONDS)},
+            ) from exc
         logger.exception("Failed to invoke analyzer Lambda")
         raise HTTPException(
             status_code=502,
-            detail=f"Could not reach analysis service: {exc}",
+            detail="Could not reach the analysis service.",
+        ) from exc
+    except BotoCoreError as exc:
+        logger.exception("Failed to invoke analyzer Lambda")
+        raise HTTPException(
+            status_code=502,
+            detail="Could not reach the analysis service.",
         ) from exc
 
     raw = response.get("Payload")
@@ -346,12 +403,14 @@ def _invoke_analyzer_lambda(payload: dict) -> dict:
         if error_type in ("ValueError", "TypeError"):
             raise HTTPException(status_code=400, detail=error_message)
 
+        logger.error(
+            "Analyzer Lambda function error (type=%s message=%s)",
+            error_type,
+            error_message,
+        )
         raise HTTPException(
             status_code=502,
-            detail=(
-                f"The analysis service failed to process this request "
-                f"({error_type}: {error_message})"
-            ),
+            detail="The analysis service could not complete this request.",
         )
 
     return result
@@ -375,13 +434,23 @@ async def analyze_cves(request: AnalyzeCVEsRequest) -> dict:
     if request.question_params:
         payload["question_params"] = request.question_params
 
-    result = await to_thread(_invoke_analyzer_lambda, payload)
+    async with _analysis_slot():
+        result = await asyncio.to_thread(_invoke_analyzer_lambda, payload)
 
     if isinstance(result, dict) and str(result.get("status", "")).lower() == "error":
         message = result.get("error") or result.get("reason") or "Analysis failed"
         code = int(result.get("statusCode") or 400)
+        if code == 429:
+            raise HTTPException(
+                status_code=429,
+                detail="AI analysis is busy. Please try again shortly.",
+                headers={"Retry-After": str(ANALYSIS_RETRY_AFTER_SECONDS)},
+            )
         if code >= 500:
-            raise HTTPException(status_code=502, detail=str(message))
+            raise HTTPException(
+                status_code=502,
+                detail="The analysis service could not complete this request.",
+            )
         raise HTTPException(status_code=400, detail=str(message))
 
     if isinstance(result, dict):

@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { analyzeCves, peekCachedAnalysis } from "@/features/ask-ai/askAiApi";
 import {
+  analysisFindingsKey,
+  analyzeCves,
+  peekCachedAnalysisMeta,
+} from "@/features/ask-ai/askAiApi";
+import {
+  AI_PROMPT_VERSION,
   MIN_PROSE_WORDS,
   OUTPUT_SHAPES,
   REQUIRED_HEADINGS,
@@ -42,6 +47,7 @@ function countHeadings(intent: SectionIntent, text: string): number {
  */
 function matchesIntent(intent: SectionIntent, data: CveAnalysisResponse): boolean {
   if (data.intent && data.intent !== intent) return false;
+  if (data.prompt_version && data.prompt_version !== AI_PROMPT_VERSION) return false;
 
   // The Risk Score card pairs the prose rationale with the computed
   // score object — both must be present, not just wordy-enough prose.
@@ -58,33 +64,43 @@ function matchesIntent(intent: SectionIntent, data: CveAnalysisResponse): boolea
   }
 
   const headings = REQUIRED_HEADINGS[intent] ?? [];
-  return countHeadings(intent, text) >= Math.min(2, headings.length);
+  const minimum = Math.max(2, Math.ceil(headings.length * 0.6));
+  return countHeadings(intent, text) >= Math.min(minimum, headings.length);
 }
 
 /**
- * Fetch-on-mount + cache + loading/error state for a whole-system AI section
- * (no CVE selection). Mirrors the pattern AiBriefStrip uses for the home brief,
- * shared here so Insights / Risk Score / Threat Intel / Critical Findings /
- * Highest-Risk Assets / Remediation don't each hand-roll it.
+ * Cache + loading/error state for a whole-system AI section (no CVE selection).
+ * The decision brief loads on mount; deeper sections opt into explicit generation.
  */
-export function useAiSection(intent: SectionIntent, findings: AnalysisFinding[]) {
-  const findingsKey = useMemo(() => findings.map((f) => f.cve_id).join("|"), [findings]);
+export function useAiSection(
+  intent: SectionIntent,
+  findings: AnalysisFinding[],
+  options: { autoLoad?: boolean } = {},
+) {
+  const autoLoad = options.autoLoad ?? true;
+  const findingsKey = useMemo(() => analysisFindingsKey(findings), [findings]);
   const [data, setData] = useState<CveAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requested, setRequested] = useState(autoLoad);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const inFlight = useRef(false);
   const findingsRef = useRef(findings);
   findingsRef.current = findings;
 
   const accept = useCallback(
-    (payload: CveAnalysisResponse) => {
+    (payload: CveAnalysisResponse, savedAt = Date.now()) => {
       if (!matchesIntent(intent, payload)) {
         setData(null);
         setError(NOT_DEPLOYED_MESSAGE);
+        setUpdatedAt(null);
+        setRequested(true);
         return;
       }
       setData(payload);
       setError(null);
+      setUpdatedAt(savedAt);
+      setRequested(true);
     },
     [intent],
   );
@@ -94,6 +110,7 @@ export function useAiSection(intent: SectionIntent, findings: AnalysisFinding[])
       const current = findingsRef.current;
       if (!current.length || inFlight.current) return;
       inFlight.current = true;
+      setRequested(true);
       setLoading(true);
       setError(null);
       try {
@@ -116,16 +133,30 @@ export function useAiSection(intent: SectionIntent, findings: AnalysisFinding[])
     if (!findingsKey) {
       setData(null);
       setError(null);
+      setUpdatedAt(null);
+      setRequested(autoLoad);
       return;
     }
-    const cached = peekCachedAnalysis([], intent, findingsRef.current);
+    const cached = peekCachedAnalysisMeta([], intent, findingsRef.current);
     if (cached) {
-      accept(cached);
+      accept(cached.data, cached.savedAt);
       return;
     }
-    void run(false);
+    setData(null);
+    setError(null);
+    setUpdatedAt(null);
+    setRequested(autoLoad);
+    if (autoLoad) void run(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [findingsKey, intent]);
+  }, [findingsKey, intent, autoLoad]);
 
-  return { data, loading, error, refresh: () => void run(true) };
+  return {
+    data,
+    loading,
+    error,
+    requested,
+    updatedAt,
+    generate: () => void run(false),
+    refresh: () => void run(true),
+  };
 }

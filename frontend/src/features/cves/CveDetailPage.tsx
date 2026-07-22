@@ -97,11 +97,14 @@ export function CveDetailPage() {
             <span className="mono">{cve.ports.join(", ")} ({cve.transport})</span>
           </Row>
           <Row label={LABELS.activelyTargeted}>
-            {cve.exploitKnown ? "Yes — known exploited vulnerability (KEV)" : "No known active exploitation"}
+            {cve.exploitKnown
+              ? "Yes — listed as a known exploited vulnerability (KEV)"
+              : "No KEV match in the current data"}
           </Row>
           {cve.epss != null && (
             <Row label="EPSS score">
-              {(cve.epss * 100).toFixed(2)}% probability of exploitation in 30 days
+              {(cve.epss * 100).toFixed(2)}% estimated probability of exploitation in the
+              wild over the next 30 days
             </Row>
           )}
           {cve.verified && (

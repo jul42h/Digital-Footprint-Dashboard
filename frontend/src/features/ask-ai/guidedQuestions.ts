@@ -34,15 +34,22 @@ export const GUIDED_QUESTION_GROUPS: GuidedQuestionGroup[] = [
     items: [
       { id: "fix-first", label: "What should we fix first?" },
       { id: "quick-wins", label: "Fastest risk reduction" },
-      { id: "if-one-hour", label: "If we only had one hour" },
+      { id: "validate-first", label: "What should we validate first?" },
     ],
   },
   {
-    id: "explain",
-    label: "Explain the situation",
+    id: "understand",
+    label: "Understand the evidence",
     items: [
       { id: "risk-score-drivers", label: "What's driving the risk score?" },
-      { id: "active-exploitation", label: "Any known exploitation?" },
+      { id: "active-exploitation", label: "Which issues are known exploited?" },
+      { id: "evidence-gaps", label: "Where are the evidence gaps?" },
+    ],
+  },
+  {
+    id: "communicate",
+    label: "Communicate risk",
+    items: [
       { id: "leadership-summary", label: "Explain for leadership" },
     ],
   },
@@ -79,7 +86,7 @@ export function pickFollowUpActions(options: {
       {
         id: `impact-${primaryCve}`,
         kind: "ask",
-        label: "Business impact?",
+        label: "Operational exposure?",
         questionId: "cve-impact",
         params: { cve_id: primaryCve },
       },
@@ -108,8 +115,10 @@ export function pickFollowUpActions(options: {
       : ([
           "fix-first",
           "quick-wins",
+          "validate-first",
           "risk-score-drivers",
           "active-exploitation",
+          "evidence-gaps",
           "leadership-summary",
         ] as const);
 

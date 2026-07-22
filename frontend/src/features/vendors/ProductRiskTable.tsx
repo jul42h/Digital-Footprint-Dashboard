@@ -79,6 +79,12 @@ export function ProductRiskTable({
         shown={shown}
         total={total}
         placeholder="Search software, version, or provider…"
+        resetVisible={Boolean(query.trim()) || issueFilter !== "all" || vendorFilter !== "all"}
+        onReset={() => {
+          setQuery("");
+          setIssueFilter("all");
+          setVendorFilter("all");
+        }}
         selects={
           !vendorId && vendors.length > 1
             ? [

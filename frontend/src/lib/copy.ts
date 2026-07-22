@@ -63,12 +63,13 @@ export const HELP_TEXT = {
   atRiskAssets: "Hosts carrying the most risk right now.",
   insightsPage:
     "Curated risk intelligence for the whole footprint — insights, score, threat context, findings, assets, and remediation.",
-  aiInsightsSection: "Actionable conclusions: what matters, why, and what to do.",
+  aiInsightsSection: "Decision-ready conclusions: what matters, why, and what to do.",
   riskScoreSection:
     "A 0–100 score with the evidence behind it — exploitation, severity, and exposure.",
   threatIntelSection:
     "Exploitation and exposure signals from your scanned data only — no external threat feeds.",
-  criticalFindingsSection: "Findings that need attention first, with impact and next action.",
+  criticalFindingsSection:
+    "Findings that need attention first, with supported exposure and the next action.",
   riskAssetsSection: "Which assets carry the most risk and why.",
   remediateSection: "What to fix first, concrete actions, and how to confirm.",
   askAiPage:

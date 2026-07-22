@@ -4,7 +4,7 @@ Flow: POST /api/cve-analysis with findings (+ cve_ids) + intent → Lambda → a
 
 Intents (one per dashboard surface):
   brief              — home/insights AI summary (prose)
-  insights           — AI Insights panel (sections)
+  insights           — decision brief (sections)
   risk_score         — risk score rationale (prose; score computed in Lambda)
   threat_intel       — threat intelligence panel (sections)
   critical_findings  — top critical findings (sections)

@@ -46,7 +46,7 @@ export function PrioritySignals() {
     },
     {
       key: "epss",
-      label: `High EPSS (≥${EPSS_NOTABLE})`,
+      label: `Very high EPSS (≥${EPSS_NOTABLE})`,
       value: epssHigh,
       tone: epssHigh > 0 ? SEVERITY_COLOR.medium : undefined,
       action: () => openWithCves(priorityIds),
