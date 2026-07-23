@@ -68,8 +68,8 @@ export function AtRiskAssets({
           ) : (
             assets.map((asset) => (
               <tr
-                key={asset.address}
-                onClick={() => navigate(`/ips/${encodeURIComponent(asset.address)}`)}
+                key={asset.id}
+                onClick={() => navigate(`/ips/${encodeURIComponent(asset.id)}`)}
               >
                 <td>
                   <span className="mini-table__primary">{asset.hostname}</span>

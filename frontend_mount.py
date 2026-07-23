@@ -40,7 +40,7 @@ def _response_headers(path: Path) -> Dict[str, str]:
 
 
 def mount_frontend(app: FastAPI, dist_dir: Path | None = None) -> None:
-    dist = Path(dist_dir or DEFAULT_DIST)
+    dist = Path(dist_dir or DEFAULT_DIST).resolve()
     index = dist / "index.html"
 
     if not index.is_file():
@@ -56,8 +56,8 @@ def mount_frontend(app: FastAPI, dist_dir: Path | None = None) -> None:
     @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_spa(full_path: str) -> FileResponse:
         if full_path:
-            candidate = dist / full_path
-            if candidate.is_file():
+            candidate = (dist / full_path).resolve()
+            if candidate.is_relative_to(dist) and candidate.is_file():
                 return FileResponse(candidate, headers=_response_headers(candidate))
         return FileResponse(index, headers=_response_headers(index))
 

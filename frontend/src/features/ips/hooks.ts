@@ -4,6 +4,6 @@ export function useIps() {
   return useDashboard().derived.ips;
 }
 
-export function useIp(address: string) {
-  return useDashboard().derived.ips.find((ip) => ip.address === address);
+export function useIp(id: string) {
+  return useDashboard().derived.ips.find((ip) => ip.id === id);
 }

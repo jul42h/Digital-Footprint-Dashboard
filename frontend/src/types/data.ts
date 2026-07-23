@@ -19,6 +19,9 @@ export interface SourceCVE {
 
 export interface SourceIPRecord {
   ip: string;
+  /** Masked display text for the viewer role (e.g. "10.20.30.xxx"). Absent
+   *  for admin/analyst, where `ip` itself is safe to render directly. */
+  ipDisplay?: string;
   organization: string;
   country: string;
   city?: string;
@@ -75,6 +78,9 @@ export interface DashboardStats {
 export interface CVEFlatRecord {
   cve: SourceCVE;
   ip: string;
+  /** Masked display text for the viewer role, mirrors SourceIPRecord.ipDisplay
+   *  for the same host. Absent for admin/analyst. */
+  ipDisplay?: string;
   organization: string;
   country: string;
   operatingSystem?: string;

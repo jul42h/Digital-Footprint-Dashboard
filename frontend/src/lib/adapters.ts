@@ -58,6 +58,7 @@ function toCves(data: DashboardData): Cve[] {
     const cvss = record.cve.score;
     const existing = map.get(record.cve.id);
     const ports = record.port ? [record.port] : record.cve.port ? [record.cve.port] : [];
+    const displayAsset = record.ipDisplay ?? record.ip;
     const incoming: Cve = {
       id: record.cve.id,
       cvss,
@@ -66,14 +67,14 @@ function toCves(data: DashboardData): Cve[] {
       threatType: inferThreatType(record.cve.summary ?? record.cve.id),
       ports,
       transport: transportForRecord(record, data),
-      summary: record.cve.summary ?? `${record.cve.id} on ${record.ip}`,
-      asset: record.ip,
+      summary: record.cve.summary ?? `${record.cve.id} on ${displayAsset}`,
+      asset: displayAsset,
       publishedAt: record.cve.publishedDate || data.lastUpdated,
       exploitKnown: Boolean(record.cve.kev),
       epss: record.cve.epss,
       verified: Boolean(record.verified ?? record.cve.verified),
       instanceCount: 1,
-      affectedAssets: [record.ip],
+      affectedAssets: [displayAsset],
     };
 
     if (!existing) {
@@ -97,10 +98,12 @@ function toIpRecords(data: DashboardData): IpRecord[] {
       const maxCvss = ip.cves.length ? Math.max(...ip.cves.map((c) => c.score)) : 0;
 
       const code = normalizeCountryCode(ip.country);
+      const displayAddress = ip.ipDisplay ?? ip.ip;
 
       return {
-        address: ip.ip,
-        hostname: ip.hostnames[0] || ip.domains?.[0] || ip.organization || ip.ip,
+        id: ip.ip,
+        address: displayAddress,
+        hostname: ip.hostnames[0] || ip.domains?.[0] || ip.organization || displayAddress,
         country: code ? countryLabel(code) : undefined,
         countryCode: code ?? undefined,
         city: ip.city,

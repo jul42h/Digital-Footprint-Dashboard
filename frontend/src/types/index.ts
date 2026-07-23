@@ -48,6 +48,13 @@ export interface ThreatCount {
 }
 
 export interface IpRecord {
+  /** Stable per-host join/route key — the real IP for admin/analyst, an
+   *  opaque per-host token for viewer. Never collides across hosts; use
+   *  this (not `address`) for lookups, joins, and routing. */
+  id: string;
+  /** Human-readable text — the real IP for admin/analyst, the masked
+   *  subnet ("10.20.30.xxx") for viewer. Can collide across hosts in the
+   *  same subnet; display only, never use for lookups/routing. */
   address: string;
   hostname: string;
   country?: string;

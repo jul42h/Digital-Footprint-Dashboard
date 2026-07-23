@@ -162,7 +162,7 @@ export function IpTable({ limit, title = "IP assets" }: IpTableProps) {
               </tr>
             ) : (
               rows.map((ip) => (
-                <tr key={ip.address} onClick={() => navigate(`/ips/${encodeURIComponent(ip.address)}`)}>
+                <tr key={ip.id} onClick={() => navigate(`/ips/${encodeURIComponent(ip.id)}`)}>
                   <td className="mono">{ip.address}</td>
                   <td className="mono" style={{ color: "var(--text-secondary)" }}>
                     {ip.ipRange ?? "—"}

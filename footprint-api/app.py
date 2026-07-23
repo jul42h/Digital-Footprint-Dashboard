@@ -45,7 +45,9 @@ from ask_ai import cve_analysis_router
 from auth import router as auth_router
 from auth.database import create_db_and_tables
 from auth.dependencies import get_current_user, require_admin, require_analyst_or_admin
+from auth.models import User, UserRole
 from dashboard_transform import findings_to_dashboard
+from ip_masking import mask_dashboard_for_viewer
 from frontend_sync import (
     dist_is_stale,
     ensure_frontend_current,
@@ -231,15 +233,19 @@ def health() -> Dict[str, Any]:
     return {"status": "ok", "table": TABLE_NAME}
 
 
-@app.get("/api/v1/dashboard", dependencies=[Depends(get_current_user)])
-def dashboard() -> Dict[str, Any]:
+@app.get("/api/v1/dashboard")
+def dashboard(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
     try:
-        return load_dashboard()
+        data = load_dashboard()
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Failed to build dashboard payload")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if current_user.role == UserRole.VIEWER:
+        return mask_dashboard_for_viewer(data)
+    return data
 
 
 @app.post("/api/v1/dashboard/refresh", dependencies=[Depends(require_admin)])

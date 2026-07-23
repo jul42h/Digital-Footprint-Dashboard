@@ -98,3 +98,4 @@ Legacy Lambda aliases (if calling Lambda directly): `analyze` → `insights`, `n
 | `FRONTEND_DIST` | `../frontend/dist` | Built UI path |
 | `FRONTEND_DEV_URL` | unset | Proxy UI to Vite when set |
 | `FRONTEND_ALWAYS_REBUILD` | unset | Force UI rebuild on API start |
+| `IP_MASK_SALT` | unset (required once a viewer-role user exists) | Salts the opaque per-host IP token returned to viewers on `/api/v1/dashboard` — see `ip_masking.py`. Generate with `python -c "import secrets; print(secrets.token_urlsafe(64))"`. Same fail-loudly pattern as `AUTH_JWT_SECRET` (`auth/README.md`): the API raises `RuntimeError` the first time a viewer requests the dashboard if this isn't set, rather than falling back to an unsalted/guessable token. |

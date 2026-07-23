@@ -23,7 +23,7 @@ export function buildChartData(data: DashboardData) {
 
   const topIPs = ips
     .filter((ip) => ip.cves.length > 0)
-    .map((ip) => ({ ip: ip.ip, count: ip.cves.length }))
+    .map((ip) => ({ ip: ip.ipDisplay ?? ip.ip, count: ip.cves.length }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
